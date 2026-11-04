@@ -26,15 +26,20 @@
 #define LBA2_LOGCAT_TAG "lba2cc"
 static int sev_to_android(LogSeverity s) {
     switch (s) {
-    case LOG_DEBUG: return ANDROID_LOG_DEBUG;
-    case LOG_INFO:  return ANDROID_LOG_INFO;
-    case LOG_WARN:  return ANDROID_LOG_WARN;
-    case LOG_ERROR: return ANDROID_LOG_ERROR;
+    case LOG_DEBUG:
+        return ANDROID_LOG_DEBUG;
+    case LOG_INFO:
+        return ANDROID_LOG_INFO;
+    case LOG_WARN:
+        return ANDROID_LOG_WARN;
+    case LOG_ERROR:
+        return ANDROID_LOG_ERROR;
     }
     return ANDROID_LOG_INFO;
 }
 static void logcat_emit(LogSeverity sev, const char *msg) {
-    if (!msg) return;
+    if (!msg)
+        return;
     __android_log_print(sev_to_android(sev), LBA2_LOGCAT_TAG, "%s", msg);
 }
 #endif

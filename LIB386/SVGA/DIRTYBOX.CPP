@@ -438,7 +438,10 @@ void BoxBlit() {
     {
         int count = 0;
         T_BOX *dbg = pBoxOptList;
-        while (dbg) { count++; dbg = dbg->pBoxNext; }
+        while (dbg) {
+            count++;
+            dbg = dbg->pBoxNext;
+        }
     }
 
     if (MouseSpriteShouldDraw()) // Display mouse (see MOUSE.CPP)

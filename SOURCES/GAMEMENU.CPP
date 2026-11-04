@@ -159,7 +159,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_MOVIE_UPSCALE:
         CopyUtf8ToCp850(string, 256,
                         GetLocalizedMenuLabel(MovieUpscale == 2 ? MENU_LABEL_MOVIE_UPSCALE_XBR : MovieUpscale == 1 ? MENU_LABEL_MOVIE_UPSCALE_SCALE2X
-                                                                                                                 : MENU_LABEL_MOVIE_UPSCALE_NEAREST));
+                                                                                                                   : MENU_LABEL_MOVIE_UPSCALE_NEAREST));
         break;
 
     case MENU_ID_CONTROLLER:
@@ -185,9 +185,9 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_COLORGRADE:
         snprintf(string, 256, "Colour grade: %s",
-                 DisplayColorGrade == 1 ? "Warm"
+                 DisplayColorGrade == 1   ? "Warm"
                  : DisplayColorGrade == 2 ? "Cool"
-                                         : "Off");
+                                          : "Off");
         break;
 
     case MENU_ID_DISPLAY_SUBPIXEL:
@@ -259,11 +259,16 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_DISPLAY_TEXFILTER:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 4 ? MENU_LABEL_TEXFILTER_XBRLITE : DisplayTexFilter == 3 ? MENU_LABEL_TEXFILTER_XBRTEX : DisplayTexFilter == 2 ? MENU_LABEL_TEXFILTER_SCALE2X : DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 4 ? MENU_LABEL_TEXFILTER_XBRLITE : DisplayTexFilter == 3 ? MENU_LABEL_TEXFILTER_XBRTEX
+                                                                                                              : DisplayTexFilter == 2   ? MENU_LABEL_TEXFILTER_SCALE2X
+                                                                                                              : DisplayTexFilter        ? MENU_LABEL_TEXFILTER_BILINEAR
+                                                                                                                                        : MENU_LABEL_TEXFILTER_NEAREST));
         break;
 
     case MENU_ID_DISPLAY_ANTIALIAS:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayAntiAlias == 3 ? MENU_LABEL_AA_MSAA4 : DisplayAntiAlias == 2 ? MENU_LABEL_AA_MSAA2 : DisplayAntiAlias == 1 ? MENU_LABEL_AA_FXAA : MENU_LABEL_AA_OFF));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayAntiAlias == 3 ? MENU_LABEL_AA_MSAA4 : DisplayAntiAlias == 2 ? MENU_LABEL_AA_MSAA2
+                                                                                                     : DisplayAntiAlias == 1   ? MENU_LABEL_AA_FXAA
+                                                                                                                               : MENU_LABEL_AA_OFF));
         break;
 
     case MENU_ID_DISPLAY_DITHER:
@@ -272,7 +277,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_SHARPEN:
         snprintf(string, 256, "Sharpening: %s",
-                 DisplaySharpen == 2 ? "High"
+                 DisplaySharpen == 2   ? "High"
                  : DisplaySharpen == 1 ? "Low"
                                        : "Off");
         break;
@@ -287,7 +292,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_VRSUPERSAMPLE:
         snprintf(string, 256, "Supersampling: %s",
-                 VrSuperSample == 2 ? "1.5x"
+                 VrSuperSample == 2   ? "1.5x"
                  : VrSuperSample == 1 ? "1.25x"
                                       : "Off");
         break;
@@ -319,7 +324,8 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_DISPLAY_QUALITY:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(RenderQuality == 1 ? MENU_LABEL_QUALITY_NATIVE : RenderQuality == 2 ? MENU_LABEL_QUALITY_2X : MENU_LABEL_QUALITY_4X));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(RenderQuality == 1 ? MENU_LABEL_QUALITY_NATIVE : RenderQuality == 2 ? MENU_LABEL_QUALITY_2X
+                                                                                                                               : MENU_LABEL_QUALITY_4X));
         break;
 
     case MENU_ID_DISPLAY_BRIGHTNESS:
@@ -340,9 +346,9 @@ static void BuildCustomMenuText(S32 num, char *string) {
             CopyUtf8ToCp850(string, 256, "First person");
         } else {
             CopyUtf8ToCp850(string, 256,
-                             GetLocalizedMenuLabel(FollowCamera
-                                                       ? MENU_LABEL_AUTO_CAMERA
-                                                       : MENU_LABEL_CLASSIC_CAMERA));
+                            GetLocalizedMenuLabel(FollowCamera
+                                                      ? MENU_LABEL_AUTO_CAMERA
+                                                      : MENU_LABEL_CLASSIC_CAMERA));
         }
         break;
 
@@ -965,7 +971,7 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
             break;
 
         case MENU_TYPE_IMAGE_BRIGHTNESS:
-            if (dir < 0 AND DisplayBrightness > -20) {
+            if (dir<0 AND DisplayBrightness> - 20) {
                 DisplayBrightness -= 1;
                 applied = 1;
             } else if (dir > 0 AND DisplayBrightness < 20) {
@@ -975,7 +981,7 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
             break;
 
         case MENU_TYPE_IMAGE_CONTRAST:
-            if (dir < 0 AND DisplayContrast > -20) {
+            if (dir<0 AND DisplayContrast> - 20) {
                 DisplayContrast -= 1;
                 applied = 1;
             } else if (dir > 0 AND DisplayContrast < 20) {
@@ -985,7 +991,7 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
             break;
 
         case MENU_TYPE_IMAGE_SATURATION:
-            if (dir < 0 AND DisplaySaturation > -20) {
+            if (dir<0 AND DisplaySaturation> - 20) {
                 DisplaySaturation -= 1;
                 applied = 1;
             } else if (dir > 0 AND DisplaySaturation < 20) {

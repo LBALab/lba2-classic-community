@@ -25,4 +25,3 @@ void ROUND_SetFpuMode(int mode) {
         current = mode;
     }
 }
-

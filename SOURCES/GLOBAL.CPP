@@ -97,35 +97,35 @@ S32 VideoFullScreen = TRUE;
 S32 DisplayFullScreen = FALSE;
 S32 DisplayVSync = TRUE;
 S32 GpuFocalCapped = FALSE; /* exterior focal floored at the 720p FOV envelope (Init3DExtView) */
-S32 FpsLimit = 0; /* 0 = unlimited, else frames-per-second ceiling */
+S32 FpsLimit = 0;           /* 0 = unlimited, else frames-per-second ceiling */
 
 #ifdef USE_GPURENDERER
 S32 GPURendererActive = FALSE;
 S32 DisplayTexFilter = TRUE;
 S32 DisplayAntiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */ /* bilinear by default in GL mode */
-S32 DisplayDither = FALSE; /* ordered dither between CLUT rows (GL only) */
-S32 DisplaySoftShadows = FALSE; /* feathered ground shadows (GL only) */
-S32 DisplayColorGrade = 0;      /* 0=off, 1=warm, 2=cool (GL only) */
-S32 DisplaySubPixel = FALSE;    /* sub-pixel interior pan (GL only) */
-S32 DisplaySharpen = 0; /* present sharpening: 0=off, 1=low, 2=high (GL only) */
-S32 RenderQuality = 1; /* native resolution by default */
+S32 DisplayDither = FALSE;                                        /* ordered dither between CLUT rows (GL only) */
+S32 DisplaySoftShadows = FALSE;                                   /* feathered ground shadows (GL only) */
+S32 DisplayColorGrade = 0;                                        /* 0=off, 1=warm, 2=cool (GL only) */
+S32 DisplaySubPixel = FALSE;                                      /* sub-pixel interior pan (GL only) */
+S32 DisplaySharpen = 0;                                           /* present sharpening: 0=off, 1=low, 2=high (GL only) */
+S32 RenderQuality = 1;                                            /* native resolution by default */
 #endif
 /* Display adjustments and the VR FOV zoom exist in every renderer config:
  * the console cvars and the lba2.cfg load/save reference them whether or
  * not the GL renderer (their only consumer) is compiled in. */
-S32 DisplayBrightness = 0;  /* image adjust: added light, -20..+20 */
-S32 DisplayContrast = 0;    /* image adjust: contrast delta, -20..+20 */
-S32 DisplaySaturation = 0;  /* image adjust: saturation delta, -20..+20 */
-S32 VrFovScale = 100; /* VR world zoom, percent of the eye's natural FOV: >100
+S32 DisplayBrightness = 0; /* image adjust: added light, -20..+20 */
+S32 DisplayContrast = 0;   /* image adjust: contrast delta, -20..+20 */
+S32 DisplaySaturation = 0; /* image adjust: saturation delta, -20..+20 */
+S32 VrFovScale = 100;      /* VR world zoom, percent of the eye's natural FOV: >100
                          renders a wider field (zoomed out), capped by the
                          authored-world edge at about 120 */
-S32 VrSuperSample = 0; /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
+S32 VrSuperSample = 0;     /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
                           Scales the GL scene target above the eye buffer;
                           the present pass downsamples it. */
-S32 VrInteriorHover = 0; /* Quest interiors: head-tracked hover camera.  A
+S32 VrInteriorHover = 0;   /* Quest interiors: head-tracked hover camera.  A
                             head turn keeps the room fixed in the world; a
                             head lean adds depth parallax. */
-S32 VrPassthrough = 0; /* Quest interiors: the scene clear colour (the black
+S32 VrPassthrough = 0;     /* Quest interiors: the scene clear colour (the black
                           margin around the isometric room) is composited as
                           transparent so the headset's passthrough camera
                           shows through it. */

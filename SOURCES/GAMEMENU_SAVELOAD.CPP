@@ -1175,10 +1175,9 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     strcpy(memoname, GamePathname);
                 }
 
-                while ((Input & I_FIRE) OR
-                       (OpenXR_IsActive() && !flagnew &&
-                        (Input & I_ACTION_ALWAYS)) OR
-                       MyKey == K_ENTER)
+                while ((Input & I_FIRE) OR(OpenXR_IsActive() && !flagnew &&
+                                           (Input & I_ACTION_ALWAYS)) OR
+                           MyKey == K_ENTER)
                     MyGetInput();
 
                 // Non-keyboard routing: unless the last input was a physical
@@ -1370,8 +1369,8 @@ S32 DeleteSavedGame(void) {
 
         switch (select) // num mess
         {
-        case MENU_ID_CANCEL:   // annuler
-        case MENU_RET_ESC: // <ESC>
+        case MENU_ID_CANCEL: // annuler
+        case MENU_RET_ESC:   // <ESC>
             ret = 0;
             break;
 

@@ -1,6 +1,6 @@
 #include "C_EXTERN.H"
 #include "GAMEMENU_MENUS.H"
-#include <math.h>   /* cosf/sinf - rolled stereo eye offset */
+#include <math.h> /* cosf/sinf - rolled stereo eye offset */
 #include "IMAGE_LOAD.H"
 
 /* Temporary perf instrumentation from RENDER_GL.CPP */
@@ -1248,7 +1248,7 @@ static void UpdateFirstPersonCamera(void) {
     }
 #endif
     S32 eye = 0;
-    {   /* head height from the hero ZV (feet at Y, head at Y + YMax) */
+    { /* head height from the hero ZV (feet at Y, head at Y + YMax) */
         T_OBJET *po = &ListObjet[NumObjFollow];
         eye = (po->YMax > 0) ? po->YMax - 96 : 900;
     }
@@ -1316,15 +1316,15 @@ static float LookQuatPitch(const float *q) {
     return asinf(fy);
 }
 
-static float LookAnchorYaw = 0.0f;      /* neutral heading (rad) */
-static float LookAnchorPitch = 0.0f;    /* neutral elevation (rad) */
-static S32 LookBaseAlpha = 0;           /* rig view angles captured with the anchor */
+static float LookAnchorYaw = 0.0f;   /* neutral heading (rad) */
+static float LookAnchorPitch = 0.0f; /* neutral elevation (rad) */
+static S32 LookBaseAlpha = 0;        /* rig view angles captured with the anchor */
 static S32 LookBaseBeta = 0;
 static S32 LookBaseGamma = 0;
-static float LookRefPos[3];             /* tracked head centre (m) at capture */
-static S32 LookPosMode = -1;            /* which camera the pose ref belongs to */
-static S32 LookAnchored = 0;            /* anchor captured for this look session */
-static S32 LookRecenterReq = 0;         /* set by the recenter key */
+static float LookRefPos[3];     /* tracked head centre (m) at capture */
+static S32 LookPosMode = -1;    /* which camera the pose ref belongs to */
+static S32 LookAnchored = 0;    /* anchor captured for this look session */
+static S32 LookRecenterReq = 0; /* set by the recenter key */
 
 /* 1 while the classic/auto head-look override owns the view orientation
  * (stereo session, exterior, non-FP camera, fresh eye views). */
@@ -1383,7 +1383,7 @@ static void LookComputeOffsets(float *outYaw, float *outPitch, float hx,
        Twinsen at the follow distance while running.  The head's offsets
        stay world-relative 1:1 on top, and standing still freezes the base
        back into a fully world-anchored look. */
-    if (FollowCamera AND (Input & (I_UP | I_DOWN))) {
+    if (FollowCamera AND(Input & (I_UP | I_DOWN))) {
         LookBaseAlpha = AlphaCam;
         LookBaseBeta = BetaCam;
         LookBaseGamma = GammaCam;
@@ -1476,22 +1476,22 @@ void PERSO_RenderStereo(S32 flagflip) {
            Begin the frame here; EnsureFrameBegun is a one-shot, so the
            main loop's later BeginFrame is a no-op inside this same frame. */
         OpenXR_BeginFrame();
-            /* Native stereo: render the scene once per eye. Full redraws per
+        /* Native stereo: render the scene once per eye. Full redraws per
              * eye — the incremental dirty-box path would carry the other
              * eye's leftovers. The left eye's composite is captured offscreen
              * (present + clock step suppressed); the right eye renders
              * through the normal path and its OpenXR_PresentMono submits
              * both eye images. */
-            extern S32 VueDistance;
-            extern S32 ChampX;
-            extern S32 StereoCamShiftX;
-            extern S32 StereoCamShiftY;
-            extern S32 StereoProjShiftX;
-            /* Eye separation in world units (~1.5x natural IPD at LBA2's
+        extern S32 VueDistance;
+        extern S32 ChampX;
+        extern S32 StereoCamShiftX;
+        extern S32 StereoCamShiftY;
+        extern S32 StereoProjShiftX;
+        /* Eye separation in world units (~1.5x natural IPD at LBA2's
              * scale, for a moderate depth pop). */
-            const S32 stereoIPD = 30;
-            const float eyeSep = stereoIPD * 0.5f;
-            /* True per-eye poses: each eye renders from its tracked view —
+        const S32 stereoIPD = 30;
+        const float eyeSep = stereoIPD * 0.5f;
+        /* True per-eye poses: each eye renders from its tracked view —
              * the compositor time-warps each submitted image from exactly
              * the pose declared in the projection layer, so rendering from
              * that same (one-frame-stale) pose turns head rotation into a
@@ -1502,22 +1502,22 @@ void PERSO_RenderStereo(S32 flagflip) {
              * inside walls, where free head look would show geometry from
              * behind.  No cached views (first frame, mono session) falls
              * back to the rig-offset pair below. */
-            float eyeQ[2][4];
-            float eyeP[2][3];
-            /* Both camera modes render the tracked view 1:1, anchored to the
+        float eyeQ[2][4];
+        float eyeP[2][3];
+        /* Both camera modes render the tracked view 1:1, anchored to the
              * world: first person from the exact head pose, the classic and
              * auto cameras from their rig framing captured when the look
              * session engages, plus the head's world-relative rotation — the
              * rig's later swings around Twinsen do not pan the view.  With
              * no cached views (first frame, mono session) everything falls
              * back to the plain rig-offset pair below. */
-            S32 haveViews = OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
-                            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
-            S32 truePose = CameraFirstPerson AND
+        S32 haveViews = OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
+            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
+        S32 truePose = CameraFirstPerson AND
                            CubeMode == CUBE_EXTERIEUR AND haveViews;
-            S32 lookPose = !CameraFirstPerson AND
+        S32 lookPose = !CameraFirstPerson AND
                            CubeMode == CUBE_EXTERIEUR AND haveViews;
-            /* OpenXR eye views are parallel on every runtime this ships on:
+        /* OpenXR eye views are parallel on every runtime this ships on:
                the two poses share one orientation and differ only by the IPD
                translation.  When that holds, the per-eye difference IS a pure
                translation, so the single-pass stereo path can render both
@@ -1528,145 +1528,145 @@ void PERSO_RenderStereo(S32 flagflip) {
                gaze.  Require the two quaternions to be effectively identical;
                a runtime that toes the eyes in keeps the exact two-pass
                renderer. */
-            S32 eyesParallel = 0;
-            float eyeQd = 1.0f;
-            if (haveViews) {
-                float qd = eyeQ[0][0] * eyeQ[1][0] +
-                           eyeQ[0][1] * eyeQ[1][1] +
-                           eyeQ[0][2] * eyeQ[1][2] +
-                           eyeQ[0][3] * eyeQ[1][3];
-                if (qd < 0.0f)
-                    qd = -qd;
-                eyeQd = qd;
-                eyesParallel = (qd > 0.9999995f);
+        S32 eyesParallel = 0;
+        float eyeQd = 1.0f;
+        if (haveViews) {
+            float qd = eyeQ[0][0] * eyeQ[1][0] +
+                       eyeQ[0][1] * eyeQ[1][1] +
+                       eyeQ[0][2] * eyeQ[1][2] +
+                       eyeQ[0][3] * eyeQ[1][3];
+            if (qd < 0.0f)
+                qd = -qd;
+            eyeQd = qd;
+            eyesParallel = (qd > 0.9999995f);
+        }
+        {
+            static S32 s_eyeLog = 0;
+            if (!s_eyeLog) {
+                Log_Info("[VR] Eye quaternion dot %.8f -> %s stereo",
+                         (double)eyeQd,
+                         eyesParallel ? "single-pass" : "two-pass");
+                s_eyeLog = 1;
             }
-            {
-                static S32 s_eyeLog = 0;
-                if (!s_eyeLog) {
-                    Log_Info("[VR] Eye quaternion dot %.8f -> %s stereo",
-                             (double)eyeQd,
-                             eyesParallel ? "single-pass" : "two-pass");
-                    s_eyeLog = 1;
-                }
-            }
-            float lookYawOff = 0.0f;
-            float lookPitchOff = 0.0f;
-            /* Head-centre tracked position: mid of the two eye views, metres
+        }
+        float lookYawOff = 0.0f;
+        float lookPitchOff = 0.0f;
+        /* Head-centre tracked position: mid of the two eye views, metres
              * on the tracking axes (X right, Y up, Z back). */
-            float headX = 0.0f;
-            float headY = 0.0f;
-            float headZ = 0.0f;
-            if (haveViews) {
-                headX = 0.5f * (eyeP[0][0] + eyeP[1][0]);
-                headY = 0.5f * (eyeP[0][1] + eyeP[1][1]);
-                headZ = 0.5f * (eyeP[0][2] + eyeP[1][2]);
-            }
-            if (lookPose) {
-                LookComputeOffsets(&lookYawOff, &lookPitchOff,
-                                   headX, headY, headZ);
-            } else {
-                LookAnchored = 0; /* re-capture the anchor on re-entry */
-            }
-            /* Tracked head translation relative to the pose reference
+        float headX = 0.0f;
+        float headY = 0.0f;
+        float headZ = 0.0f;
+        if (haveViews) {
+            headX = 0.5f * (eyeP[0][0] + eyeP[1][0]);
+            headY = 0.5f * (eyeP[0][1] + eyeP[1][1]);
+            headZ = 0.5f * (eyeP[0][2] + eyeP[1][2]);
+        }
+        if (lookPose) {
+            LookComputeOffsets(&lookYawOff, &lookPitchOff,
+                               headX, headY, headZ);
+        } else {
+            LookAnchored = 0; /* re-capture the anchor on re-entry */
+        }
+        /* Tracked head translation relative to the pose reference
              * captured when this camera mode engaged (or on recenter): a
              * lean around the rig position, not a distance from the room's
              * tracking origin. */
-            float headDx = 0.0f;
-            float headDy = 0.0f;
-            float headDz = 0.0f;
-            if (truePose) {
-                if (LookPosMode != 1 || LookRecenterReq) {
-                    LookRefPos[0] = headX;
-                    LookRefPos[1] = headY;
-                    LookRefPos[2] = headZ;
-                    LookPosMode = 1;
-                    LookRecenterReq = 0;
-                }
-                headDx = headX - LookRefPos[0];
-                headDy = headY - LookRefPos[1];
-                headDz = headZ - LookRefPos[2];
-            } else if (lookPose) {
-                if (LookPosMode != 0) {
-                    LookRefPos[0] = headX;
-                    LookRefPos[1] = headY;
-                    LookRefPos[2] = headZ;
-                    LookPosMode = 0;
-                }
-                headDx = headX - LookRefPos[0];
-                headDy = headY - LookRefPos[1];
-                headDz = headZ - LookRefPos[2];
+        float headDx = 0.0f;
+        float headDy = 0.0f;
+        float headDz = 0.0f;
+        if (truePose) {
+            if (LookPosMode != 1 || LookRecenterReq) {
+                LookRefPos[0] = headX;
+                LookRefPos[1] = headY;
+                LookRefPos[2] = headZ;
+                LookPosMode = 1;
+                LookRecenterReq = 0;
             }
-            S32 conv = 0;
-            S32 dx = 0;
-            S32 dy = 0;
-            if (!truePose && !lookPose) {
-                /* The zero-disparity plane sits at the convergence distance.
+            headDx = headX - LookRefPos[0];
+            headDy = headY - LookRefPos[1];
+            headDz = headZ - LookRefPos[2];
+        } else if (lookPose) {
+            if (LookPosMode != 0) {
+                LookRefPos[0] = headX;
+                LookRefPos[1] = headY;
+                LookRefPos[2] = headZ;
+                LookPosMode = 0;
+            }
+            headDx = headX - LookRefPos[0];
+            headDy = headY - LookRefPos[1];
+            headDz = headZ - LookRefPos[2];
+        }
+        S32 conv = 0;
+        S32 dx = 0;
+        S32 dy = 0;
+        if (!truePose && !lookPose) {
+            /* The zero-disparity plane sits at the convergence distance.
                  * First person: the camera IS the hero's eyes, so
                  * VueDistance is 0 - converging there would shear the whole
                  * terrain.  Keep the comfort plane at walking distance. */
-                S32 convDist = VueDistance;
-                if (CameraFirstPerson AND convDist < 4000)
-                    convDist = 4000;
-                conv = stereoIPD * ChampX / (2 * (convDist + 512));
-                if (conv < 0)
-                    conv = 0;
-                /* The eyes roll with the head: rotate the IPD offset by the
+            S32 convDist = VueDistance;
+            if (CameraFirstPerson AND convDist < 4000)
+                convDist = 4000;
+            conv = stereoIPD * ChampX / (2 * (convDist + 512));
+            if (conv < 0)
+                conv = 0;
+            /* The eyes roll with the head: rotate the IPD offset by the
                  * head roll so the per-eye disparity direction matches what
                  * a rolled head actually sees.  Without this, rolling pumps
                  * the apparent size of objects (the offset stays
                  * screen-level). */
-                const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
-                dx = (S32)(eyeSep * cosf(rollRad));
-                dy = (S32)(eyeSep * sinf(rollRad));
-            }
-            /* The projection spans the headset's per-eye field (the values
+            const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
+            dx = (S32)(eyeSep * cosf(rollRad));
+            dy = (S32)(eyeSep * sinf(rollRad));
+        }
+        /* The projection spans the headset's per-eye field (the values
              * OPENXR.CPP derived from the runtime's eye FOVs), overriding
              * the classic focal floors for these two passes only — restored
              * after the pair so menus and the flat pipeline keep the game
              * focal. */
-            const S32 gameLFactorX = LFactorX;
-            const S32 gameLFactorY = LFactorY;
-            const float gameFRatioX = FRatioX;
-            const float gameFRatioY = FRatioY;
-            U32 stereoT0 = SDL_GetTicks();
-            U32 stereoT1 = stereoT0;
-            /* Eye 1's camera setup runs once before the draw passes so
+        const S32 gameLFactorX = LFactorX;
+        const S32 gameLFactorY = LFactorY;
+        const float gameFRatioX = FRatioX;
+        const float gameFRatioY = FRatioY;
+        U32 stereoT0 = SDL_GetTicks();
+        U32 stereoT1 = stereoT0;
+        /* Eye 1's camera setup runs once before the draw passes so
                eye 0 can supply its world/projection delta to the per-eye
                single-pass shaders. */
-            float eye1ShiftX = 0.0f, eye1ShiftY = 0.0f, eye1ShiftZ = 0.0f;
-            float eye1ProjX = 0.0f;
-            S32 eye1Captured = 0;
-            for (S32 pass = 0; pass < 3; pass++) {
-                const S32 eye = (pass == 0) ? 1 : (pass - 1);
-                if (pass > 0) {
-                    GL_SetStereoEye(eye);
-                }
-                if (truePose) {
-                    const float *q = eyeQ[eye];
-                    /* Orientation from the tracked quaternion, read the
+        float eye1ShiftX = 0.0f, eye1ShiftY = 0.0f, eye1ShiftZ = 0.0f;
+        float eye1ProjX = 0.0f;
+        S32 eye1Captured = 0;
+        for (S32 pass = 0; pass < 3; pass++) {
+            const S32 eye = (pass == 0) ? 1 : (pass - 1);
+            if (pass > 0) {
+                GL_SetStereoEye(eye);
+            }
+            if (truePose) {
+                const float *q = eyeQ[eye];
+                /* Orientation from the tracked quaternion, read the
                      * convention-proof way: forward = q rotated (0,0,-1),
                      * yaw/pitch off the forward vector, roll off the head
                      * up vector's lean toward cross(forward, world up). */
-                    const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-                    const float tx = -2.0f * qy, ty = 2.0f * qx;
-                    const float cx = -qz * ty;
-                    const float cy = qz * tx;
-                    const float cz = qx * ty - qy * tx;
-                    const float fx = qw * tx + cx;
-                    float fy = qw * ty + cy;
-                    const float fz = -1.0f + cz;
-                    if (fy > 1.0f)
-                        fy = 1.0f;
-                    else if (fy < -1.0f)
-                        fy = -1.0f;
-                    const float yaw = atan2f(fx, -fz);
-                    const float pitch = asinf(fy);
-                    /* Head up = q rotated (0,1,0). */
-                    const float ux = 2.0f * qx * qy - 2.0f * qw * qz;
-                    const float uy = 1.0f - 2.0f * qx * qx - 2.0f * qz * qz;
-                    const float uz = 2.0f * qw * qx + 2.0f * qy * qz;
-                    const float roll = atan2f(ux * (-fz) + uz * fx, uy);
-                    /* Engine angles: 4096 per turn, BetaCam = 2048 faces
+                const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+                const float tx = -2.0f * qy, ty = 2.0f * qx;
+                const float cx = -qz * ty;
+                const float cy = qz * tx;
+                const float cz = qx * ty - qy * tx;
+                const float fx = qw * tx + cx;
+                float fy = qw * ty + cy;
+                const float fz = -1.0f + cz;
+                if (fy > 1.0f)
+                    fy = 1.0f;
+                else if (fy < -1.0f)
+                    fy = -1.0f;
+                const float yaw = atan2f(fx, -fz);
+                const float pitch = asinf(fy);
+                /* Head up = q rotated (0,1,0). */
+                const float ux = 2.0f * qx * qy - 2.0f * qw * qz;
+                const float uy = 1.0f - 2.0f * qx * qx - 2.0f * qz * qz;
+                const float uz = 2.0f * qw * qx + 2.0f * qy * qz;
+                const float roll = atan2f(ux * (-fz) + uz * fx, uy);
+                /* Engine angles: 4096 per turn, BetaCam = 2048 faces
                      * straight ahead (same signs the first-person camera
                      * uses for the same head pose).  The tracked angles go
                      * into the stereo eye override, which AffGrilleExt
@@ -1678,179 +1678,179 @@ void PERSO_RenderStereo(S32 flagflip) {
                      * artifact-free.  Anything set only on the renderer
                      * state before AffScene would be wiped by that
                      * mid-frame SetFollowCamera. */
-                    const float K = 2048.0f / 3.14159265358979f;
-                    StereoEyeOverride = 1;
-                    /* Right-stick steering is a Beta offset, not a head
+                const float K = 2048.0f / 3.14159265358979f;
+                StereoEyeOverride = 1;
+                /* Right-stick steering is a Beta offset, not a head
                        rotation: the base camera already carries it, and the
                        per-eye override would otherwise render straight from
                        the tracked pose and ignore the stick. */
-                    StereoEyeBeta =
-                        ((S32)(2048.0f + yaw * K) - s_FirstPersonStickYaw) &
-                        4095;
-                    StereoEyeAlpha = (S32)(-pitch * K);
-                    StereoEyeGamma = (S32)(roll * K);
-                    /* The camera rolls with the head, so the head's right
+                StereoEyeBeta =
+                    ((S32)(2048.0f + yaw * K) - s_FirstPersonStickYaw) &
+                    4095;
+                StereoEyeAlpha = (S32)(-pitch * K);
+                StereoEyeGamma = (S32)(roll * K);
+                /* The camera rolls with the head, so the head's right
                      * axis IS view-space X: the IPD split is a plain lateral
                      * shift.  StereoCamShift rides inside SetCamera, so it
                      * also survives the mid-frame re-application. */
-                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
-                    StereoCamShiftY = 0;
-                    StereoProjShiftX = 0;
-                    /* 6dof: the tracked translation leans the rig position
+                StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
+                StereoCamShiftY = 0;
+                StereoProjShiftX = 0;
+                /* 6dof: the tracked translation leans the rig position
                      * along the view this eye renders with. */
-                    StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
-                                                StereoEyeBeta,
-                                                &StereoCamOffsetX,
-                                                &StereoCamOffsetY,
-                                                &StereoCamOffsetZ);
-                } else if (lookPose) {
-                    /* World-anchored head look: the rig framing captured at
+                StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
+                                            StereoEyeBeta,
+                                            &StereoCamOffsetX,
+                                            &StereoCamOffsetY,
+                                            &StereoCamOffsetZ);
+            } else if (lookPose) {
+                /* World-anchored head look: the rig framing captured at
                      * anchor time plus the tracked view 1:1 (warp-free — the
                      * applied orientation tracks the head exactly).  The
                      * rig's later swings around Twinsen no longer pan the
                      * view; the camera-center key recaptures the anchor on
                      * the current framing.  Same surviving-injection rules
                      * as the first-person path. */
-                    StereoEyeOverride = 1;
-                    StereoEyeAlpha = StereoLookViewAlpha(LookBaseAlpha,
-                                                         lookPitchOff);
-                    StereoEyeBeta = StereoLookViewBeta(LookBaseBeta,
-                                                       lookYawOff);
-                    StereoEyeGamma = LookBaseGamma;
-                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
-                    StereoCamShiftY = 0;
-                    StereoProjShiftX = 0;
-                    /* 6dof: the tracked translation leans the rig position
+                StereoEyeOverride = 1;
+                StereoEyeAlpha = StereoLookViewAlpha(LookBaseAlpha,
+                                                     lookPitchOff);
+                StereoEyeBeta = StereoLookViewBeta(LookBaseBeta,
+                                                   lookYawOff);
+                StereoEyeGamma = LookBaseGamma;
+                StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
+                StereoCamShiftY = 0;
+                StereoProjShiftX = 0;
+                /* 6dof: the tracked translation leans the rig position
                      * along the view this eye renders with. */
-                    StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
-                                                StereoEyeBeta,
-                                                &StereoCamOffsetX,
-                                                &StereoCamOffsetY,
-                                                &StereoCamOffsetZ);
-                } else {
-                    StereoCamShiftX = (eye == 0) ? -dx : dx;
-                    StereoCamShiftY = (eye == 0) ? -dy : dy;
-                    StereoProjShiftX = (eye == 0) ? -conv : conv;
-                    StereoCamOffsetX = 0;
-                    StereoCamOffsetY = 0;
-                    StereoCamOffsetZ = 0;
-                }
-                if (pass == 0) {
-                    eye1ShiftX = (float)StereoCamShiftX + StereoCamOffsetX;
-                    eye1ShiftY = (float)StereoCamShiftY + StereoCamOffsetY;
-                    eye1ShiftZ = StereoCamOffsetZ;
-                    eye1ProjX = (float)StereoProjShiftX;
-                    eye1Captured = 1;
-                    continue;
-                }
-                if (pass == 1) {
-                    /* A tracked per-eye orientation is not a pure
+                StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
+                                            StereoEyeBeta,
+                                            &StereoCamOffsetX,
+                                            &StereoCamOffsetY,
+                                            &StereoCamOffsetZ);
+            } else {
+                StereoCamShiftX = (eye == 0) ? -dx : dx;
+                StereoCamShiftY = (eye == 0) ? -dy : dy;
+                StereoProjShiftX = (eye == 0) ? -conv : conv;
+                StereoCamOffsetX = 0;
+                StereoCamOffsetY = 0;
+                StereoCamOffsetZ = 0;
+            }
+            if (pass == 0) {
+                eye1ShiftX = (float)StereoCamShiftX + StereoCamOffsetX;
+                eye1ShiftY = (float)StereoCamShiftY + StereoCamOffsetY;
+                eye1ShiftZ = StereoCamOffsetZ;
+                eye1ProjX = (float)StereoProjShiftX;
+                eye1Captured = 1;
+                continue;
+            }
+            if (pass == 1) {
+                /* A tracked per-eye orientation is not a pure
                        translation; two passes are only needed when the eye
                        quaternions actually differ. */
-                    if (eye1Captured && (!truePose || eyesParallel) &&
-                        GL_SinglePassStereoSupported()) {
-                        const float e0x =
-                            (float)StereoCamShiftX + StereoCamOffsetX;
-                        const float e0y =
-                            (float)StereoCamShiftY + StereoCamOffsetY;
-                        const float e0z = StereoCamOffsetZ;
-                        /* An isometric room is a painter-ordered
+                if (eye1Captured && (!truePose || eyesParallel) &&
+                    GL_SinglePassStereoSupported()) {
+                    const float e0x =
+                        (float)StereoCamShiftX + StereoCamOffsetX;
+                    const float e0y =
+                        (float)StereoCamShiftY + StereoCamOffsetY;
+                    const float e0z = StereoCamOffsetZ;
+                    /* An isometric room is a painter-ordered
                            composite, not real geometry: the full baseline
                            separates a near wall from the wall behind it and
                            opens a strip mono never showed.  Scaling the eye
                            delta keeps that strip closed, and because every
                            surface (background, models, flows) takes the same
                            factor, nothing slides against anything else. */
-                        const float depthScale =
-                            (CubeMode == CUBE_INTERIEUR)
-                                ? InteriorStereoScale()
-                                : 1.0f;
-                        /* The single-pass shader maps the content into one
+                    const float depthScale =
+                        (CubeMode == CUBE_INTERIEUR)
+                            ? InteriorStereoScale()
+                            : 1.0f;
+                    /* The single-pass shader maps the content into one
                            half with cx*0.5, which also halves the parallax.
                            First person needs the full tracked IPD, so its
                            delta is doubled here and the half-mapping cancels
                            it; classic/auto keep their subtler stereo. */
-                        const float fpEyeScale = truePose ? 2.0f : 1.0f;
-                        GL_SetSinglePassEyeDelta(
-                            (eye1ShiftX - e0x) * depthScale * fpEyeScale,
-                            (eye1ShiftY - e0y) * depthScale * fpEyeScale,
-                            (eye1ShiftZ - e0z) * depthScale * fpEyeScale,
-                            (eye1ProjX - (float)StereoProjShiftX) *
-                                depthScale * fpEyeScale,
-                            0.0f);
-                        GL_SetSinglePassStereo(1);
-                    } else {
-                        GL_SetSinglePassStereo(0);
-                    }
+                    const float fpEyeScale = truePose ? 2.0f : 1.0f;
+                    GL_SetSinglePassEyeDelta(
+                        (eye1ShiftX - e0x) * depthScale * fpEyeScale,
+                        (eye1ShiftY - e0y) * depthScale * fpEyeScale,
+                        (eye1ShiftZ - e0z) * depthScale * fpEyeScale,
+                        (eye1ProjX - (float)StereoProjShiftX) *
+                            depthScale * fpEyeScale,
+                        0.0f);
+                    GL_SetSinglePassStereo(1);
+                } else {
+                    GL_SetSinglePassStereo(0);
                 }
-                if (StereoFocalX > 0 && StereoFocalY > 0) {
-                    LFactorX = StereoFocalX;
-                    LFactorY = StereoFocalY;
-                    FRatioX = (float)LFactorX;
-                    FRatioY = -(float)LFactorY / FRatioX;
-                }
-                if (pass > 0 && eye == 1)
-                    stereoT1 = SDL_GetTicks();
-                if (eye == 0) {
-                    /* Opt-in: hold the swapchain image across both eye passes
+            }
+            if (StereoFocalX > 0 && StereoFocalY > 0) {
+                LFactorX = StereoFocalX;
+                LFactorY = StereoFocalY;
+                FRatioX = (float)LFactorX;
+                FRatioY = -(float)LFactorY / FRatioX;
+            }
+            if (pass > 0 && eye == 1)
+                stereoT1 = SDL_GetTicks();
+            if (eye == 0) {
+                /* Opt-in: hold the swapchain image across both eye passes
                      * and render straight into it.  Failure leaves the normal
                      * double-wide target and blit path untouched. */
-                    U32 directTexture = 0;
-                    U32 directWidth = 0;
-                    U32 directHeight = 0;
-                    if (OpenXR_AcquireStereoImage(&directTexture, &directWidth,
-                                                  &directHeight)) {
-                        if (!GL_BeginDirectStereo(directTexture, directWidth,
-                                                  directHeight)) {
-                            OpenXR_AbortDirectStereo();
-                        }
+                U32 directTexture = 0;
+                U32 directWidth = 0;
+                U32 directHeight = 0;
+                if (OpenXR_AcquireStereoImage(&directTexture, &directWidth,
+                                              &directHeight)) {
+                    if (!GL_BeginDirectStereo(directTexture, directWidth,
+                                              directHeight)) {
+                        OpenXR_AbortDirectStereo();
                     }
                 }
-                {
-                    S32 eyePhase = (eye == 0) ? PERFTRACE_PHASE_EYE0
-                                              : PERFTRACE_PHASE_EYE1;
-                    Perftrace_PhaseBegin(eyePhase);
-                    AffScene(AFF_ALL_FLIP);
-                    Perftrace_PhaseEnd(eyePhase);
-                }
             }
-            /* Present normally releases the held image.  This abort covers a
-             * frame that left the eye loop without presenting. */
-            OpenXR_AbortDirectStereo();
-            U32 stereoT2 = SDL_GetTicks();
-            LFactorX = gameLFactorX;
-            LFactorY = gameLFactorY;
-            FRatioX = gameFRatioX;
-            FRatioY = gameFRatioY;
-            StereoEyeOverride = 0;
-            StereoCamShiftX = 0;
-            StereoCamShiftY = 0;
-            StereoProjShiftX = 0;
-            StereoCamOffsetX = 0;
-            StereoCamOffsetY = 0;
-            StereoCamOffsetZ = 0;
             {
-                static U32 s_stereoPerfFrame = 0;
-                s_stereoPerfFrame++;
-                if (s_stereoPerfFrame % 300 == 150) {
-                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d truepose=%d",
-                             stereoT1 - stereoT0, stereoT2 - stereoT1,
-                             stereoT2 - stereoT0, GL_BatchFlushCount,
-                             truePose);
-                }
+                S32 eyePhase = (eye == 0) ? PERFTRACE_PHASE_EYE0
+                                          : PERFTRACE_PHASE_EYE1;
+                Perftrace_PhaseBegin(eyePhase);
+                AffScene(AFF_ALL_FLIP);
+                Perftrace_PhaseEnd(eyePhase);
             }
-            GL_SetSinglePassStereo(0);
-            GL_SetStereoEye(-1);
+        }
+        /* Present normally releases the held image.  This abort covers a
+             * frame that left the eye loop without presenting. */
+        OpenXR_AbortDirectStereo();
+        U32 stereoT2 = SDL_GetTicks();
+        LFactorX = gameLFactorX;
+        LFactorY = gameLFactorY;
+        FRatioX = gameFRatioX;
+        FRatioY = gameFRatioY;
+        StereoEyeOverride = 0;
+        StereoCamShiftX = 0;
+        StereoCamShiftY = 0;
+        StereoProjShiftX = 0;
+        StereoCamOffsetX = 0;
+        StereoCamOffsetY = 0;
+        StereoCamOffsetZ = 0;
+        {
+            static U32 s_stereoPerfFrame = 0;
+            s_stereoPerfFrame++;
+            if (s_stereoPerfFrame % 300 == 150) {
+                Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d truepose=%d",
+                         stereoT1 - stereoT0, stereoT2 - stereoT1,
+                         stereoT2 - stereoT0, GL_BatchFlushCount,
+                         truePose);
+            }
+        }
+        GL_SetSinglePassStereo(0);
+        GL_SetStereoEye(-1);
         return;
     }
 #endif
-            /* Mono frames still call this after stereo was switched off so
+    /* Mono frames still call this after stereo was switched off so
              * the double-wide target is released before the scene draws into
              * what it expects to be a single-wide FBO. */
 #ifdef USE_GPURENDERER
-            GL_SetStereoEye(-1);
+    GL_SetStereoEye(-1);
 #endif
-            AffScene(flagflip);
+    AffScene(flagflip);
 }
 
 /* Advance the visible world while a modal dialogue blocks the main loop.
@@ -1972,7 +1972,6 @@ restartloop:
 
         Perftrace_FrameBegin();
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SIMULATION);
-
 
         /* Runtime resolution-switch keep/revert dialog. Pending whenever
            cmd_resolution (or a future menu path) fires a switch; runs once
@@ -3352,7 +3351,7 @@ restartloop:
             CycleCameraSetting();
 #endif
 
-        /* The interior hover rig owns the isometric projection centre, and an
+            /* The interior hover rig owns the isometric projection centre, and an
            authored camera zone only chooses the room framing, not that
            centre - so the head look runs in a zone too.  The stick pan/zoom
            inside it stays gated on the zone below. */
@@ -3361,8 +3360,7 @@ restartloop:
             UpdateInteriorCameraControl();
 #endif
 
-        if (!CameraZone OR
-            (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR)) {
+        if (!CameraZone OR(CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR)) {
             /* First person owns the camera everywhere, camera zones
              * included: it re-applies the eye position every frame, so the
              * zone presets never take the view back while moving. */
@@ -3379,7 +3377,7 @@ restartloop:
                        centre.  The classic 90-degree orbit would only spin
                        the base the anchored view reads against. */
                     if (DisplayStereo3D AND OpenXR_IsActive() AND
-                        CubeMode == CUBE_EXTERIEUR) {
+                            CubeMode == CUBE_EXTERIEUR) {
                         LookRecenterReq = 1;
                         FirstTime = AFF_ALL_FLIP;
                         InitWaitNoInput(I_CAMERA);
@@ -3419,8 +3417,7 @@ restartloop:
                     /* The eye moves with the hero and the head: incremental
                        frames would keep the stale terrain view. */
                     FirstTime = AFF_ALL_FLIP;
-                }
-                else if (FollowCamera AND CubeMode == CUBE_EXTERIEUR)
+                } else if (FollowCamera AND CubeMode == CUBE_EXTERIEUR)
                     UpdateFollowCameraExt();
             }
 
@@ -3568,8 +3565,8 @@ restartloop:
  * path. The cfg still wins: these only apply when the key is absent, so an
  * existing lba2.cfg keeps the player's choices. */
 #ifdef LBA2_OPENXR
-#define DEF_DISPLAY_TEXFILTER 4  /* xBR Lite */
-#define DEF_DISPLAY_ANTIALIAS 2  /* MSAA x2 */
+#define DEF_DISPLAY_TEXFILTER 4 /* xBR Lite */
+#define DEF_DISPLAY_ANTIALIAS 2 /* MSAA x2 */
 #define DEF_DISPLAY_SOFTSHADOWS TRUE
 #define DEF_DISPLAY_VSYNC FALSE
 #define DEF_DISPLAY_STEREO3D TRUE
@@ -3656,7 +3653,6 @@ void ReadConfigFile(void) {
               (int)VrFovScale, (int)VrSuperSample, (int)VrWorldScale,
               (int)VrFullBody);
 
-
     VrInteriorHover =
         DefFileBufferReadValueDefault("VrInteriorHover", DEF_VR_INTERIOR_HOVER) ? TRUE : FALSE;
 
@@ -3712,12 +3708,12 @@ void ReadConfigFile(void) {
     Window_SetVSync(DisplayVSync);
 
 #ifdef USE_GPURENDERER
-     GPURendererActive = DefFileBufferReadValueDefault("GPURenderer", FALSE);
-     if (GPURendererActive < 0 OR GPURendererActive > 1)
-         GPURendererActive = FALSE;
+    GPURendererActive = DefFileBufferReadValueDefault("GPURenderer", FALSE);
+    if (GPURendererActive < 0 OR GPURendererActive > 1)
+        GPURendererActive = FALSE;
 
- #if defined(LBA2_OPENXR) && defined(__ANDROID__)
-     /* On the Quest the engine's software renderer writes to a CPU surface
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    /* On the Quest the engine's software renderer writes to a CPU surface
       * (SDL_UpdateTexture / SDL_RenderPresent) that the OpenXR blit cannot
       * see — OpenXR_PresentMono reads from the GL FBO 0 of the EGL context
       * that the GL renderer draws into, so without the GL renderer every
@@ -3725,30 +3721,30 @@ void ReadConfigFile(void) {
       * though the frame loop is running. Force the GL renderer on for
       * immersive builds; the user can still toggle it off at runtime via
       * the Renderer's menu option, and we will honour that. */
-     if (!GPURendererActive) {
-         Log_Info("Quest immersive mode: forcing GPURenderer on (config had it off)");
-         GPURendererActive = TRUE;
-     }
+    if (!GPURendererActive) {
+        Log_Info("Quest immersive mode: forcing GPURenderer on (config had it off)");
+        GPURendererActive = TRUE;
+    }
 
-     /* Touch controllers have no D-pad: the stock gamepad layout puts menu
+    /* Touch controllers have no D-pad: the stock gamepad layout puts menu
       * and hero up/down on the triggers, which is unusable there. Force the
       * left stick onto up/down (this also overrides any persisted cfg
       * bindings for those two entries; the remap screen still lets the
       * player change them again per session). GamepadKeys is indexed by the
       * log2 of the I_* bit mask, not the mask itself: slot 0 = I_UP (1<<0),
       * slot 1 = I_DOWN (1<<1). */
-     GamepadKeys[0].Key1 = K_GAMEPAD_LSTICK_UP;
-     GamepadKeys[0].Key2 = 0;
-     GamepadKeys[1].Key1 = K_GAMEPAD_LSTICK_DOWN;
-     GamepadKeys[1].Key2 = 0;
+    GamepadKeys[0].Key1 = K_GAMEPAD_LSTICK_UP;
+    GamepadKeys[0].Key2 = 0;
+    GamepadKeys[1].Key1 = K_GAMEPAD_LSTICK_DOWN;
+    GamepadKeys[1].Key2 = 0;
 
-     /* The right stick orbits the camera only in the follow camera (the
+    /* The right stick orbits the camera only in the follow camera (the
       * classic camera turns 90 degrees per flick, which is disorienting in
       * a headset). Default immersive sessions to the follow camera; the
       * options menu still allows switching back per session. */
-     FollowCamera = TRUE;
-     InitInput();
- #endif
+    FollowCamera = TRUE;
+    InitInput();
+#endif
 
     DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", DEF_DISPLAY_TEXFILTER);
     DisplayAntiAlias = DefFileBufferReadValueDefault("DisplayAntiAlias", DEF_DISPLAY_ANTIALIAS);
@@ -3792,102 +3788,102 @@ void ReadConfigFile(void) {
     if (DisplayStereo3D < 0 OR DisplayStereo3D > 1)
         DisplayStereo3D = DEF_DISPLAY_STEREO3D;
 
-     RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
-     if (RenderQuality < 1 OR RenderQuality > 4)
-         RenderQuality = 1;
-     if (RenderQuality == 3)
-         RenderQuality = 1; /* only 1, 2, 4 are valid */
+    RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
+    if (RenderQuality < 1 OR RenderQuality > 4)
+        RenderQuality = 1;
+    if (RenderQuality == 3)
+        RenderQuality = 1; /* only 1, 2, 4 are valid */
 #ifdef __ANDROID__
-     /* SSAA multiplies the framebuffer per axis: quality 4 at a
+    /* SSAA multiplies the framebuffer per axis: quality 4 at a
       * 2240x1260 render size is a 34-megapixel framebuffer, which no
       * mobile GPU sustains. Cap headset sessions at native. */
-     if (RenderQuality > 1) {
-         Log_Info("Android: clamping RenderQuality %d -> 1", RenderQuality);
-         RenderQuality = 1;
-     }
+    if (RenderQuality > 1) {
+        Log_Info("Android: clamping RenderQuality %d -> 1", RenderQuality);
+        RenderQuality = 1;
+    }
 #endif
 
 #if defined(LBA2_OPENXR) && defined(__ANDROID__)
-     /* On Quest, OpenXR must be initialized before any SDL window is created.
+    /* On Quest, OpenXR must be initialized before any SDL window is created.
       * The activity's native window already has an EGL context; if we let
       * Window_RecreateWindowForGL create its own SDL window with SDL_WINDOW_OPENGL,
       * SDL_GL_CreateContext fails ("Could not initialize OpenGL / GLES library")
       * because the EGL context is already current. OpenXR uses that existing
       * context via XrGraphicsBindingOpenGLESAndroidKHR, so we init OpenXR here
       * and then skip the SDL window creation below. */
-     OpenXR_Init();
-     if (OpenXR_IsActive()) {
-         /* TouchOverlay_Init ran before this (main orders it ahead of
+    OpenXR_Init();
+    if (OpenXR_IsActive()) {
+        /* TouchOverlay_Init ran before this (main orders it ahead of
           * InitProgram) and could not see the session yet. The Quest has
           * no touchscreen and the Touch controllers drive the gamepad,
           * so the on-screen buttons would only cover the picture. */
-         TouchOverlay_SetActive(0);
-         /* Init registered the overlay callback before the session existed;
+        TouchOverlay_SetActive(0);
+        /* Init registered the overlay callback before the session existed;
             leaving it registered would force the CPU-converted ARGB present
             path every frame for an overlay that never draws. */
-         SetOverlayPrePresentCallback(NULL);
-         LogPrintf("TouchOverlay: OpenXR session active, overlay disabled "
-                   "(Touch controllers)\n");
-         OpenXR_SetStereoEnabled(DisplayStereo3D);
-     }
+        SetOverlayPrePresentCallback(NULL);
+        LogPrintf("TouchOverlay: OpenXR session active, overlay disabled "
+                  "(Touch controllers)\n");
+        OpenXR_SetStereoEnabled(DisplayStereo3D);
+    }
 #endif
 
-     /* If the config wants GL, tear down the SW window that InitGraphics
+    /* If the config wants GL, tear down the SW window that InitGraphics
         created and recreate it with GL. This mirrors the runtime toggle in
         GereDisplayMenu but runs once at boot. */
-     if (GPURendererActive) {
+    if (GPURendererActive) {
 #if defined(LBA2_OPENXR) && defined(__ANDROID__)
-         if (OpenXR_IsActive()) {
-             /* OpenXR bound the boot-time SW renderer's EGL context into the
+        if (OpenXR_IsActive()) {
+            /* OpenXR bound the boot-time SW renderer's EGL context into the
               * session and the GL renderer adopts that same context, so the
               * GL window recreation below is skipped — creating a second GL
               * context alongside the already-current EGL one fails with
               * "Could not initialize OpenGL / GLES library". The SW window
               * and renderer stay alive as the context donor; OpenXR owns the
               * present. */
-             Log_Info("Quest immersive mode: reusing boot SW window's EGL context (OpenXR owns the present)");
-             /* Set the render resolution so OpenXR_PresentMono can sample the
+            Log_Info("Quest immersive mode: reusing boot SW window's EGL context (OpenXR owns the present)");
+            /* Set the render resolution so OpenXR_PresentMono can sample the
               * default framebuffer correctly. */
-             extern void Window_SetRenderResolution(U32 w, U32 h);
-             Window_SetRenderResolution(ModeDesiredX, ModeDesiredY);
-             if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
-                 GL_Renderer_Shutdown();
-                 GPURendererActive = FALSE;
-             } else {
-                 Window_SetVSync(DisplayVSync);
-                 if (RenderQuality > 1) {
-                     GL_SetRenderQuality(RenderQuality);
-                 }
-                 if (!GL_SetSuperSample(VrSuperSample)) {
-                     Log_Warn("VrSuperSample %d unavailable; using native "
-                              "render size",
-                              VrSuperSample);
-                     VrSuperSample = 0;
-                 }
-             }
-         } else
+            extern void Window_SetRenderResolution(U32 w, U32 h);
+            Window_SetRenderResolution(ModeDesiredX, ModeDesiredY);
+            if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                GL_Renderer_Shutdown();
+                GPURendererActive = FALSE;
+            } else {
+                Window_SetVSync(DisplayVSync);
+                if (RenderQuality > 1) {
+                    GL_SetRenderQuality(RenderQuality);
+                }
+                if (!GL_SetSuperSample(VrSuperSample)) {
+                    Log_Warn("VrSuperSample %d unavailable; using native "
+                             "render size",
+                             VrSuperSample);
+                    VrSuperSample = 0;
+                }
+            }
+        } else
 #endif
-         if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
-                                        DisplayFullScreen != FALSE)) {
-             if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
-                 GL_Renderer_Shutdown();
-                 Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
-                                            DisplayFullScreen != FALSE);
-                 GPURendererActive = FALSE;
-             } else {
-                 /* Re-apply VSync on the new GL context — the earlier
+            if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                           DisplayFullScreen != FALSE)) {
+            if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                GL_Renderer_Shutdown();
+                Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                           DisplayFullScreen != FALSE);
+                GPURendererActive = FALSE;
+            } else {
+                /* Re-apply VSync on the new GL context — the earlier
                     Window_SetVSync call targeted the SW renderer which
                     was just destroyed. */
-                 Window_SetVSync(DisplayVSync);
-                 /* Apply render quality from config */
-                 if (RenderQuality > 1) {
-                     GL_SetRenderQuality(RenderQuality);
-                 }
-             }
-         } else {
-             GPURendererActive = FALSE;
-         }
-     }
+                Window_SetVSync(DisplayVSync);
+                /* Apply render quality from config */
+                if (RenderQuality > 1) {
+                    GL_SetRenderQuality(RenderQuality);
+                }
+            }
+        } else {
+            GPURendererActive = FALSE;
+        }
+    }
 #endif
 
     /* #358 fixed-timestep throttle. Default 16 ms (~60 Hz sim) so movement is frame-rate
@@ -4593,12 +4589,12 @@ int main(int argc, char *argv[]) {
     {
         U32 dispW = 0, dispH = 0;
         Res_LoadBootDimensions(&dispW, &dispH);
-    Log_Info("Display    %ux%u (%s) %s", dispW, dispH,
-             Res_BootDimensionsSource(),
-             Control_IsHeadless()    ? "headless (no window)"
-             : Window_IsFullscreen() ? "fullscreen"
-                                     : "windowed");
-    Log_Info("main: AssetPreflight");
+        Log_Info("Display    %ux%u (%s) %s", dispW, dispH,
+                 Res_BootDimensionsSource(),
+                 Control_IsHeadless()    ? "headless (no window)"
+                 : Window_IsFullscreen() ? "fullscreen"
+                                         : "windowed");
+        Log_Info("main: AssetPreflight");
     }
     Log_Info("main: after display log");
 

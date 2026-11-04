@@ -301,11 +301,12 @@ void UpdateJoystick(void) {
     s_openxrControllers = openxrActive;
 
     if (openxrActive) {
-        #define SET(vk) SetVirtualKeyDown(vk)
-        #define STICK_DIR(idx, x, y, left, right, up, down) do { \
-            StickDir *prev = (idx == 0) ? &s_prevLeftDir : &s_prevRightDir; \
-            ApplyStickDirection(x, y, left, right, up, down, prev); \
-        } while(0)
+#define SET(vk) SetVirtualKeyDown(vk)
+#define STICK_DIR(idx, x, y, left, right, up, down)                     \
+    do {                                                                \
+        StickDir *prev = (idx == 0) ? &s_prevLeftDir : &s_prevRightDir; \
+        ApplyStickDirection(x, y, left, right, up, down, prev);         \
+    } while (0)
 
         /* First-person stereo uses raw sticks: left for camera-relative
            movement, right for view yaw.  The digital scancodes would drive
@@ -327,7 +328,8 @@ void UpdateJoystick(void) {
         const S32 interiorCam = OpenXR_IsActive() && DisplayStereo3D &&
                                 CubeMode == CUBE_INTERIEUR;
         if ((GamepadCameraAnalog && FollowCamera &&
-             CubeMode == CUBE_EXTERIEUR) || interiorCam || firstPersonStick) {
+             CubeMode == CUBE_EXTERIEUR) ||
+            interiorCam || firstPersonStick) {
             s_prevRightDir = DIR_NEUTRAL;
         } else {
             STICK_DIR(1, OpenXR_RightStickX, OpenXR_RightStickY,
@@ -377,21 +379,28 @@ void UpdateJoystick(void) {
            are consumed by the cheat chord, so resting the thumb there cannot
            swallow talk/search or back. */
         if (!spellKey) {
-            if (OpenXR_ABtn)         SET(K_GAMEPAD_A);
-            if (OpenXR_BBtn)         SET(K_GAMEPAD_RSTICK_BTN);
+            if (OpenXR_ABtn)
+                SET(K_GAMEPAD_A);
+            if (OpenXR_BBtn)
+                SET(K_GAMEPAD_RSTICK_BTN);
             if (OpenXR_XBtn && !rightThumb)
-                SET(K_GAMEPAD_Y);     /* inventory */
+                SET(K_GAMEPAD_Y); /* inventory */
             if (OpenXR_YBtn && !rightThumb)
-                SET(K_GAMEPAD_BACK);  /* holomap */
+                SET(K_GAMEPAD_BACK); /* holomap */
         }
-        if (OpenXR_MenuBtn)      SET(K_GAMEPAD_START);
-        if (OpenXR_LeftThumbstickDown)   SET(K_GAMEPAD_LSTICK_BTN);
-        if (OpenXR_RightThumbstickDown)  SET(K_GAMEPAD_B);
-        if (OpenXR_LeftGripDown)  SET(K_GAMEPAD_LSHOULDER);
-        if (OpenXR_RightGripDown) SET(K_GAMEPAD_X);
+        if (OpenXR_MenuBtn)
+            SET(K_GAMEPAD_START);
+        if (OpenXR_LeftThumbstickDown)
+            SET(K_GAMEPAD_LSTICK_BTN);
+        if (OpenXR_RightThumbstickDown)
+            SET(K_GAMEPAD_B);
+        if (OpenXR_LeftGripDown)
+            SET(K_GAMEPAD_LSHOULDER);
+        if (OpenXR_RightGripDown)
+            SET(K_GAMEPAD_X);
 
-        #undef SET
-        #undef STICK_DIR
+#undef SET
+#undef STICK_DIR
     } else if (s_gamepad != NULL) {
         struct ButtonMap {
             SDL_GamepadButton btn;

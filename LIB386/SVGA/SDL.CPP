@@ -409,8 +409,7 @@ static void PresentFrame() {
            the GPU — the CPU per-pixel loop disappears. The active predicate
            keeps even a registered-but-idle console (the normal state while
            playing) on the indexed path. */
-        if ((s_prePresent && (!s_prePresentActive || s_prePresentActive()))
-                || s_overlayPrePresent) {
+        if ((s_prePresent && (!s_prePresentActive || s_prePresentActive())) || s_overlayPrePresent) {
             static U32 *s_glStaging = NULL;
             static U32 s_glStagingSize = 0;
             U32 needed = ModeDesiredX * ModeDesiredY;
@@ -474,7 +473,7 @@ static void PresentFrame() {
         paletteLUT[0] &= 0x00FFFFFF;
 
         GL_PresentIndexed((const U8 *)Log, ModeDesiredX, ModeDesiredX,
-                           ModeDesiredY, paletteLUT, DisplayTexFilter);
+                          ModeDesiredY, paletteLUT, DisplayTexFilter);
         if (GL_GetStereoEye() != 0)
             FrameLimitWait();
         return;

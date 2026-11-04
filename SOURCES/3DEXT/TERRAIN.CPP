@@ -1875,7 +1875,7 @@ void AffichageTerrainZBuf(void) {
         static S32 s_rotLog = 0;
         if (s_rotLog < 40) {
             Log_Debug("TerrainSplit2: eye=%d obj=%dms rot=%dms", hzEyeLog,
-                     (S32)(tRot1 - tRot0), (S32)(tRot2 - tRot1));
+                      (S32)(tRot1 - tRot0), (S32)(tRot2 - tRot1));
             s_rotLog++;
         }
     }
@@ -2005,7 +2005,7 @@ void AffichageTerrainZBuf(void) {
             static S32 s_splitLog = 0;
             if (s_splitLog < 40) {
                 Log_Debug("TerrainSplit: bucket=%dms draw=%dms",
-                         (S32)(tb1 - tb0), (S32)(SDL_GetTicks() - tb1));
+                          (S32)(tb1 - tb0), (S32)(SDL_GetTicks() - tb1));
                 s_splitLog++;
             }
         }
@@ -2018,7 +2018,7 @@ void AffichageTerrainZBuf(void) {
         static S32 s_seaLog = 0;
         if (s_seaLog < 40) {
             Log_Debug("TerrainSplit3: presea=%dms sea=%dms",
-                     (S32)(tSea0 - tRot1), (S32)(tSea1 - tSea0));
+                      (S32)(tSea0 - tRot1), (S32)(tSea1 - tSea0));
             s_seaLog++;
         }
     }

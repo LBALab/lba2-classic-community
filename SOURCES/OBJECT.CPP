@@ -5,7 +5,7 @@
 #include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
 
 #include <SYSTEM/LOG.H> // cubetrace
-#include <SDL3/SDL.h> /* SDL_GetPerformanceCounter (object-pass timing diag) */
+#include <SDL3/SDL.h>   /* SDL_GetPerformanceCounter (object-pass timing diag) */
 
 #include <stdio.h>
 
@@ -18,7 +18,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <3D/PROJ.H>
-#include <GL/RENDER_GL.H> /* GL_DrawShadowQuad */
+#include <GL/RENDER_GL.H>  /* GL_DrawShadowQuad */
 #include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount fps position) */
 #include "VRBODY.H"
 #include <SYSTEM/HQFILE.H>
@@ -5273,7 +5273,7 @@ S32 AffOneObject(T_SORT *pt) {
         if (CameraFirstPerson AND numobj == NUM_PERSO)
             aff = 0; /* first person: the hero body is the camera */
         else
-        aff = ObjectDisplay(&ptrobj->Obj);
+            aff = ObjectDisplay(&ptrobj->Obj);
 
         if (aff) /* objet pas tout clippé */
         {
@@ -5930,8 +5930,7 @@ startaffscene:
        persisting across frames, so the clear must not reach below the
        window.  The idle flagflip=0 path reaches the object pass without
        running any switch case, so this cannot live inside the OBJETS case. */
-    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR
-            && flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR && flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
         static S32 s_noRestore = -1;
         if (s_noRestore < 0) {
             s_noRestore = getenv("LBA2_NO_RESTORE") ? 1 : 0;
@@ -5941,8 +5940,7 @@ startaffscene:
         }
         if (ClipWindowYMax >= ClipWindowYMin) {
             memset((U8 *)Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
-                   (size_t)ModeDesiredX
-                       * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
+                   (size_t)ModeDesiredX * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
         }
     }
 #endif
@@ -6441,17 +6439,17 @@ startaffscene:
             extern U32 s_censusScaleLog;
             extern U32 s_censusScaleTLog;
             Log_Debug("Census: a3dGL=%u incrustGL=%u incrustLog=%u special=%u "
-                     "affG=%u clipG=%u scaleLog=%u scaleTLog=%u",
-                     s_censusA3DGL, s_censusIncrustGL, s_censusIncrustLog,
-                     s_censusSpecial, s_censusAffGraph, s_censusClippingGraph,
-                     s_censusScaleLog, s_censusScaleTLog);
+                      "affG=%u clipG=%u scaleLog=%u scaleTLog=%u",
+                      s_censusA3DGL, s_censusIncrustGL, s_censusIncrustLog,
+                      s_censusSpecial, s_censusAffGraph, s_censusClippingGraph,
+                      s_censusScaleLog, s_censusScaleTLog);
             S32 nshown = 0;
             for (S32 n = 0; n < MAX_EXTRAS && nshown < 12; n++) {
                 if (ListExtra[n].Sprite != -1) {
                     Log_Debug("Census: extra[%d] sprite=%d flags=%d pos=%d,%d,%d",
-                             n, ListExtra[n].Sprite, ListExtra[n].Flags,
-                             ListExtra[n].PosX, ListExtra[n].PosY,
-                             ListExtra[n].PosZ);
+                              n, ListExtra[n].Sprite, ListExtra[n].Flags,
+                              ListExtra[n].PosX, ListExtra[n].PosY,
+                              ListExtra[n].PosZ);
                     nshown++;
                 }
             }
@@ -6670,8 +6668,7 @@ startaffscene:
 #ifdef USE_GPURENDERER
             /* GL mode: follow-sprites (eye markers etc.) draw as depth-tested
                quads in the FBO so models occlude them. */
-            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR
-                    && s_incrustZo[n] != 0) {
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR && s_incrustZo[n] != 0) {
                 if (ptrdisp->Num >= 100) {
                     S32 gw, gh, hotX, hotY;
                     const U8 *raw = Obj_DecodeGph(HQR_Get(HQRPtrSprite,
@@ -6700,7 +6697,7 @@ startaffscene:
                 }
                 SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
                 if (ClipXMin <= ClipXMax
-                                        AND ClipYMin <= ClipYMax) {
+                                    AND ClipYMin <= ClipYMax) {
                     BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
                 }
                 break;

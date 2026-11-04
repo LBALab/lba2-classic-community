@@ -107,7 +107,7 @@ static inline void MenuBuildRows(U16 *menu, S32 yCenter, const struct MenuRowDef
 #define MENU_ID_DISPLAY_TEXFILTER 2118
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
-#define MENU_ID_DISPLAY_VRZOOM 2128 /* Quest stereo world zoom percent */
+#define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
 #define MENU_ID_DISPLAY_VRSUPERSAMPLE 2135
 #define MENU_ID_DISPLAY_VRHOVER 2138
 #define MENU_ID_DISPLAY_VRPASSTHROUGH 2139

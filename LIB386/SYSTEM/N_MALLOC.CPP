@@ -24,7 +24,7 @@ void *NormMalloc(U32 size) {
 #endif
     temp = (U64)malloc(size + MALLOC_ALIGN);
 #ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) malloc returned %p", (unsigned)size, (void*)temp);
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) malloc returned %p", (unsigned)size, (void *)temp);
 #endif
 
     if (!temp) {
@@ -37,7 +37,7 @@ void *NormMalloc(U32 size) {
     *((S8 *)addr - 1) = (S8)(addr - temp);
 
 #ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) returning %p", (unsigned)size, (void*)addr);
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) returning %p", (unsigned)size, (void *)addr);
 #endif
     return (void *)addr;
 }

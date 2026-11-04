@@ -182,18 +182,18 @@ S32 GL_BatchFlushCount = 0;
    and the FXAA path).  Every effect is opt-in and costs one branch when off.
    The 2D overlay draws through the same plain program, so the overlay pass
    resets these uniforms to neutral before it runs. */
-#define GLSL_POSTFX                                                           \
-    "uniform int uGrade;\n"        /* 0 = off, 1 = warm, 2 = cool */           \
-    "uniform float uVignette;\n"   /* 0..1 edge darkening */                   \
-    "uniform vec2 uSubPixel;\n"    /* sub-pixel pan, in UV units */            \
-    "vec3 PostFx(vec3 c, vec2 screenUv) {\n"                                  \
-    "    if (uGrade == 1) c *= vec3(1.06, 1.00, 0.90);\n"                     \
-    "    else if (uGrade == 2) c *= vec3(0.92, 1.00, 1.08);\n"                \
-    "    if (uVignette > 0.001) {\n"                                          \
-    "        vec2 p = screenUv - 0.5;\n"                                      \
-    "        c *= 1.0 - uVignette * smoothstep(0.10, 0.42, dot(p, p));\n"     \
-    "    }\n"                                                                 \
-    "    return c;\n"                                                         \
+#define GLSL_POSTFX                                                       \
+    "uniform int uGrade;\n"      /* 0 = off, 1 = warm, 2 = cool */        \
+    "uniform float uVignette;\n" /* 0..1 edge darkening */                \
+    "uniform vec2 uSubPixel;\n"  /* sub-pixel pan, in UV units */         \
+    "vec3 PostFx(vec3 c, vec2 screenUv) {\n"                              \
+    "    if (uGrade == 1) c *= vec3(1.06, 1.00, 0.90);\n"                 \
+    "    else if (uGrade == 2) c *= vec3(0.92, 1.00, 1.08);\n"            \
+    "    if (uVignette > 0.001) {\n"                                      \
+    "        vec2 p = screenUv - 0.5;\n"                                  \
+    "        c *= 1.0 - uVignette * smoothstep(0.10, 0.42, dot(p, p));\n" \
+    "    }\n"                                                             \
+    "    return c;\n"                                                     \
     "}\n"
 
 static const char *s_vertSrc =
@@ -210,9 +210,9 @@ static const char *s_fragSrc =
     GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
-    "uniform vec2 uTexScale;\n" /* 1,1 for a normal blit; 0.5,1 per stereo eye */
+    "uniform vec2 uTexScale;\n"  /* 1,1 for a normal blit; 0.5,1 per stereo eye */
     "uniform vec2 uTexOffset;\n" /* eye half offset for the stereo post-Fx pass */
-    "uniform float uSharpen;\n" /* 0 = off, unsharp strength */
+    "uniform float uSharpen;\n"  /* 0 = off, unsharp strength */
     GLSL_POSTFX
     "varying vec2 vTexCoord;\n"
     "void main() {\n"
@@ -1236,7 +1236,7 @@ static const char *s_clutFragSrc =
 
 static GLuint s_program = 0;
 static GLuint s_vbo = 0;
-static GLuint s_fboVbo = 0; /* non-flipped UV quad for FBO→screen draw */
+static GLuint s_fboVbo = 0;         /* non-flipped UV quad for FBO→screen draw */
 static GLuint s_presentRectVbo = 0; /* arbitrary src/dst rect through the
                                        present shader (interior zoom) */
 /* Left half of the scene texture.  Mono frames (menus, dialogue) render into
@@ -1245,7 +1245,7 @@ static GLuint s_presentRectVbo = 0; /* arbitrary src/dst rect through the
 static GLuint s_fboHalfVbo = 0;
 static GLuint s_texture = 0;
 static GLint s_uTexLoc = -1;
-static GLint s_uTexelLoc = -1;  /* present overlay: 1/width, 1/height */
+static GLint s_uTexelLoc = -1; /* present overlay: 1/width, 1/height */
 static GLint s_uTexScaleLoc = -1;
 static GLint s_uTexOffsetLoc = -1;
 static GLint s_uFilterLoc = -1; /* present overlay: 0 nearest, 1 bilinear, 2 Scale2x */
@@ -1371,8 +1371,7 @@ static const char *s_fxaaFragSrc =
     GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
-    "uniform float uSharpen;\n"
-    GLSL_POSTFX
+    "uniform float uSharpen;\n" GLSL_POSTFX
     "varying vec2 vTexCoord;\n"
     /* Unsharp mask from the FXAA corner taps; applied after the edge blend so
        sharpening and FXAA can be used together. */
@@ -1475,41 +1474,41 @@ static void GL_ProfFrameDone(void) {
     if (s_profFrames >= GL_PROF_FRAMES) {
         double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency();
         Log_Debug("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
-                 "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
-                 "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
-                 "ovlEmpty=%.2f ovlReuse=%.2f direct=%.2f "
-                 "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u "
-                 "atl=%u/%u dty=%u/%u",
-                 s_profFrames,
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
-                           s_profFrames),
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_READBACK], msPerTick,
-                           s_profFrames),
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_CONVERT], msPerTick,
-                           s_profFrames),
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_FLUSH], msPerTick,
-                           s_profFrames),
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_SNAPSHOT], msPerTick,
-                           s_profFrames),
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_RESTORE], msPerTick,
-                           s_profFrames),
-                 GL_ProfMs(s_profAccumTicks[GL_PROF_MAPWAIT], msPerTick,
-                           s_profFrames),
-                 (double)s_profFlushes / (double)s_profFrames,
-                 (double)s_profTris / (double)s_profFrames,
-                 (double)s_profSpriteUps / (double)s_profFrames,
-                 s_profDepthSkips,
-                 (double)s_profOverlayEmpty / (double)s_profFrames,
-                 (double)s_profOverlayReuse / (double)s_profFrames,
-                 (double)s_profDirectScene / (double)s_profFrames,
-                 (double)s_flushRsnAlpha / (double)s_profFrames,
-                 (double)s_flushRsnFog / (double)s_profFrames,
-                 (double)s_flushRsnAtlas / (double)s_profFrames,
-                 (double)s_flushRsnZbuf / (double)s_profFrames,
-                 (double)s_flushRsnNzw / (double)s_profFrames,
-                 s_arrCount, s_arrEvictions,
-                 s_profAtlasUploads, s_profArrayUploads,
-                 s_profAtlasDirtyKnown, s_profAtlasDirtyGlobal);
+                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
+                  "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
+                  "ovlEmpty=%.2f ovlReuse=%.2f direct=%.2f "
+                  "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u "
+                  "atl=%u/%u dty=%u/%u",
+                  s_profFrames,
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
+                            s_profFrames),
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_READBACK], msPerTick,
+                            s_profFrames),
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_CONVERT], msPerTick,
+                            s_profFrames),
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_FLUSH], msPerTick,
+                            s_profFrames),
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_SNAPSHOT], msPerTick,
+                            s_profFrames),
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_RESTORE], msPerTick,
+                            s_profFrames),
+                  GL_ProfMs(s_profAccumTicks[GL_PROF_MAPWAIT], msPerTick,
+                            s_profFrames),
+                  (double)s_profFlushes / (double)s_profFrames,
+                  (double)s_profTris / (double)s_profFrames,
+                  (double)s_profSpriteUps / (double)s_profFrames,
+                  s_profDepthSkips,
+                  (double)s_profOverlayEmpty / (double)s_profFrames,
+                  (double)s_profOverlayReuse / (double)s_profFrames,
+                  (double)s_profDirectScene / (double)s_profFrames,
+                  (double)s_flushRsnAlpha / (double)s_profFrames,
+                  (double)s_flushRsnFog / (double)s_profFrames,
+                  (double)s_flushRsnAtlas / (double)s_profFrames,
+                  (double)s_flushRsnZbuf / (double)s_profFrames,
+                  (double)s_flushRsnNzw / (double)s_profFrames,
+                  s_arrCount, s_arrEvictions,
+                  s_profAtlasUploads, s_profArrayUploads,
+                  s_profAtlasDirtyKnown, s_profAtlasDirtyGlobal);
         s_profFrames = 0;
         for (S32 i = 0; i < GL_PROF_BUCKET_COUNT; i++) {
             s_profAccumTicks[i] = 0;
@@ -8479,11 +8478,11 @@ static void GL_LogSurfaceBudget(const char *when) {
     U64 total = fbo + msaa + eyes + present + snapshot + horizon + overlay;
     const double mib = 1.0 / (1024.0 * 1024.0);
     Log_Debug("[Perf] surfaces(%s): fbo=%.1f msaa=%.1f eyes=%.1f present=%.1f "
-             "snapshot=%.1f horizon=%.1f overlay=%.1f total=%.1f MiB",
-             when, (double)fbo * mib, (double)msaa * mib, (double)eyes * mib,
-             (double)present * mib, (double)snapshot * mib,
-             (double)horizon * mib, (double)overlay * mib,
-             (double)total * mib);
+              "snapshot=%.1f horizon=%.1f overlay=%.1f total=%.1f MiB",
+              when, (double)fbo * mib, (double)msaa * mib, (double)eyes * mib,
+              (double)present * mib, (double)snapshot * mib,
+              (double)horizon * mib, (double)overlay * mib,
+              (double)total * mib);
 }
 
 S32 GL_HorizonValid(void) {
@@ -9712,7 +9711,7 @@ static void GL_DrawArgbOverlay(const void *argbPixels, U32 pitch, U32 width,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_texture);
     glUniform1i(s_uTexLoc, 0);
-    glUniform1f(s_uSharpenLoc, 0.0f); /* never sharpen the 2D overlay */
+    glUniform1f(s_uSharpenLoc, 0.0f);                                /* never sharpen the 2D overlay */
     GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0); /* nor offset it */
     if (s_overlayImageAdjust) {
         GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,

@@ -26,15 +26,15 @@
 
 #include <string.h>
 
-#define NB 64                       /* tiles per cube side (NB_COTE) */
-#define VERTS_PER_ROW (NB + 1)      /* 65 */
+#define NB 64                  /* tiles per cube side (NB_COTE) */
+#define VERTS_PER_ROW (NB + 1) /* 65 */
 #define TOTAL_VERTS (VERTS_PER_ROW * VERTS_PER_ROW)
 #define TOTAL_TILES (NB * NB)
 
-static S16 g_heights[TOTAL_VERTS];          /* stands in for MapSommetY */
-static U8 g_flags[TOTAL_VERTS];             /* SommetAffichable */
-static T_SOMMET_ROT g_rot[TOTAL_VERTS];     /* SommetRot */
-static U32 g_keys[TOTAL_TILES];             /* sorted tile keys */
+static S16 g_heights[TOTAL_VERTS];      /* stands in for MapSommetY */
+static U8 g_flags[TOTAL_VERTS];         /* SommetAffichable */
+static T_SOMMET_ROT g_rot[TOTAL_VERTS]; /* SommetRot */
+static U32 g_keys[TOTAL_TILES];         /* sorted tile keys */
 
 /* Clip globals consumed by the vertex loop live in the game (GLOBAL.CPP);
  * the bench defines its own plausible values. */
@@ -63,10 +63,14 @@ static double bench_vertices(int iters) {
                     *ptra = 32;
                 } else if ((zr < ClipZFar) AND LongProjectPoint(X0, Y0, Z0)) {
                     U8 flag = 16;
-                    if (Xp < ClipXMin) flag |= 1;
-                    if (Xp > ClipXMax) flag |= 2;
-                    if (Yp < ClipYMin) flag |= 4;
-                    if (Yp > ClipYMax) flag |= 8;
+                    if (Xp < ClipXMin)
+                        flag |= 1;
+                    if (Xp > ClipXMax)
+                        flag |= 2;
+                    if (Yp < ClipYMin)
+                        flag |= 4;
+                    if (Yp > ClipYMax)
+                        flag |= 8;
                     *ptra = flag;
                     ptrs->Zrot = zr;
                     ptrs->X2D = (S16)Xp;

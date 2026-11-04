@@ -1334,8 +1334,7 @@ void MenuInventory(U32 tempo) {
         /* Quest A selects the highlighted item, same as the classic confirm
            key. Gate it to the headset so keyboard W keeps its gameplay
            meaning. */
-        if ((myinput & I_RETURN) OR
-            (OpenXR_IsActive() && (myinput & I_ACTION_ALWAYS))) {
+        if ((myinput & I_RETURN) OR(OpenXR_IsActive() && (myinput & I_ACTION_ALWAYS))) {
 #ifdef LBA_EDITOR
             if ((ListVarGame[TabIndir[InvSelect]].Value > 0)
 #else

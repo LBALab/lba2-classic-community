@@ -54,14 +54,22 @@ static void gl_scaled_source_rect(S32 startTexX, S32 startTexY,
     *v0 = startTexY >> 16;
     *u1 = (lastX >> 16) + 1;
     *v1 = (lastY >> 16) + 1;
-    if (*u0 < 0) *u0 = 0;
-    if (*v0 < 0) *v0 = 0;
-    if (*u0 >= spriteW) *u0 = spriteW - 1;
-    if (*v0 >= spriteH) *v0 = spriteH - 1;
-    if (*u1 <= *u0) *u1 = *u0 + 1;
-    if (*v1 <= *v0) *v1 = *v0 + 1;
-    if (*u1 > spriteW) *u1 = spriteW;
-    if (*v1 > spriteH) *v1 = spriteH;
+    if (*u0 < 0)
+        *u0 = 0;
+    if (*v0 < 0)
+        *v0 = 0;
+    if (*u0 >= spriteW)
+        *u0 = spriteW - 1;
+    if (*v0 >= spriteH)
+        *v0 = spriteH - 1;
+    if (*u1 <= *u0)
+        *u1 = *u0 + 1;
+    if (*v1 <= *v0)
+        *v1 = *v0 + 1;
+    if (*u1 > spriteW)
+        *u1 = spriteW;
+    if (*v1 > spriteH)
+        *v1 = spriteH;
 }
 
 #ifdef __cplusplus

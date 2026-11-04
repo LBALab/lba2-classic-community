@@ -124,13 +124,13 @@ extern S32 FpsLimit;
 #ifdef USE_GPURENDERER
 extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
 extern S32 DisplayTexFilter;
-extern S32 DisplayAntiAlias;  ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
-extern S32 DisplayDither;     ///< 1 = ordered dither between CLUT rows (GL mode only)
+extern S32 DisplayAntiAlias;   ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
+extern S32 DisplayDither;      ///< 1 = ordered dither between CLUT rows (GL mode only)
 extern S32 DisplaySoftShadows; ///< 1 = feathered ground shadows (GL mode only)
 extern S32 DisplayColorGrade;  ///< 0 = off, 1 = warm, 2 = cool scene grading (GL mode only)
 extern S32 DisplaySubPixel;    ///< 1 = sub-pixel interior pan (GL mode only)
-extern S32 DisplaySharpen;    ///< 0 = off, 1 = low, 2 = high present sharpening (GL mode only)
-extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
+extern S32 DisplaySharpen;     ///< 0 = off, 1 = low, 2 = high present sharpening (GL mode only)
+extern S32 RenderQuality;      ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
 #endif
 /* Display adjustments and the VR FOV zoom exist in every renderer config:
  * GLOBAL.CPP defines them unconditionally and the console cvars reference
@@ -138,11 +138,11 @@ extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode
 extern S32 DisplayBrightness; ///< image adjust: -20..+20, 0 = default (GL mode only)
 extern S32 DisplayContrast;   ///< image adjust: -20..+20, 0 = default (GL mode only)
 extern S32 DisplaySaturation; ///< image adjust: -20..+20, 0 = default (GL mode only)
-extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
-extern S32 VrSuperSample; ///< Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x
-extern S32 VrInteriorHover; ///< Quest interiors: head-tracked hover camera (0 = fixed isometric view)
-extern S32 VrPassthrough; ///< Quest interiors: black scene background shows the passthrough camera (0 = off)
-extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
+extern S32 VrFovScale;        ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
+extern S32 VrSuperSample;     ///< Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x
+extern S32 VrInteriorHover;   ///< Quest interiors: head-tracked hover camera (0 = fixed isometric view)
+extern S32 VrPassthrough;     ///< Quest interiors: black scene background shows the passthrough camera (0 = off)
+extern S32 FixedTimestep;     ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.
 extern S32 FlagMenuMouse;
@@ -247,8 +247,8 @@ extern S32 CameraFirstPerson;
 /* Accumulated right-stick yaw for first-person stereo, in engine angles. */
 S32 FirstPersonStickYaw(void);
 #endif
-extern S32 VrFullBody;   ///< 1 = first-person stereo body + hand IK
-extern S32 VrWorldScale; ///< world scale percent, 50..200, 100 = current
+extern S32 VrFullBody;       ///< 1 = first-person stereo body + hand IK
+extern S32 VrWorldScale;     ///< world scale percent, 50..200, 100 = current
 extern S32 VrBodyHideGroups; ///< explicit body-group hide mask, -1 = per body
 extern S32 StereoHeadLookActive(void);
 extern void StereoLookShiftAnchorPitch(S32 dAlpha);

@@ -27,7 +27,7 @@
 #include <SYSTEM/FILES.H>   /* ExistsFileOrDir */
 #include <SYSTEM/LOG.H>     /* Log_Debug (per-switch trace, off by default) */
 #include <SYSTEM/LOGPRINT.H>
-#include <SYSTEM/MOUSE.H>   /* ClearMouseBox — re-anchor mouse limits after resolution change */
+#include <SYSTEM/MOUSE.H>      /* ClearMouseBox — re-anchor mouse limits after resolution change */
 #include <SYSTEM/RESOLUTION.H> /* RESOLUTION_X / RESOLUTION_Y compile-time defaults */
 
 #ifdef USE_GPURENDERER

@@ -464,13 +464,12 @@ void AffGrilleExt() {
             (*perfFrame)++;
             if (*perfFrame % 300 == 150) {
                 Log_Debug("GrillePerf: horizon=%dms draw=%dms capture=%dms "
-                         "restore=%dus resolve=%dus blit=%dus rect=%d%% eye=%d",
-                         (S32)(hzT1 - hzT0), (S32)(hzDrawT1 - hzT0),
-                         (S32)(hzT1 - hzDrawT1),
-                         (S32)(hzRestoreTicks * 1000000
-                               / SDL_GetPerformanceFrequency()),
-                         (S32)hzResolveUs, (S32)hzBlitUs, (S32)hzRectPct,
-                         (S32)hzEye);
+                          "restore=%dus resolve=%dus blit=%dus rect=%d%% eye=%d",
+                          (S32)(hzT1 - hzT0), (S32)(hzDrawT1 - hzT0),
+                          (S32)(hzT1 - hzDrawT1),
+                          (S32)(hzRestoreTicks * 1000000 / SDL_GetPerformanceFrequency()),
+                          (S32)hzResolveUs, (S32)hzBlitUs, (S32)hzRectPct,
+                          (S32)hzEye);
             }
         }
     }
@@ -613,7 +612,6 @@ void AffGrilleExt() {
             RepMask = savedRepMask;
             PtrMap = savedPtrMap;
         }
-
 
     } else
 #endif
@@ -2241,8 +2239,7 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
         if (FollowCamBaseDist > FOLLOW_CAM_DIST_MAX)
             FollowCamBaseDist = FOLLOW_CAM_DIST_MAX;
         /* Keep the near band zoom-adaptive while the distance changes. */
-        NearClip = (S32)((S64)LFactorX * 2400 / ModeDesiredY
-                         * (S64)VueDistance / FOLLOW_CAM_DIST_MAX);
+        NearClip = (S32)((S64)LFactorX * 2400 / ModeDesiredY * (S64)VueDistance / FOLLOW_CAM_DIST_MAX);
         if (NearClip < 350)
             NearClip = 350;
         FirstTime = AFF_ALL_FLIP;
@@ -2293,13 +2290,12 @@ S32 GereExtKeys(U32 key)
        no keyboard (headset) and FollowCamera off, the classic-mode branch
        below would otherwise never run. */
     if (CubeMode != CUBE_EXTERIEUR
-            OR(!key AND !FollowCamera AND
-               !(GamepadCameraAnalog AND JoystickIsPresent() AND
-                 OpenXR_GetSwapchainWidth() != 0)))
+                        OR(!key AND !FollowCamera AND !(GamepadCameraAnalog AND JoystickIsPresent() AND
+                                                            OpenXR_GetSwapchainWidth() != 0)))
         return (FALSE);
     { /* TEMP diag */
         static U32 dbg = 0;
-        if (!FollowCamera AND (dbg++ % 120) == 0) {
+        if (!FollowCamera AND(dbg++ % 120) == 0) {
             Log_Info("[HeadLookC] enter classic FollowCamera=%d key=%u B=%d A=%d cz=%d",
                      FollowCamera, (unsigned)key, BetaCam, AlphaCam, CameraZone);
         }
@@ -2673,9 +2669,8 @@ S32 GereExtKeys(U32 key)
          * Immersive sessions always own the head pose: requiring the SDL
            joystick here killed head-look on Quest (no SDL gamepad in the
            OpenXR app).  Desktop gamepads keep the analog gate. */
-        if ((OpenXR_IsActive() AND OpenXR_GetSwapchainWidth() != 0) OR
-            (GamepadCameraAnalog AND JoystickIsPresent() AND
-             OpenXR_GetSwapchainWidth() != 0)) {
+        if ((OpenXR_IsActive() AND OpenXR_GetSwapchainWidth() != 0) OR(GamepadCameraAnalog AND JoystickIsPresent() AND
+                                                                           OpenXR_GetSwapchainWidth() != 0)) {
             static float s_lastHeadYaw = -999.0f;
             static float s_lastHeadPitch = -999.0f;
             S32 dBeta = 0;

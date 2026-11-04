@@ -348,23 +348,29 @@ void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surface
                 vpH = winH;
                 vpW = (int)((double)winH * contentAspect + 0.5);
                 vpW = (vpW + 1) & ~1;
-                if (vpW > winW) vpW = winW;
+                if (vpW > winW)
+                    vpW = winW;
                 vpX = (winW - vpW) / 2;
                 vpY = 0;
             } else {
                 vpW = winW;
                 vpH = (int)((double)winW / contentAspect + 0.5);
                 vpH = (vpH + 1) & ~1;
-                if (vpH > winH) vpH = winH;
+                if (vpH > winH)
+                    vpH = winH;
                 vpX = 0;
                 vpY = (winH - vpH) / 2;
             }
             S32 sx = (S32)((double)(windowX - vpX) * (double)ModeDesiredX / (double)vpW);
             S32 sy = (S32)((double)(windowY - vpY) * (double)ModeDesiredY / (double)vpH);
-            if (sx < 0) sx = 0;
-            else if (sx >= (S32)ModeDesiredX) sx = (S32)ModeDesiredX - 1;
-            if (sy < 0) sy = 0;
-            else if (sy >= (S32)ModeDesiredY) sy = (S32)ModeDesiredY - 1;
+            if (sx < 0)
+                sx = 0;
+            else if (sx >= (S32)ModeDesiredX)
+                sx = (S32)ModeDesiredX - 1;
+            if (sy < 0)
+                sy = 0;
+            else if (sy >= (S32)ModeDesiredY)
+                sy = (S32)ModeDesiredY - 1;
             *surfaceX = sx;
             *surfaceY = sy;
             return;
@@ -481,7 +487,7 @@ bool Window_CreateGLContext(void) {
         SDL_GLContext current = SDL_GL_GetCurrentContext();
         if (current != NULL) {
             sdlGLContext = current;
-            Log_Info("[GL] Using existing EGL context for OpenXR (0x%p)", (void*)(uintptr_t)current);
+            Log_Info("[GL] Using existing EGL context for OpenXR (0x%p)", (void *)(uintptr_t)current);
             return true;
         }
         Log_Error("OpenXR active but no current EGL context.");
@@ -718,7 +724,7 @@ void Window_GL_SwapWindow(void) {
      * OpenXR_PresentMono even when sdlWindow is NULL. */
     static S32 s_swapLogCount = 0;
     if (s_swapLogCount < 3) {
-        Log_Info("Window_GL_SwapWindow: openxr=%d sdlWindow=%p", OpenXR_IsActive() ? 1 : 0, (void*)sdlWindow);
+        Log_Info("Window_GL_SwapWindow: openxr=%d sdlWindow=%p", OpenXR_IsActive() ? 1 : 0, (void *)sdlWindow);
         s_swapLogCount++;
     }
     if (OpenXR_IsActive() && sdlWindow == NULL) {
@@ -757,8 +763,10 @@ SDL_GLContext Window_GetGLContext(void) {
 }
 
 void Window_GetRenderSize(int *w, int *h) {
-    if (w) *w = (int)windowSurfaceResX;
-    if (h) *h = (int)windowSurfaceResY;
+    if (w)
+        *w = (int)windowSurfaceResX;
+    if (h)
+        *h = (int)windowSurfaceResY;
 }
 
 void Window_SetRenderResolution(U32 w, U32 h) {

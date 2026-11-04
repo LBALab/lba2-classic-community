@@ -199,7 +199,7 @@ S32 GereVolumeMenu(void) {
 
         switch (select) // num mess
         {
-        case MENU_ID_BACK:   // menu precedent
+        case MENU_ID_BACK: // menu precedent
         case MENU_RET_ESC: // <ESC>
             flag = 1;
             break;
@@ -545,9 +545,9 @@ S32 OptionsMenu(S32 flagflip, S32 backId) {
 
         switch (select) // num mess
         {
-        case MENU_ID_RETURN_TO_GAME:   // retour au jeu
-        case MENU_ID_BACK:   // menu precedent
-        case MENU_RET_ESC: // <ESC>
+        case MENU_ID_RETURN_TO_GAME: // retour au jeu
+        case MENU_ID_BACK:           // menu precedent
+        case MENU_RET_ESC:           // <ESC>
             flag = 1;
             break;
 

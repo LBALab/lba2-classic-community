@@ -121,8 +121,8 @@ static void test_head_offset_matches_long_rotate(void) {
     struct {
         S32 beta;
     } cases[] = {{0}, {37}, {512}, {1024}, {2048}, {3001}, {4095}, {4096}};
-    const S32 fwd = 100;    /* metres: -0.3125 * 320 */
-    const S32 right = 32;   /* metres: 0.1 * 320 */
+    const S32 fwd = 100;  /* metres: -0.3125 * 320 */
+    const S32 right = 32; /* metres: 0.1 * 320 */
     S32 i;
     for (i = 0; i < (S32)(sizeof(cases) / sizeof(cases[0])); i++) {
         S32 x, y, z;
