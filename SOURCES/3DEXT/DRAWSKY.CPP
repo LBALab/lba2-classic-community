@@ -127,10 +127,12 @@ S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
     STRUC_CLIPVERTEX dst[10];
     STRUC_CLIPVERTEX dst1[10];
     T_SEA_VERT sea[12];
+#ifdef USE_GPURENDERER
     static S32 s_noSeaClamp = -1;
     if (s_noSeaClamp < 0) {
         s_noSeaClamp = getenv("LBA2_NO_SEA_CLAMP") ? 1 : 0;
     }
+#endif
 
     k = ClipperZ(dst1, src, 4, NearClip + 1, 0);
 
@@ -148,6 +150,7 @@ S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
                 sea[l].Light = dst[l].V_Light;
             }
 
+#ifdef USE_GPURENDERER
             if (GPURendererActive && !s_noSeaClamp) {
                 /* A large sea/sky tile can project far outside S16.  Clip
                    it against the real screen edges so the visible sheet
@@ -179,6 +182,7 @@ S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
                     return TRUE;
                 return FALSE;
             }
+#endif
 
             for (l = 0; l != k; l++) {
                 if ((sea[l].X != (S32)(S16)sea[l].X) OR(sea[l].Y != (S32)(S16)sea[l].Y))
