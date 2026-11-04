@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1500" viewBox="0 0 2400 1500">
+  <style>
+    text { font-family: "DejaVu Sans", "Liberation Sans", sans-serif; }
+    .title { font-size: 58px; font-weight: 700; fill: #e8f1ff; }
+    .subtitle { font-size: 26px; fill: #98b0cc; }
+    .controller-title { font-size: 30px; font-weight: 700; fill: #cfe0f5; letter-spacing: 1px; }
+    .control { font-size: 26px; font-weight: 700; }
+    .action { font-size: 23px; fill: #e8f1ff; }
+    .note { font-size: 22px; fill: #98b0cc; }
+    .card-title { font-size: 30px; font-weight: 700; fill: #e8f1ff; }
+    .card-text { font-size: 23px; fill: #cfe0f5; }
+    .btn-letter { font-size: 28px; font-weight: 700; fill: #e8f1ff; }
+    .pill { font-size: 15px; font-weight: 700; fill: #e8f1ff; }
+    .small { font-size: 19px; fill: #98b0cc; }
+    .line { stroke: #46658a; stroke-width: 2.5; fill: none; }
+    .dot { stroke: none; }
+  </style>
+
+  <rect width="2400" height="1500" fill="#0b1220"/>
+  <rect x="0" y="0" width="2400" height="8" fill="#5ec8ff" opacity="0.7"/>
+
+  <text x="100" y="105" class="title">Meta Quest 3 controller map</text>
+  <text x="100" y="150" class="subtitle">LBA2 Classic Community · OpenXR build · default bindings · Touch Plus controllers</text>
+
+  <!-- Head tracking badge -->
+  <rect x="1730" y="55" width="590" height="140" rx="24" fill="#111c2e" stroke="#2b4668"/>
+  <g transform="translate(1785, 125)">
+    <rect x="-42" y="-28" width="84" height="52" rx="18" fill="#1c2e48" stroke="#9aa7ff" stroke-width="4"/>
+    <circle cx="-16" cy="-2" r="11" fill="#9aa7ff" opacity="0.7"/>
+    <circle cx="16" cy="-2" r="11" fill="#9aa7ff" opacity="0.7"/>
+    <path d="M -42 0 L -62 12 M 42 0 L 62 12" stroke="#9aa7ff" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <text x="1880" y="105" class="card-title">Head tracking</text>
+  <text x="1880" y="140" class="note">Look around. Body and hands follow</text>
+  <text x="1880" y="170" class="note">when full body is enabled.</text>
+
+  <!-- ================= LEFT CONTROLLER ================= -->
+  <text x="650" y="390" text-anchor="middle" class="controller-title">LEFT CONTROLLER</text>
+
+  <g transform="translate(650,800)">
+    <!-- trigger -->
+    <rect x="-78" y="-336" width="156" height="48" rx="24" fill="#1c2a40" stroke="#ffb86b" stroke-width="4"/>
+    <text x="0" y="-304" text-anchor="middle" font-size="22" font-weight="700" fill="#ffb86b">LT</text>
+
+    <!-- grip button (outer edge) -->
+    <rect x="-196" y="-170" width="34" height="150" rx="17" fill="#1c2a40" stroke="#c792ea" stroke-width="4"/>
+    <text x="-179" y="-88" text-anchor="middle" font-size="18" font-weight="700" fill="#c792ea" transform="rotate(-90 -179 -88)">LG</text>
+
+    <!-- body -->
+    <path d="M -150 -270 Q -150 -315 0 -315 Q 150 -315 150 -270 L 168 130 Q 168 310 0 310 Q -168 310 -168 130 Z"
+          fill="#16243a" stroke="#5a7ea8" stroke-width="5"/>
+    <path d="M -125 -235 Q -125 -270 0 -270 Q 125 -270 125 -235 L 138 110 Q 138 250 0 250 Q -138 250 -138 110 Z"
+          fill="#1c2e48" stroke="#2f4a6b" stroke-width="2"/>
+
+    <!-- thumbrest -->
+    <rect x="-122" y="-12" width="82" height="34" rx="17" fill="none" stroke="#9aa7ff" stroke-width="3" stroke-dasharray="6 5"/>
+
+    <!-- thumbstick -->
+    <circle cx="0" cy="90" r="62" fill="#0b1220" stroke="#5ec8ff" stroke-width="6"/>
+    <circle cx="0" cy="90" r="36" fill="#22344f" stroke="#5ec8ff" stroke-width="2"/>
+    <circle cx="0" cy="90" r="12" fill="#5ec8ff" opacity="0.45"/>
+
+    <!-- face buttons -->
+    <circle cx="70" cy="-150" r="34" fill="#22344f" stroke="#7ee787" stroke-width="4"/>
+    <text x="70" y="-140" text-anchor="middle" class="btn-letter">Y</text>
+    <circle cx="70" cy="-52" r="34" fill="#22344f" stroke="#7ee787" stroke-width="4"/>
+    <text x="70" y="-42" text-anchor="middle" class="btn-letter">X</text>
+
+    <!-- menu button -->
+    <rect x="-126" y="-206" width="78" height="28" rx="14" fill="#22344f" stroke="#c792ea" stroke-width="3"/>
+    <text x="-87" y="-185" text-anchor="middle" class="pill">MENU</text>
+  </g>
+
+  <!-- Left outer callouts -->
+  <g class="line">
+    <path d="M 476 438 L 650 492"/><path d="M 476 566 L 562 606"/>
+    <path d="M 456 626 L 470 690"/><path d="M 476 818 L 650 878"/>
+    <path d="M 476 906 L 650 868"/><path d="M 476 994 L 590 812"/>
+  </g>
+  <circle cx="650" cy="492" r="6" fill="#ffb86b" class="dot"/>
+  <circle cx="562" cy="606" r="6" fill="#c792ea" class="dot"/>
+  <circle cx="470" cy="690" r="6" fill="#c792ea" class="dot"/>
+  <circle cx="650" cy="878" r="6" fill="#5ec8ff" class="dot"/>
+  <circle cx="650" cy="868" r="6" fill="#5ec8ff" class="dot"/>
+  <circle cx="590" cy="812" r="6" fill="#9aa7ff" class="dot"/>
+
+  <text x="456" y="430" text-anchor="end" class="control" fill="#ffb86b">LT</text>
+  <text x="456" y="460" text-anchor="end" class="action">Backward</text>
+  <text x="456" y="486" text-anchor="end" class="note">Spell modifier when held</text>
+
+  <text x="456" y="560" text-anchor="end" class="control" fill="#c792ea">MENU</text>
+  <text x="456" y="590" text-anchor="end" class="action">In-game menu</text>
+
+  <text x="436" y="650" text-anchor="end" class="control" fill="#c792ea">LG</text>
+  <text x="436" y="680" text-anchor="end" class="action">Behaviour menu</text>
+  <text x="436" y="706" text-anchor="end" class="note">Hold to keep open</text>
+
+  <text x="456" y="810" text-anchor="end" class="control" fill="#5ec8ff">L STICK</text>
+  <text x="456" y="840" text-anchor="end" class="action">Move</text>
+
+  <text x="456" y="898" text-anchor="end" class="control" fill="#5ec8ff">L STICK CLICK</text>
+  <text x="456" y="928" text-anchor="end" class="action">Dodge</text>
+
+  <text x="456" y="986" text-anchor="end" class="control" fill="#9aa7ff">L THUMBREST</text>
+  <text x="456" y="1016" text-anchor="end" class="action">Interior zoom</text>
+  <text x="456" y="1042" text-anchor="end" class="note">Touch + right stick up/down</text>
+
+  <!-- Left inner callouts -->
+  <g class="line">
+    <path d="M 846 630 L 754 650"/><path d="M 846 728 L 754 748"/>
+  </g>
+  <circle cx="754" cy="650" r="6" fill="#7ee787" class="dot"/>
+  <circle cx="754" cy="748" r="6" fill="#7ee787" class="dot"/>
+  <text x="858" y="622" class="control" fill="#7ee787">Y</text>
+  <text x="858" y="652" class="action">Holomap</text>
+  <text x="858" y="720" class="control" fill="#7ee787">X</text>
+  <text x="858" y="750" class="action">Inventory</text>
+
+  <!-- ================= RIGHT CONTROLLER ================= -->
+  <text x="1750" y="390" text-anchor="middle" class="controller-title">RIGHT CONTROLLER</text>
+
+  <g transform="translate(1750,800)">
+    <!-- trigger -->
+    <rect x="-78" y="-336" width="156" height="48" rx="24" fill="#1c2a40" stroke="#ffb86b" stroke-width="4"/>
+    <text x="0" y="-304" text-anchor="middle" font-size="22" font-weight="700" fill="#ffb86b">RT</text>
+
+    <!-- grip button (outer edge) -->
+    <rect x="162" y="-170" width="34" height="150" rx="17" fill="#1c2a40" stroke="#c792ea" stroke-width="4"/>
+    <text x="179" y="-88" text-anchor="middle" font-size="18" font-weight="700" fill="#c792ea" transform="rotate(90 179 -88)">RG</text>
+
+    <!-- body -->
+    <path d="M -150 -270 Q -150 -315 0 -315 Q 150 -315 150 -270 L 168 130 Q 168 310 0 310 Q -168 310 -168 130 Z"
+          fill="#16243a" stroke="#5a7ea8" stroke-width="5"/>
+    <path d="M -125 -235 Q -125 -270 0 -270 Q 125 -270 125 -235 L 138 110 Q 138 250 0 250 Q -138 250 -138 110 Z"
+          fill="#1c2e48" stroke="#2f4a6b" stroke-width="2"/>
+
+    <!-- thumbrest -->
+    <rect x="40" y="-12" width="82" height="34" rx="17" fill="none" stroke="#9aa7ff" stroke-width="3" stroke-dasharray="6 5"/>
+
+    <!-- thumbstick -->
+    <circle cx="0" cy="90" r="62" fill="#0b1220" stroke="#ffd166" stroke-width="6"/>
+    <circle cx="0" cy="90" r="36" fill="#22344f" stroke="#ffd166" stroke-width="2"/>
+    <circle cx="0" cy="90" r="12" fill="#ffd166" opacity="0.45"/>
+
+    <!-- face buttons -->
+    <circle cx="-70" cy="-150" r="34" fill="#22344f" stroke="#7ee787" stroke-width="4"/>
+    <text x="-70" y="-140" text-anchor="middle" class="btn-letter">B</text>
+    <circle cx="-70" cy="-52" r="34" fill="#22344f" stroke="#7ee787" stroke-width="4"/>
+    <text x="-70" y="-42" text-anchor="middle" class="btn-letter">A</text>
+
+    <!-- meta button (unmapped) -->
+    <rect x="48" y="-206" width="78" height="28" rx="14" fill="#1a2638" stroke="#3e5878" stroke-width="2"/>
+    <text x="87" y="-185" text-anchor="middle" class="pill" fill="#7f93ad">META</text>
+  </g>
+
+  <!-- Right outer callouts -->
+  <g class="line">
+    <path d="M 1950 438 L 1750 492"/><path d="M 1950 650 L 1930 690"/>
+    <path d="M 1950 810 L 1750 878"/><path d="M 1950 898 L 1750 868"/>
+    <path d="M 1950 986 L 1810 812"/>
+  </g>
+  <circle cx="1750" cy="492" r="6" fill="#ffb86b" class="dot"/>
+  <circle cx="1930" cy="690" r="6" fill="#c792ea" class="dot"/>
+  <circle cx="1750" cy="878" r="6" fill="#ffd166" class="dot"/>
+  <circle cx="1750" cy="868" r="6" fill="#ffd166" class="dot"/>
+  <circle cx="1810" cy="812" r="6" fill="#9aa7ff" class="dot"/>
+
+  <text x="1975" y="430" class="control" fill="#ffb86b">RT</text>
+  <text x="1975" y="460" class="action">Throw / use weapon</text>
+  <text x="1975" y="486" class="note">First person: hold to arm, release</text>
+
+  <text x="1975" y="650" class="control" fill="#c792ea">RG</text>
+  <text x="1975" y="680" class="action">Behaviour action</text>
+
+  <text x="1975" y="810" class="control" fill="#ffd166">R STICK</text>
+  <text x="1975" y="840" class="action">Camera orbit / turn</text>
+
+  <text x="1975" y="898" class="control" fill="#ffd166">R STICK CLICK</text>
+  <text x="1975" y="928" class="action">Recentre camera</text>
+
+  <text x="1975" y="986" class="control" fill="#9aa7ff">R THUMBREST</text>
+  <text x="1975" y="1016" class="action">Cheat chord</text>
+  <text x="1975" y="1042" class="note">Touch + X / Y, see below</text>
+
+  <!-- Right inner callouts -->
+  <g class="line">
+    <path d="M 1554 630 L 1646 650"/><path d="M 1554 728 L 1646 748"/>
+  </g>
+  <circle cx="1646" cy="650" r="6" fill="#7ee787" class="dot"/>
+  <circle cx="1646" cy="748" r="6" fill="#7ee787" class="dot"/>
+  <text x="1542" y="622" text-anchor="end" class="control" fill="#7ee787">B</text>
+  <text x="1542" y="652" text-anchor="end" class="action">Camera mode</text>
+  <text x="1542" y="678" text-anchor="end" class="note">Classic / Auto / First person</text>
+  <text x="1542" y="720" text-anchor="end" class="control" fill="#7ee787">A</text>
+  <text x="1542" y="750" text-anchor="end" class="action">Talk / search / use</text>
+
+  <!-- ================= BOTTOM CARDS ================= -->
+  <!-- Spell chords -->
+  <rect x="100" y="1190" width="760" height="250" rx="24" fill="#111c2e" stroke="#2b4668"/>
+  <rect x="100" y="1190" width="8" height="250" rx="4" fill="#ff7b9c"/>
+  <text x="140" y="1242" class="card-title">Spell chords</text>
+  <text x="140" y="1274" class="note">Hold LT, then press a face button.</text>
+
+  <circle cx="170" cy="1320" r="20" fill="#22344f" stroke="#7ee787" stroke-width="3"/>
+  <text x="170" y="1328" text-anchor="middle" font-size="20" font-weight="700" fill="#e8f1ff">X</text>
+  <text x="205" y="1328" class="card-text">Penguin</text>
+  <circle cx="170" cy="1380" r="20" fill="#22344f" stroke="#7ee787" stroke-width="3"/>
+  <text x="170" y="1388" text-anchor="middle" font-size="20" font-weight="700" fill="#e8f1ff">Y</text>
+  <text x="205" y="1388" class="card-text">Jetpack</text>
+
+  <circle cx="490" cy="1320" r="20" fill="#22344f" stroke="#7ee787" stroke-width="3"/>
+  <text x="490" y="1328" text-anchor="middle" font-size="20" font-weight="700" fill="#e8f1ff">A</text>
+  <text x="525" y="1328" class="card-text">Protection</text>
+  <circle cx="490" cy="1380" r="20" fill="#22344f" stroke="#7ee787" stroke-width="3"/>
+  <text x="490" y="1388" text-anchor="middle" font-size="20" font-weight="700" fill="#e8f1ff">B</text>
+  <text x="525" y="1388" class="card-text">Lightning</text>
+
+  <!-- Cheats -->
+  <rect x="900" y="1190" width="430" height="250" rx="24" fill="#111c2e" stroke="#2b4668"/>
+  <rect x="900" y="1190" width="8" height="250" rx="4" fill="#ff6b6b"/>
+  <text x="940" y="1242" class="card-title">Cheats</text>
+  <text x="940" y="1274" class="note">Touch the right thumbrest,</text>
+  <text x="940" y="1300" class="note">then press:</text>
+  <text x="940" y="1348" class="card-text"><tspan fill="#ff6b6b" font-weight="700">X</tspan>  Full: health, magic, clover</text>
+  <text x="940" y="1390" class="card-text"><tspan fill="#ff6b6b" font-weight="700">Y</tspan>  Gold: +50 kashes / zlitos</text>
+
+  <!-- Menus and notes -->
+  <rect x="1370" y="1190" width="930" height="250" rx="24" fill="#111c2e" stroke="#2b4668"/>
+  <rect x="1370" y="1190" width="8" height="250" rx="4" fill="#5ec8ff"/>
+  <text x="1410" y="1242" class="card-title">Menus, dialogue and first person</text>
+  <text x="1410" y="1282" class="card-text"><tspan fill="#5ec8ff" font-weight="700">Menus</tspan>  L stick select · A confirm · B or Menu back</text>
+  <text x="1410" y="1320" class="card-text"><tspan fill="#7ee787" font-weight="700">Dialogue</tspan>  A skips the current line</text>
+  <text x="1410" y="1358" class="card-text"><tspan fill="#ffd166" font-weight="700">First person</tspan>  R stick X turns · RT arms and releases the magic ball</text>
+  <text x="1410" y="1396" class="card-text"><tspan fill="#9aa7ff" font-weight="700">Interior</tspan>  L thumbrest + R stick up/down zooms</text>
+
+  <text x="100" y="1478" class="small">Default mapping. Bindings live in the OpenXR and input layers; see the Quest controls documentation for details.</text>
+</svg>

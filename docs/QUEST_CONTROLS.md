@@ -6,6 +6,8 @@ OpenXR actions onto the same virtual scancodes as the SDL gamepad path, and
 `SOURCES/INPUT.CPP` (`GamepadKeysDefault`) maps those scancodes to the game
 actions.
 
+![Quest 3 controller map](images/quest-controls.png)
+
 ## Gameplay
 
 | Input | Action | Notes |
