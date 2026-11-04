@@ -47,13 +47,14 @@
    width rule live in RES_CATALOG.H: the same limits the --resolution CLI, the
    console verb, and the Display submenu all derive from. */
 
-/* True when the live resolution came from auto-detect or the compile-time
-   default, i.e. the player never explicitly chose it. WriteConfigFile skips
-   persisting ResolutionX/Y in that case, so an auto resolution re-derives from
-   the display every launch instead of freezing into the cfg on first exit.
-   Cleared the moment the player picks a resolution explicitly: a successful
-   Res_Switch (menu / console verb), or a CLI / cfg value at boot. Defined here
-   so Res_Switch (below) and the boot resolver (further down) both see it. */
+/* True when the live resolution was derived rather than chosen by the player:
+   Quest native, display auto-detect, or the compile-time default.
+   WriteConfigFile skips persisting ResolutionX/Y in that case, so a derived
+   resolution re-derives each launch instead of freezing into the cfg on first
+   exit. Cleared the moment the player picks a resolution explicitly: a
+   successful Res_Switch (menu / console verb), or a CLI / cfg value at boot.
+   Defined here so Res_Switch (below) and the boot resolver (further down) both
+   see it. */
 static bool g_resIsAutoDerived = false;
 bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
 
@@ -346,18 +347,31 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
         }
     }
 
-    /* No CLI override and no saved resolution: auto-detect a widescreen render
-       size from the display. Derive-each-launch (never persisted), so it
-       adapts if the player changes monitors, and any explicit choice (Display
-       submenu / console verb / --resolution) takes over by writing the cfg
-       keys above. Falls through to the compile-time default on a 4:3 display,
-       a failed display query, or the headless/dummy driver. See
-       docs/WIDESCREEN.md Phase 4. */
+    /* No CLI override and no saved resolution: derive a boot size, never
+       persisted, so it adapts if the player changes displays. Any explicit
+       choice (Display submenu / console verb / --resolution) takes over by
+       writing the cfg keys above. */
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    /* Quest: auto-detect would pick a 480-high display mode, but the in-headset
+       view is the per-eye swapchain. The framebuffer is sized before the OpenXR
+       session exists, so the runtime cannot be queried here; boot at the same
+       size the head-mounted ladder calls native. A CLI or saved cfg value above
+       still wins, and the Display menu can pick a lower rung for performance. */
+    *outW = RES_QUEST_NATIVE_W;
+    *outH = RES_QUEST_NATIVE_H;
+    g_bootDimSource = "quest";
+    g_resIsAutoDerived = true;
+    return;
+#else
+    /* Widescreen auto-detect at the display aspect. Falls through to the
+       compile-time default on a 4:3 display, a failed display query, or the
+       headless/dummy driver. See docs/WIDESCREEN.md Phase 4. */
     if (Res_AutoDetectDimensions(outW, outH)) {
         g_bootDimSource = "auto";
         g_resIsAutoDerived = true;
         return;
     }
+#endif
 
     /* Compile-time fallback. */
     *outW = RESOLUTION_X;
