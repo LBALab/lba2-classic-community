@@ -904,10 +904,8 @@ until then.
 ### Verification
 
 Quest preset and host `gly` / `lba2cc` compile.  The `host_quick` suite passes
-47/47 when excluding two targets unrelated to this change:
-`test_poly_geometry` fails its assembly comparison in the current tree, and
-`test_move_framerate` does not link the renderer symbols.  Neither target
-references the atlas cache.
+when excluding `test_poly_geometry`, which fails its assembly comparison in the
+current tree; that target does not reference the atlas cache.
 
 Morning checks: water animation on an exterior island and the menu plasma/fire
 bar should look unchanged while `GLPerf atl`/`arr` drop on dirty frames.
