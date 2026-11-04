@@ -15,13 +15,12 @@ double ROUND(double value) {
 
 /* The polygon pipeline toggles the x87-compatible rounding mode around its
  * truncation windows (fldcw in the ASM).  The mode only ever flips between
- * the process default and FE_TOWARDZERO, and every caller restores what it
- * set, so the control-word write is skipped when the mode already matches —
- * it runs per polygon otherwise. */
+ * the process default and FE_TOWARDZERO, so the control-word write is skipped
+ * when the mode already matches — it runs per polygon otherwise.  Read the
+ * live mode rather than caching it: fesetenv()/fesetround() elsewhere (the
+ * tests do this between cases) would otherwise leave a stale cache. */
 void ROUND_SetFpuMode(int mode) {
-    static int current = -1;
-    if (current != mode) {
+    if (fegetround() != mode) {
         fesetround(mode);
-        current = mode;
     }
 }

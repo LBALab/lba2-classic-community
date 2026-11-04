@@ -1502,7 +1502,9 @@ void InitBufferCube() {
 
     //	pas de RECOVER_AREA car BkgHeader en stored et pas en LZSS
     Load_HQR(tmpFilePath, &BkgHeader, 0); // HEADER
+#ifdef USE_GPURENDERER
     s_brickBankCount = (S32)BkgHeader.Max_Brk;
+#endif
 
     // 	pas de RECOVER_AREA car TabAllCube en stored et pas en LZSS
     Load_HQR(tmpFilePath, (void *)TabAllCube, BkgHeader.Brk_Start + BkgHeader.Max_Brk);

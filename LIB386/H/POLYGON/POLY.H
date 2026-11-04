@@ -75,8 +75,12 @@ typedef struct {
     U16 Pt_MapV;    ///< texture coordinate V
     U16 Pt_Light;   ///< intensity (0.8.0)
     U16 Pt_ZO;      ///< normalized Z
-    S32 Pt_W;       ///< 2^31 / Z (non normalized)
-    U16 Pt_RepMask; ///< texture repeat mask (GL only; unused by SW rasterizer)
+    S32 Pt_W; ///< 2^31 / Z (non normalized)
+#ifdef USE_GPURENDERER
+    /* GL-only vertex attribute. Keeping it out of software-renderer builds
+       preserves the 16-byte layout the ASM fillers walk. */
+    U16 Pt_RepMask; ///< texture repeat mask
+#endif
 } Struc_Point;
 #pragma pack(pop)
 

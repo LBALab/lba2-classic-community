@@ -33,6 +33,124 @@
 #include <math.h>
 #include <FILEIO/SAVEPNG.H>
 
+#ifdef _WIN32
+/* opengl32.dll exports GL 1.1 only, while the renderer uses the GL 2/3
+   entry points. Resolve those from the driver once the context is current;
+   aliasing each call name to a loaded pointer leaves the call sites as-is. */
+#define LBA2_GL_WIN_FUNCS(X)                                                \
+    X(PFNGLACTIVETEXTUREPROC, glActiveTexture)                              \
+    X(PFNGLATTACHSHADERPROC, glAttachShader)                                \
+    X(PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation)                    \
+    X(PFNGLBINDBUFFERPROC, glBindBuffer)                                    \
+    X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer)                          \
+    X(PFNGLBINDRENDERBUFFERPROC, glBindRenderbuffer)                        \
+    X(PFNGLBLITFRAMEBUFFERPROC, glBlitFramebuffer)                          \
+    X(PFNGLBUFFERDATAPROC, glBufferData)                                    \
+    X(PFNGLBUFFERSUBDATAPROC, glBufferSubData)                              \
+    X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus)            \
+    X(PFNGLCLIENTWAITSYNCPROC, glClientWaitSync)                            \
+    X(PFNGLCOMPILESHADERPROC, glCompileShader)                              \
+    X(PFNGLCREATEPROGRAMPROC, glCreateProgram)                              \
+    X(PFNGLCREATESHADERPROC, glCreateShader)                                \
+    X(PFNGLDELETEBUFFERSPROC, glDeleteBuffers)                              \
+    X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)                    \
+    X(PFNGLDELETEPROGRAMPROC, glDeleteProgram)                              \
+    X(PFNGLDELETERENDERBUFFERSPROC, glDeleteRenderbuffers)                  \
+    X(PFNGLDELETESHADERPROC, glDeleteShader)                                \
+    X(PFNGLDELETESYNCPROC, glDeleteSync)                                    \
+    X(PFNGLDISABLEVERTEXATTRIBARRAYPROC, glDisableVertexAttribArray)        \
+    X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray)          \
+    X(PFNGLFENCESYNCPROC, glFenceSync)                                      \
+    X(PFNGLFRAMEBUFFERRENDERBUFFERPROC, glFramebufferRenderbuffer)          \
+    X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D)                \
+    X(PFNGLGENBUFFERSPROC, glGenBuffers)                                    \
+    X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers)                          \
+    X(PFNGLGENRENDERBUFFERSPROC, glGenRenderbuffers)                        \
+    X(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation)                      \
+    X(PFNGLGETPROGRAMIVPROC, glGetProgramiv)                                \
+    X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog)                        \
+    X(PFNGLGETSHADERIVPROC, glGetShaderiv)                                  \
+    X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation)                    \
+    X(PFNGLLINKPROGRAMPROC, glLinkProgram)                                  \
+    X(PFNGLMAPBUFFERRANGEPROC, glMapBufferRange)                            \
+    X(PFNGLRENDERBUFFERSTORAGEPROC, glRenderbufferStorage)                  \
+    X(PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC,                              \
+      glRenderbufferStorageMultisample)                                     \
+    X(PFNGLSHADERSOURCEPROC, glShaderSource)                                \
+    X(PFNGLTEXIMAGE3DPROC, glTexImage3D)                                    \
+    X(PFNGLTEXSUBIMAGE3DPROC, glTexSubImage3D)                              \
+    X(PFNGLUNIFORM1FPROC, glUniform1f)                                      \
+    X(PFNGLUNIFORM1IPROC, glUniform1i)                                      \
+    X(PFNGLUNIFORM2FPROC, glUniform2f)                                      \
+    X(PFNGLUNIFORM3FPROC, glUniform3f)                                      \
+    X(PFNGLUNIFORM4FPROC, glUniform4f)                                      \
+    X(PFNGLUNIFORMMATRIX3FVPROC, glUniformMatrix3fv)                        \
+    X(PFNGLUNMAPBUFFERPROC, glUnmapBuffer)                                  \
+    X(PFNGLUSEPROGRAMPROC, glUseProgram)                                    \
+    X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer)
+
+#define LBA2_GL_WIN_DECL(type, name) static type lba2_##name = NULL;
+LBA2_GL_WIN_FUNCS(LBA2_GL_WIN_DECL)
+#undef LBA2_GL_WIN_DECL
+
+#define glActiveTexture lba2_glActiveTexture
+#define glAttachShader lba2_glAttachShader
+#define glBindAttribLocation lba2_glBindAttribLocation
+#define glBindBuffer lba2_glBindBuffer
+#define glBindFramebuffer lba2_glBindFramebuffer
+#define glBindRenderbuffer lba2_glBindRenderbuffer
+#define glBlitFramebuffer lba2_glBlitFramebuffer
+#define glBufferData lba2_glBufferData
+#define glBufferSubData lba2_glBufferSubData
+#define glCheckFramebufferStatus lba2_glCheckFramebufferStatus
+#define glClientWaitSync lba2_glClientWaitSync
+#define glCompileShader lba2_glCompileShader
+#define glCreateProgram lba2_glCreateProgram
+#define glCreateShader lba2_glCreateShader
+#define glDeleteBuffers lba2_glDeleteBuffers
+#define glDeleteFramebuffers lba2_glDeleteFramebuffers
+#define glDeleteProgram lba2_glDeleteProgram
+#define glDeleteRenderbuffers lba2_glDeleteRenderbuffers
+#define glDeleteShader lba2_glDeleteShader
+#define glDeleteSync lba2_glDeleteSync
+#define glDisableVertexAttribArray lba2_glDisableVertexAttribArray
+#define glEnableVertexAttribArray lba2_glEnableVertexAttribArray
+#define glFenceSync lba2_glFenceSync
+#define glFramebufferRenderbuffer lba2_glFramebufferRenderbuffer
+#define glFramebufferTexture2D lba2_glFramebufferTexture2D
+#define glGenBuffers lba2_glGenBuffers
+#define glGenFramebuffers lba2_glGenFramebuffers
+#define glGenRenderbuffers lba2_glGenRenderbuffers
+#define glGetAttribLocation lba2_glGetAttribLocation
+#define glGetProgramiv lba2_glGetProgramiv
+#define glGetShaderInfoLog lba2_glGetShaderInfoLog
+#define glGetShaderiv lba2_glGetShaderiv
+#define glGetUniformLocation lba2_glGetUniformLocation
+#define glLinkProgram lba2_glLinkProgram
+#define glMapBufferRange lba2_glMapBufferRange
+#define glRenderbufferStorage lba2_glRenderbufferStorage
+#define glRenderbufferStorageMultisample lba2_glRenderbufferStorageMultisample
+#define glShaderSource lba2_glShaderSource
+#define glTexImage3D lba2_glTexImage3D
+#define glTexSubImage3D lba2_glTexSubImage3D
+#define glUniform1f lba2_glUniform1f
+#define glUniform1i lba2_glUniform1i
+#define glUniform2f lba2_glUniform2f
+#define glUniform3f lba2_glUniform3f
+#define glUniform4f lba2_glUniform4f
+#define glUniformMatrix3fv lba2_glUniformMatrix3fv
+#define glUnmapBuffer lba2_glUnmapBuffer
+#define glUseProgram lba2_glUseProgram
+#define glVertexAttribPointer lba2_glVertexAttribPointer
+
+static void GL_LoadWinFunctions(void) {
+#define LBA2_GL_WIN_LOAD(type, name) \
+    lba2_##name = (type)SDL_GL_GetProcAddress(#name);
+    LBA2_GL_WIN_FUNCS(LBA2_GL_WIN_LOAD)
+#undef LBA2_GL_WIN_LOAD
+}
+#endif /* _WIN32 */
+
 /* ── External palette getter (defined in SDL.CPP) ───────────────────────── */
 extern "C" const U32 *GL_GetPaletteLUT(void);
 extern "C" U32 GL_GetPaletteGeneration(void);
@@ -2353,6 +2471,7 @@ static void GL_BindFramebufferTracked(GLenum target, GLuint fbo) {
         s_boundDrawFbo = fbo;
     }
 }
+#undef glBindFramebuffer
 #define glBindFramebuffer GL_BindFramebufferTracked
 
 /* Deleting the bound framebuffer silently rebinds zero, so the tracked ID
@@ -3746,6 +3865,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     if (!Window_GLMakeCurrent()) {
         return FALSE;
     }
+
+#ifdef _WIN32
+    GL_LoadWinFunctions();
+#endif
 
     Log_Info("[GL] Initializing renderer (%ux%u)...", resX, resY);
     Log_Info("[GL] GL_VERSION: %s", (const char *)glGetString(GL_VERSION));
@@ -11354,6 +11477,9 @@ S32 GL_Renderer_Resize(U32 resX, U32 resY) {
 }
 void GL_BeginFrame(void) {}
 U32 GL_GetFrameSeq(void) { return 0; }
+S32 GL_GetStereoEye(void) { return -1; }
+U32 GL_GetStereoFrameSeq(void) { return 0; }
+S32 GL_SinglePassStereoActive(void) { return 0; }
 void GL_ClearFBO(void) {}
 void GL_SetSceneClearColor(U8 palIndex) { (void)palIndex; }
 void GL_ReadbackDepthBuffer(void) {}

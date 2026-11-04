@@ -421,6 +421,13 @@ void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
         return;
     }
 
+    /* The software fillers compute ZO only for a Z-buffered polygon; leave
+       the field untouched otherwise so the ASM comparison stays byte-exact.
+       The GL paths need it (and the camera-space vertices) every time. */
+    if (!Fill_Flag_ZBuffer && !Obj_GLWorld && !DecorVBOActive) {
+        return;
+    }
+
     U16 indices[3] = {index1, index2, index3};
 
     for (int i = 0; i < 3; i++) {
@@ -452,6 +459,10 @@ void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
         for (int i = 0; i < 4; i++) {
             dst[i].Pt_ZO = IsoDepth(Obj_ListRotatedPoints[indices[i]]);
         }
+        return;
+    }
+
+    if (!Fill_Flag_ZBuffer && !Obj_GLWorld && !DecorVBOActive) {
         return;
     }
 

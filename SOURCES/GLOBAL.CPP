@@ -99,8 +99,8 @@ S32 DisplayVSync = TRUE;
 S32 GpuFocalCapped = FALSE; /* exterior focal floored at the 720p FOV envelope (Init3DExtView) */
 S32 FpsLimit = 0;           /* 0 = unlimited, else frames-per-second ceiling */
 
+S32 GPURendererActive = FALSE; /* stays FALSE when the GL renderer is compiled out */
 #ifdef USE_GPURENDERER
-S32 GPURendererActive = FALSE;
 S32 DisplayTexFilter = TRUE;
 S32 DisplayAntiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */ /* bilinear by default in GL mode */
 S32 DisplayDither = FALSE;                                        /* ordered dither between CLUT rows (GL only) */

@@ -424,7 +424,9 @@ void BoxBlit() {
 
     /* The eye 1 pass of single-pass stereo reuses eye 0's input state; its
        present only draws the HUD half. */
+#ifdef USE_GPURENDERER
     if (!(GL_GetStereoEye() == 1 && GL_SinglePassStereoActive()))
+#endif
         ManageEvents();
 
     MergeLists(&pBoxOptList, pBoxMovingList); // rebuild BoxOptList

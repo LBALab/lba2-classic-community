@@ -133,6 +133,14 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 endif()
 
+if(NOT MSVC)
+    # Several packed-struct reads go through a U32 pointer, and the x87
+    # projection rounding must not be collapsed into an FMA: both flags keep
+    # the ASM-equivalence tests byte-exact.
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fno-strict-aliasing>)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-ffp-contract=off>)
+endif()
+
 if(LBA2_NATIVE_ARCH)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i[3-6]86")
         add_compile_options(-march=native)

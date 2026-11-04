@@ -121,8 +121,10 @@ extern S32 DisplayFullScreen;
 extern S32 DisplayVSync;
 extern S32 GpuFocalCapped; /* exterior focal floored at the 720p FOV envelope */
 extern S32 FpsLimit;
-#ifdef USE_GPURENDERER
+/* Read from renderer-agnostic code paths (projects, flow, menus) and set
+ * only in GL mode; defined in every renderer configuration. */
 extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
+#ifdef USE_GPURENDERER
 extern S32 DisplayTexFilter;
 extern S32 DisplayAntiAlias;   ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
 extern S32 DisplayDither;      ///< 1 = ordered dither between CLUT rows (GL mode only)

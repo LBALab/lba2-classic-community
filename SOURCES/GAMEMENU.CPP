@@ -10,8 +10,8 @@
 #include "CONSOLE/CONSOLE.H"
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
-#include <SYSTEM/OPENXR.H>
 #endif
+#include <SYSTEM/OPENXR.H>
 #include <SVGA/VIDEO.H> /* PresentCurrentFrame (renderer switch present) */
 #include "MESSAGE.H"
 #include "IMAGE_LOAD.H"
@@ -178,6 +178,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_IMAGE));
         break;
 
+#ifdef USE_GPURENDERER
     case MENU_ID_DISPLAY_SOFTSHADOWS:
         snprintf(string, 256, "Soft shadows: %s",
                  DisplaySoftShadows ? "On" : "Off");
@@ -194,6 +195,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         snprintf(string, 256, "Sub-pixel pan: %s",
                  DisplaySubPixel ? "On" : "Off");
         break;
+#endif
 
     case MENU_ID_DISPLAY_VR:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_VR));

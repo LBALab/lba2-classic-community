@@ -132,9 +132,8 @@ if(LBA2_OPENXR AND ANDROID AND TARGET openxr_loader)
         COMMENT "Staging OpenXR loader next to liblba2cc.so"
     )
 endif()
-if(GPURENDERER)
-    target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gly)
-endif()
+# gly also supplies the no-op stubs when the GPU renderer is compiled out.
+target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gly)
 if (WIN32)
     target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gdi32 user32 ddraw winmm kernel32)
     if(LBA2_LINK_STATIC AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

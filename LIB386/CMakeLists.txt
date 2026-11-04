@@ -38,6 +38,6 @@ if(MVIDEO_BACKEND STREQUAL "smacker" OR LBA2_BUILD_TESTS)
   add_subdirectory(VIDEO_AUDIO_RESAMPLE)
 endif()
 
-if(GPURENDERER)
-  add_subdirectory(GL)
-endif()
+# Always built: with GPURENDERER off, RENDER_GL.CPP provides the no-op
+# stubs that renderer-agnostic callers link against.
+add_subdirectory(GL)
