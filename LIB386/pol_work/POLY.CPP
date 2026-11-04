@@ -23,10 +23,6 @@ extern S32 GPURendererActive;
 extern "C" S32 GL_PolyCamCount;
 extern "C" S32 GL_PolyCam[4][3];
 
-/* Temporary perf instrumentation: GL vs SW fallback counts in Fill_Poly */
-S32 GL_PerfAccept = 0;
-S32 GL_PerfReject = 0;
-S32 GL_PerfRejectByType[32];
 #endif
 
 #include <limits.h>
@@ -183,13 +179,9 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
                                              Ptr_Points);
         GL_SetPolyCamera(NULL, 0);
         if (glResult != 0) {
-            GL_PerfAccept++;
             return glResult;
         }
         /* GL didn't handle this polygon type — fall through to SW. */
-        GL_PerfReject++;
-        if (Type_Poly >= 0 && Type_Poly < 32)
-            GL_PerfRejectByType[Type_Poly]++;
     } else {
         GL_PolyCamCount = 0;
     }

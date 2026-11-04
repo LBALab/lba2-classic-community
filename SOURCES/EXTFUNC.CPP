@@ -478,12 +478,6 @@ void AffGrilleExt() {
 
     {
         U32 tnT0 = SDL_GetTicks();
-#ifdef USE_GPURENDERER
-        extern S32 GL_PerfAccept;
-        extern S32 GL_PerfReject;
-        extern S32 GL_PerfRejectByType[32];
-        S32 acc0 = GL_PerfAccept, rej0 = GL_PerfReject;
-#endif
         AffichageTerrainZBuf();
         U32 tnT1 = SDL_GetTicks();
         {
@@ -491,22 +485,6 @@ void AffGrilleExt() {
             s_tnPerfFrame++;
             if (s_tnPerfFrame % 300 == 150) {
                 Log_Debug("GrillePerf: terrain=%dms", (S32)(tnT1 - tnT0));
-            }
-            if (s_tnPerfFrame % 300 == 150) {
-#ifdef USE_GPURENDERER
-                S32 rd = GL_PerfReject - rej0;
-                char buf[160];
-                int n = 0;
-                n = snprintf(buf, sizeof(buf),
-                             "PolyStats: accept=%d reject=%d byType:",
-                             GL_PerfAccept - acc0, rd);
-                for (int t = 0; t < 32 && n < (int)sizeof(buf) - 8; t++) {
-                    if (GL_PerfRejectByType[t])
-                        n += snprintf(buf + n, sizeof(buf) - n, " %d:%d",
-                                      t, GL_PerfRejectByType[t]);
-                }
-                Log_Info("%s", buf);
-#endif
             }
         }
     }

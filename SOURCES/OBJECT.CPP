@@ -1168,7 +1168,6 @@ void ChangeCube() {
     T_OBJET *ptrobj = &ListObjet[NUM_PERSO];
     S32 oldcube;
     S32 flagload;
-    U32 cubeT0 = SDL_GetTicks();
 
     APtObj = ptrobj;
 
@@ -1430,9 +1429,6 @@ void ChangeCube() {
 
     LastValidePos = ValidePos = FALSE;
     ptrobj->CarryBy = -1;
-
-    Log_Info("CubePerf: cube=%d mode=%d load=%dms", (S32)NumCube, (S32)CubeMode,
-             (S32)(SDL_GetTicks() - cubeT0));
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -6385,13 +6381,6 @@ startaffscene:
         objDiagSortEnd = SDL_GetPerformanceCounter();
         // NumObjFollow masqué on
         // doit redessiner la camera
-        {
-            static S32 s_restartPerfLog = 0;
-            if (s_restartPerfLog < 10) {
-                Log_Info("AffScenePerf: camera restart pass");
-                s_restartPerfLog++;
-            }
-        }
         if (flagflip == AFF_ALL_FLIP OR flagflip == AFF_ALL_NO_FLIP) {
             // Car il y a un LockTimer() just après
             UnlockTimer();
