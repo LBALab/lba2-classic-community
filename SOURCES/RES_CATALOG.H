@@ -34,6 +34,13 @@ extern "C" {
 #define RES_MIN_H 200
 #define RES_MAX_H ADELINE_MAX_Y_RES
 
+/* Quest 3 per-eye swapchain recommendation. The engine sizes its framebuffer
+   before the OpenXR session exists, so the boot resolver cannot query the
+   runtime; this value is shared by that default and by the native rung of the
+   head-mounted ladder. */
+#define RES_QUEST_NATIVE_W 1680
+#define RES_QUEST_NATIVE_H 1760
+
 /* One selectable mode. `tag` is a short provenance word ("classic",
    "recommended", "experimental", "native", "advanced") used by the console
    listing; the menu ignores it and formats its own labels. Points at a

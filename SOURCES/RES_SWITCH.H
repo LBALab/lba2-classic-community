@@ -58,15 +58,16 @@ ResRevertChoice Res_RunRevertDialogIfPending(void);
 void Res_CancelPendingRevert(void);
 
 /* True if (w, h) is a valid render resolution: within the engine's range
-   (320..1920 wide by 200..1080 tall, the RES_MIN/RES_MAX bounds in
-   RES_CATALOG.H) and W % 8 == 0. Same check Res_Switch applies to its
-   arguments. Exposed so the cfg-read path can reject corrupt or out-of-range
-   stored values without first calling Res_Switch. */
+   (RES_MIN_W..RES_MAX_W by RES_MIN_H..RES_MAX_H in RES_CATALOG.H) and
+   W % 8 == 0. Same check Res_Switch applies to its arguments. Exposed so the
+   cfg-read path can reject corrupt or out-of-range stored values without first
+   calling Res_Switch. */
 bool Res_ValidateDimensions(U32 w, U32 h);
 
 /* Boot-time resolution resolver: writes the effective (W, H) the engine
    should boot at, following the precedence
-       --resolution CLI  >  lba2.cfg ResolutionX/Y  >  compile-time default.
+       --resolution CLI  >  lba2.cfg ResolutionX/Y  >  Quest native (OpenXR
+       builds)  >  widescreen auto-detect  >  compile-time default.
    Reads lba2.cfg via a transient DefFileBuffer init against an internal
    static buffer; never allocates from the engine heap, so it's safe to
    call BEFORE Mem_ConfigureScreenBuffers / InitMainBuffer. Requires
@@ -84,14 +85,15 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH);
 bool Res_AutoDetectDimensions(U32 *outW, U32 *outH);
 
 /* One-word provenance of the last Res_LoadBootDimensions result, for the boot
-   log: "CLI", "cfg", "auto", or "default". Static literal; never NULL. */
+   log: "CLI", "cfg", "quest", "auto", or "default". Static literal; never
+   NULL. */
 const char *Res_BootDimensionsSource(void);
 
-/* True when the live resolution was auto-detected (or fell back to the
-   compile-time default) rather than chosen by the player. WriteConfigFile uses
-   this to skip persisting ResolutionX/Y, so an auto resolution re-derives from
-   the display each launch instead of freezing into the cfg. Cleared by a
-   successful Res_Switch and by a CLI/cfg value at boot. */
+/* True when the live resolution was derived rather than chosen by the player:
+   Quest native, display auto-detect, or the compile-time default.
+   WriteConfigFile uses this to skip persisting ResolutionX/Y, so a derived
+   resolution re-derives each launch instead of freezing into the cfg. Cleared
+   by a successful Res_Switch and by a CLI/cfg value at boot. */
 bool Res_ResolutionIsAutoDerived(void);
 
 /* Read the boot fullscreen choice (lba2.cfg DisplayFullScreen) the same
