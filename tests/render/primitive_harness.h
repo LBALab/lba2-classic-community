@@ -49,7 +49,7 @@ struct Struc_Point {
     S16 Pt_XE, Pt_YE;
     U16 Pt_MapU, Pt_MapV, Pt_Light, Pt_ZO;
     S32 Pt_W;
-#ifdef USE_GPURENDERER
+#ifdef LBA2_POINT_REPMASK
     U16 Pt_RepMask; // must stay in step with LIB386/H/POLYGON/POLY.H
 #endif
 };

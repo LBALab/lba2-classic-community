@@ -76,9 +76,10 @@ typedef struct {
     U16 Pt_Light; ///< intensity (0.8.0)
     U16 Pt_ZO;    ///< normalized Z
     S32 Pt_W;     ///< 2^31 / Z (non normalized)
-#ifdef USE_GPURENDERER
+#ifdef LBA2_POINT_REPMASK
     /* GL-only vertex attribute. Keeping it out of software-renderer builds
-       preserves the 16-byte layout the ASM fillers walk. */
+       preserves the 16-byte layout the ASM fillers walk. Defined globally
+       for GL builds so every translation unit sees the same layout. */
     U16 Pt_RepMask; ///< texture repeat mask
 #endif
 } Struc_Point;

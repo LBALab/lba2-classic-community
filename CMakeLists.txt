@@ -57,6 +57,13 @@ endif()
 # Software vs OpenGL at runtime via the Display menu.
 option(GPURENDERER "Enable GPU renderer (OpenGL 2.1 / GLES 2.0)" ON)
 
+# The GL-only Pt_RepMask field changes Struc_Point's layout, so every
+# translation unit in a GL build must agree on it. Keep this separate from
+# USE_GPURENDERER, which is scoped to the targets that actually call GL.
+if(GPURENDERER)
+    add_compile_definitions(LBA2_POINT_REPMASK)
+endif()
+
 # OpenXR runtime (Quest 3 / headset input + immersive frame present).
 # Default OFF. When ON, the engine locates the OpenXR C headers + a
 # prebuilt or fetched Khronos OpenXR loader and links it as the
