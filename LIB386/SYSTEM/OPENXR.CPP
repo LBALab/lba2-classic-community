@@ -2023,7 +2023,7 @@ static S32 OpenXR_EnsureFrameBegun(void) {
 #endif
 }
 
-#ifdef __ANDROID__
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
 /* GL error checks are a runtime diagnostic, not part of every present. */
 static S32 OpenXR_GLDebugEnabled(void) {
     static S32 enabled = -1;

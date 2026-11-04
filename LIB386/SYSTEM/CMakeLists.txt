@@ -14,11 +14,16 @@ if(GPURENDERER)
     target_compile_definitions(sys PRIVATE USE_GPURENDERER)
 endif()
 
+if(ANDROID)
+    # LOG.CPP and N_MALLOC.CPP call __android_log_print in every build.
+    target_link_libraries(sys PRIVATE log)
+endif()
+
 if(LBA2_OPENXR)
     target_compile_definitions(sys PRIVATE LBA2_OPENXR=1)
     target_link_libraries(sys PRIVATE openxr_loader)
     if(ANDROID)
-        target_link_libraries(sys PRIVATE EGL log android)
+        target_link_libraries(sys PRIVATE EGL android)
     endif()
     if(LBA2_OXR_DIRECT)
         target_compile_definitions(sys PRIVATE LBA2_OXR_DIRECT_DEFAULT=1)
