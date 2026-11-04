@@ -65,6 +65,32 @@ function Fail([string]$Message) {
     throw $Message
 }
 
+function Write-Banner {
+    Write-Host ""
+    Write-Host "  _     ____    _    ____  "
+    Write-Host " | |   | __ )  / \  |___ \ "
+    Write-Host " | |   |  _ \ / _ \   __) |"
+    Write-Host " | |___| |_) / ___ \ / __/ "
+    Write-Host " |_____|____/_/   \_\_____|"
+    Write-Host ""
+    Write-Host " Twinsen's Odyssey on Meta Quest - installer"
+    Write-Host ""
+}
+
+function Write-Step([string]$Message) {
+    Write-Host ""
+    Write-Host "==> $Message"
+}
+
+function Write-Finished {
+    Write-Host ""
+    Write-Host "============================================================"
+    Write-Host " LBA2 is installed on the Quest."
+    Write-Host " Launch it from the library: Library > Unknown Sources."
+    Write-Host "============================================================"
+    Write-Host ""
+}
+
 function Find-Adb {
     $candidates = @()
 
@@ -121,6 +147,9 @@ function Cleanup {
 }
 
 try {
+    Write-Banner
+    Write-Step "Starting the installer"
+
     if ($AdbPath) {
         if (-not (Test-Path -LiteralPath $AdbPath -PathType Leaf)) {
             Fail "adb.exe not found: $AdbPath"
@@ -133,7 +162,7 @@ try {
             $Adb = $existingAdb
             Write-Host "Using existing adb: $Adb"
         } else {
-            Write-Host "Downloading temporary Android platform-tools..."
+            Write-Step "Downloading Android platform-tools"
             $toolsZip = Join-Path $Temp "platform-tools.zip"
             Invoke-WebRequest -Uri $PlatformToolsUrl -OutFile $toolsZip -UseBasicParsing
             Expand-Archive -LiteralPath $toolsZip -DestinationPath $Temp -Force
@@ -159,6 +188,7 @@ try {
         $ApkPath = (Resolve-Path -LiteralPath $Apk).Path
         $ApkName = Split-Path -Leaf $ApkPath
     } else {
+        Write-Step "Reading the Quest release"
         $api = if ($Tag) {
             "https://api.github.com/repos/$Repo/releases/tags/$Tag"
         } else {
@@ -189,7 +219,7 @@ try {
 
         $ApkName = $asset.name
         $ApkPath = Join-Path $Temp $ApkName
-        Write-Host "Downloading $ApkName from release $($release.tag_name)..."
+        Write-Step "Downloading $ApkName (release $($release.tag_name))"
         $downloadHeaders = @{
             "User-Agent" = "lba2-quest-installer"
             "Accept" = "application/octet-stream"
@@ -241,17 +271,32 @@ try {
     }
 
     function Invoke-Adb {
-        if ($script:Serial) {
-            & $script:Adb -s $script:Serial @args
-        } else {
-            & $script:Adb @args
+        # ADB writes normal status messages (including server startup) to stderr.
+        # Windows PowerShell can turn native stderr output into terminating
+        # errors when ErrorActionPreference is "Stop". Keep it non-terminating
+        # for this native command and use LASTEXITCODE for real failure checks.
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            if ($script:Serial) {
+                & $script:Adb -s $script:Serial @args
+            } else {
+                & $script:Adb @args
+            }
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
         }
     }
 
-    Write-Host "Starting adb. Allow any Windows permission prompt."
-    & $Adb start-server 2>&1 | Out-Null
-    Write-Host "Checking for a connected Quest..."
-    $devices = & $Adb devices 2>&1
+    Write-Step "Starting adb"
+    Write-Host "Allow any Windows permission prompt."
+    Invoke-Adb start-server | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Could not start the ADB server. Try closing other ADB instances and retrying."
+    }
+
+    Write-Step "Checking for a connected Quest"
+    $devices = Invoke-Adb devices 2>&1
     $online = @($devices |
         Where-Object { $_ -match "\tdevice\s*$" } |
         ForEach-Object { ($_ -split "\t")[0].Trim() })
@@ -288,7 +333,7 @@ Checklist:
         $Serial = $online[0]
     }
 
-    Write-Host "Copying game data to $Destination ..."
+    Write-Step "Copying game files to $Destination"
     Invoke-Adb shell mkdir -p $Destination | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Fail "Could not create $Destination on the headset."
@@ -306,6 +351,7 @@ Checklist:
         Invoke-Adb uninstall $Package 2>$null | Out-Null
     }
 
+    Write-Step "Installing $ApkName"
     $output = Invoke-Adb install -r $ApkPath 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) {
         Write-Host $output
@@ -340,6 +386,8 @@ Checklist:
             Write-Host "Installed, but the app could not be launched automatically. Open it from the Quest library."
         }
     }
+
+    Write-Finished
 }
 finally {
     Cleanup
