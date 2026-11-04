@@ -49,6 +49,7 @@ struct Struc_Point {
     S16 Pt_XE, Pt_YE;
     U16 Pt_MapU, Pt_MapV, Pt_Light, Pt_ZO;
     S32 Pt_W;
+    U16 Pt_RepMask; // must stay in step with LIB386/H/POLYGON/POLY.H
 };
 struct STRUC_POLY3_LIGHT {
     U16 P1, P2, P3, __padding, Couleur, Normale;
