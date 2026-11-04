@@ -53,6 +53,10 @@ extern "C" PTR_U8 BufferBrick;
 extern "C" U32 ModeDesiredX;
 extern "C" U32 ModeDesiredY;
 
+/* ProjectShadow writes the projected shadow depths. The equivalence test
+   never reads them, so GRILLE.CPP only needs the storage to link. */
+U16 ShadowZO[4];
+
 extern "C" U8 asm_CodeJeu;
 extern "C" S32 asm_XMap;
 extern "C" S32 asm_YMap;
