@@ -91,6 +91,22 @@ function Write-Finished {
     Write-Host ""
 }
 
+function Wait-ForExit {
+    # Keep the console open when launched from Explorer.
+    # Skip when input is redirected so automation does not block.
+    if ([Console]::IsInputRedirected) {
+        return
+    }
+    Write-Host ""
+    Write-Host "Press any key to exit..."
+    try {
+        $null = [Console]::ReadKey($true)
+    } catch {
+        $null = Read-Host
+    }
+    Write-Host ""
+}
+
 function Find-Adb {
     $candidates = @()
 
@@ -136,6 +152,7 @@ $Temp = Join-Path $env:TEMP ("lba2-quest-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $Temp -Force | Out-Null
 $Serial = ""
 $Adb = ""
+$Failed = $false
 
 function Cleanup {
     if (-not $KeepTools) {
@@ -389,6 +406,18 @@ Checklist:
 
     Write-Finished
 }
+catch {
+    # Print the failure now; the exit prompt below would otherwise hide it.
+    $Failed = $true
+    Write-Host ""
+    Write-Host "Installation failed:"
+    Write-Host $_.Exception.Message
+}
 finally {
     Cleanup
+}
+
+Wait-ForExit
+if ($Failed) {
+    exit 1
 }

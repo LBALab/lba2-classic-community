@@ -68,6 +68,16 @@ finished() {
     printf '============================================================\n\n'
 }
 
+wait_for_exit() {
+    # Keep the window open when the script is launched from a file manager.
+    # Skip when stdin is not a terminal so pipelines and CI do not block.
+    if [ -t 0 ]; then
+        printf 'Press any key to exit...'
+        read -r -n 1 -s || true
+        printf '\n'
+    fi
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --assets) ASSETS="${2:-}"; shift 2 ;;
@@ -116,6 +126,7 @@ cleanup() {
             rm -rf "$TMP"
         fi
     fi
+    wait_for_exit
 }
 trap cleanup EXIT
 
