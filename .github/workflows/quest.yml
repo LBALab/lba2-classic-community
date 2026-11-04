@@ -1,29 +1,47 @@
-name: Build Quest APK (reusable)
+name: Quest
 
-# Reusable build steps for the Meta Quest (OpenXR) APK target. Called by
-# release-quest.yml (tag-triggered) and release-latest.yml (rolling
-# pre-release). Produces a `dist/` directory with the debug-signed Quest
-# APK and uploads it as a workflow artifact named `<artifact-prefix>-<arch>`.
+# Build, validate, and release the Meta Quest (OpenXR) APK. One workflow
+# covers the push/PR build (like linux.yml / windows.yml), the tag release,
+# and the rolling latest release (release-latest.yml calls it through
+# workflow_call). Produces `lba2cc-<version>-quest-arm64-v8a.apk` with the
+# Khronos OpenXR loader staged from the official AAR and the Quest manifest.
 #
-# The APK uses the same Android toolchain as reusable-build-android.yml,
-# plus the Khronos OpenXR loader staged from the official AAR and the
-# Quest manifest (packaging/android/AndroidManifest.quest.xml).
-#
-# See docs/RELEASING.md "Adding a new release target" for the recipe this
-# file follows, and docs/ANDROID.md "OpenXR (Meta Quest 3)" for the
-# runtime side.
+# See docs/ANDROID.md "OpenXR (Meta Quest 3)" for the runtime side.
 
 on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
   workflow_call:
     inputs:
       artifact-prefix:
         description: >-
           Prefix for the upload-artifact name. Caller appends -<arch>.
-          Tag releases pass "Quest" (default); release-latest passes
+          Tag/validation runs use "Quest"; release-latest passes
           "latest-quest" so its download-artifact pattern picks them up.
         type: string
         required: false
         default: Quest
+
+concurrency:
+  group: ${{ github.workflow }}-quest-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  ARTIFACT_PREFIX: ${{ inputs.artifact-prefix || 'Quest' }}
 
 jobs:
   build:
@@ -186,5 +204,27 @@ jobs:
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
+          name: ${{ env.ARTIFACT_PREFIX }}-${{ matrix.arch }}
           path: dist
+
+  release:
+    name: Attach to GitHub Release
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: Quest-*
+          merge-multiple: true
+
+      - name: Release Quest APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            lba2cc-*-quest-*.apk
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true

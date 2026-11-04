@@ -446,8 +446,8 @@ cmake --build build/quest
 
 CI publishes the same bundle as
 `lba2cc-<version>-quest-arm64-v8a.apk`:
-`.github/workflows/reusable-build-quest.yml` stages the loader from the
-Khronos AAR, configures the `quest` preset, and passes
+`.github/workflows/quest.yml` stages the loader from the Khronos AAR,
+configures the `quest` preset, and passes
 `packaging/android/AndroidManifest.quest.xml` to the bundler.
 
 ### License

@@ -22,6 +22,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 | `linux.yml` | Validation | push, PR, dispatch | `build` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick` |
 | `macos.yml` | Validation | push, PR, dispatch | `build` | Same, on `macos-latest` (`macos_arm64` preset) |
 | `windows.yml` | Validation | push, PR, dispatch | `build` | Same, on Windows MSYS2 UCRT64 (`windows_ucrt64` preset) |
+| `quest.yml` | Validation + Release | push, PR, `v*` tags, dispatch, `workflow_call` | `build` → `release` | Builds the Quest APK on push/PR and attaches it to tag releases; `release-latest.yml` reuses the build through `workflow_call` |
 | `test.yml` | Validation | push, PR, dispatch | `test` | Docker: `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only, slow) |
 | `format.yml` | Validation | push, PR, dispatch | `check-format` | `scripts/ci/check-format.sh` (clang-format) |
 | `pr-title.yml` | Validation | PR | `lint` | Conventional-commit lint on the PR title |
