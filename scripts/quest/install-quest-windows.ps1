@@ -3,15 +3,20 @@
 Install the prebuilt LBA2 Quest APK and copy the retail game data.
 
 .DESCRIPTION
-Downloads Android platform-tools into a temporary directory, fetches the
-latest Quest APK from the fork's GitHub Releases, copies the folder containing
-lba2.hqr to /sdcard/lba2cc/, and installs the APK.
+Uses an existing adb when available, or downloads Android platform-tools into
+a temporary directory. Fetches the latest Quest APK from the fork's GitHub
+Releases, copies the folder containing lba2.hqr to /sdcard/lba2cc/, and
+installs the APK.
 
 .PARAMETER Assets
 Folder containing lba2.hqr. Prompted if omitted.
 
 .PARAMETER Apk
 Use a local APK instead of downloading a release.
+
+.PARAMETER AdbPath
+Path to an existing adb.exe. If omitted, the installer looks for an
+installed adb in PATH and the Android SDK, then downloads a temporary copy.
 
 .PARAMETER Tag
 Release tag to install. Default is the latest stable release; use "latest"
@@ -39,6 +44,7 @@ Print the actions without touching the headset.
 param(
     [string]$Assets = "",
     [string]$Apk = "",
+    [string]$AdbPath = "",
     [string]$Tag = "",
     [switch]$Clean,
     [switch]$NoLaunch,
@@ -49,7 +55,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Repo = "s-gelazevicius/lba2-quest"
+$Repo = "simsas-experiments/lba2-classic-quest"
 $Package = "org.lbalab.lba2cc"
 $Activity = "org.libsdl.app.SDLActivity"
 $Destination = "/sdcard/lba2cc"
@@ -57,6 +63,43 @@ $PlatformToolsUrl = "https://dl.google.com/android/repository/platform-tools-lat
 
 function Fail([string]$Message) {
     throw $Message
+}
+
+function Find-Adb {
+    $candidates = @()
+
+    $command = Get-Command adb.exe -ErrorAction SilentlyContinue
+    if (-not $command) {
+        $command = Get-Command adb -ErrorAction SilentlyContinue
+    }
+    if ($command -and $command.Source) {
+        $candidates += $command.Source
+    }
+
+    $roots = @()
+    if ($env:ANDROID_HOME) { $roots += $env:ANDROID_HOME }
+    if ($env:ANDROID_SDK_ROOT) { $roots += $env:ANDROID_SDK_ROOT }
+    if ($env:LOCALAPPDATA) { $roots += (Join-Path $env:LOCALAPPDATA "Android\Sdk") }
+    if ($env:USERPROFILE) { $roots += (Join-Path $env:USERPROFILE "AppData\Local\Android\Sdk") }
+    if ($env:ProgramFiles) { $roots += (Join-Path $env:ProgramFiles "Android\android-sdk") }
+    if (${env:ProgramFiles(x86)}) {
+        $roots += (Join-Path ${env:ProgramFiles(x86)} "Android\android-sdk")
+    }
+
+    foreach ($root in $roots) {
+        $candidates += (Join-Path $root "platform-tools\adb.exe")
+    }
+    $candidates += "C:\platform-tools\adb.exe"
+    if ($env:USERPROFILE) {
+        $candidates += (Join-Path $env:USERPROFILE "platform-tools\adb.exe")
+    }
+
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    return $null
 }
 
 if ($env:OS -ne "Windows_NT") {
@@ -78,19 +121,35 @@ function Cleanup {
 }
 
 try {
-    Write-Host "Downloading temporary Android platform-tools..."
-    $toolsZip = Join-Path $Temp "platform-tools.zip"
-    Invoke-WebRequest -Uri $PlatformToolsUrl -OutFile $toolsZip -UseBasicParsing
-    Expand-Archive -LiteralPath $toolsZip -DestinationPath $Temp -Force
-    $Adb = Join-Path (Join-Path $Temp "platform-tools") "adb.exe"
-    if (-not (Test-Path -LiteralPath $Adb)) {
-        Fail "adb.exe was not found after extracting platform-tools."
-    }
-    try {
-        Get-ChildItem -LiteralPath (Split-Path -Parent $Adb) -File |
-            Unblock-File -ErrorAction Stop
-    } catch {
-        # Unblock-File is Windows-only; ignore on non-Windows test hosts.
+    if ($AdbPath) {
+        if (-not (Test-Path -LiteralPath $AdbPath -PathType Leaf)) {
+            Fail "adb.exe not found: $AdbPath"
+        }
+        $Adb = (Resolve-Path -LiteralPath $AdbPath).Path
+        Write-Host "Using adb: $Adb"
+    } else {
+        $existingAdb = Find-Adb
+        if ($existingAdb) {
+            $Adb = $existingAdb
+            Write-Host "Using existing adb: $Adb"
+        } else {
+            Write-Host "Downloading temporary Android platform-tools..."
+            $toolsZip = Join-Path $Temp "platform-tools.zip"
+            Invoke-WebRequest -Uri $PlatformToolsUrl -OutFile $toolsZip -UseBasicParsing
+            Expand-Archive -LiteralPath $toolsZip -DestinationPath $Temp -Force
+            $Adb = Join-Path (Join-Path $Temp "platform-tools") "adb.exe"
+            if (-not (Test-Path -LiteralPath $Adb)) {
+                Fail "adb.exe was not found after extracting platform-tools."
+            }
+            try {
+                Get-ChildItem -LiteralPath (Split-Path -Parent $Adb) -File |
+                    Unblock-File -ErrorAction Stop
+            } catch {
+                # Unblock-File is Windows-only; ignore on non-Windows test hosts.
+            }
+            Write-Host "Windows may ask for permission for adb.exe (SmartScreen or Firewall)."
+            Write-Host "Allow it; adb only listens on localhost."
+        }
     }
 
     if ($Apk) {
@@ -189,6 +248,8 @@ try {
         }
     }
 
+    Write-Host "Starting adb. Allow any Windows permission prompt."
+    & $Adb start-server 2>&1 | Out-Null
     Write-Host "Checking for a connected Quest..."
     $devices = & $Adb devices 2>&1
     $online = @($devices |
@@ -210,6 +271,7 @@ Checklist:
   - USB debugging is enabled in the headset developer settings.
   - The USB cable supports data, not just charging.
   - On Windows, install the Meta Quest ADB driver if the device is not listed.
+  - If Windows showed a firewall or SmartScreen prompt for adb.exe, allow it.
   - Accept the USB debugging prompt in the headset.
 "@
         Fail $message

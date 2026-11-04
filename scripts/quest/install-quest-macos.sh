@@ -23,7 +23,7 @@
 # enabled, a data-capable USB cable, and your own LBA2 game data.
 set -euo pipefail
 
-REPO="s-gelazevicius/lba2-quest"
+REPO="simsas-experiments/lba2-classic-quest"
 PACKAGE="org.lbalab.lba2cc"
 ACTIVITY="org.libsdl.app.SDLActivity"
 DEST="/sdcard/lba2cc"

@@ -49,7 +49,9 @@ Windows:
 scripts\quest\install-quest-windows.cmd
 ```
 
-The installer downloads temporary Android platform-tools, fetches the latest Quest APK from the [Releases page](https://github.com/s-gelazevicius/lba2-quest/releases), asks for the folder containing `lba2.hqr`, copies the game data to `/sdcard/lba2cc/`, and installs the APK. It does not need Docker or root.
+The installer downloads temporary Android platform-tools, fetches the latest Quest APK from the [Releases page](https://github.com/simsas-experiments/lba2-classic-quest/releases), asks for the folder containing `lba2.hqr`, copies the game data to `/sdcard/lba2cc/`, and installs the APK. It does not need Docker or root.
+
+On Windows, the installer reuses an existing `adb` from `PATH` or the Android SDK when it finds one; otherwise it downloads a temporary copy and Windows may ask for permission. Use `-AdbPath` to point at your own `adb.exe`.
 
 If adb cannot see the headset, enable Developer Mode and USB debugging, use a data cable, and accept the debugging prompt in the headset. On Windows, install the Meta Quest ADB driver if the device is not listed.
 
@@ -80,7 +82,7 @@ The same source also produces:
 | Windows | `lba2cc-<version>-windows-x64.zip` |
 | Android | `lba2cc-<version>-android-<abi>.apk` |
 
-All are published on the [Releases page](https://github.com/s-gelazevicius/lba2-quest/releases).
+All are published on the [Releases page](https://github.com/simsas-experiments/lba2-classic-quest/releases).
 
 ## Building from source
 
