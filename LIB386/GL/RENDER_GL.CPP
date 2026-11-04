@@ -5741,7 +5741,7 @@ static void FlushActiveBatch(void) {
                     /* Covers every draw submitted up to the previous wrap:
                        the slots being reused were written before it, so the
                        GPU has long consumed them. */
-                    glClientWaitSync(s_ringWrapFence, 0, UINT64_MAX);
+                    glClientWaitSync(s_ringWrapFence, 0, (GLuint64)-1);
                     glDeleteSync(s_ringWrapFence);
                 }
                 s_ringWrapFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,
