@@ -46,7 +46,7 @@ For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## Playing
 
-This fork is built from source. The release links below point at the upstream community project and are not builds of this fork.
+This fork is built from source. Quest builds are also published on this fork's [Releases page](https://github.com/s-gelazevicius/lba2-quest/releases); the upstream links below are the community project's releases.
 
 **Upstream stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
 
@@ -83,7 +83,67 @@ bash scripts/dev/build-and-install-quest.sh
 
 The wizard builds `out/build/quest`, pushes the retail HQR files to `/sdcard/lba2cc/`, and installs the `org.lbalab.lba2cc` APK. See [docs/ANDROID.md](docs/ANDROID.md) for the OpenXR setup and [docs/QUEST_CONTROLS.md](docs/QUEST_CONTROLS.md) for the controller map.
 
-Release builds on this fork also publish `lba2cc-<version>-quest-arm64-v8a.apk` as a GitHub release asset; sideload it with `adb install -r`.
+### Install on Quest (prebuilt APK)
+
+The installers download Android platform-tools into a temporary folder, fetch
+the latest Quest APK from [this fork's releases](https://github.com/s-gelazevicius/lba2-quest/releases),
+ask for the folder containing `lba2.hqr`, copy the game data to
+`/sdcard/lba2cc/`, and install the APK.
+
+Requirements:
+
+- Meta Quest 2/3/Pro with Developer Mode and USB debugging enabled
+- A data-capable USB cable
+- Your own LBA2 game data; no assets are bundled
+
+Linux:
+
+```bash
+bash scripts/quest/install-quest-linux.sh
+```
+
+macOS:
+
+```bash
+bash scripts/quest/install-quest-macos.sh
+```
+
+Windows:
+
+```bat
+scripts\quest\install-quest-windows.cmd
+```
+
+Or run PowerShell directly:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\quest\install-quest-windows.ps1
+```
+
+The scripts accept `--assets <path>`, `--apk <path>`, `--tag <tag|latest>`,
+`--clean`, `--no-launch`, `--keep-tools`, and `--dry-run` (Windows uses
+`-Assets`, `-Apk`, etc.). They install adb temporarily and do not require
+Docker or root.
+
+If the app was previously installed with a different debug key, the script
+offers to uninstall and reinstall. App-local saves may be lost; game data in
+`/sdcard/lba2cc/` is kept.
+
+Manual fallback:
+
+```bash
+adb install -r lba2cc-<version>-quest-arm64-v8a.apk
+adb shell mkdir -p /sdcard/lba2cc
+adb push /path/to/lba2 /sdcard/lba2cc/
+```
+
+Troubleshooting:
+
+- No device in `adb devices`: enable Developer Mode and USB debugging, use a
+  data cable, and accept the debugging prompt in the headset.
+- Windows does not list the headset: install the Meta Quest ADB driver.
+- Apple Silicon reports a bad CPU type: install Rosetta 2.
+- Signature mismatch: rerun with `--clean` (or `-Clean`).
 
 ### Linux
 

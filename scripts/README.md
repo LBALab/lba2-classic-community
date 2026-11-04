@@ -31,6 +31,19 @@ not maintained tooling.
 | [dev/build-and-install-quest.sh](dev/build-and-install-quest.sh) | End-to-end Meta Quest 3 wizard: configure the `quest` preset (consumes the Khronos OpenXR loader from `out/android/openxr/install/`), build, bundle an APK, push retail HQRs to `/sdcard/lba2cc/`, and `adb install` on the headset. | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/check-16k-align.sh](dev/check-16k-align.sh) | Verify an Android APK is safe on 16 KB memory-page devices (segment alignment + uncompressed `.so`). | CI (android), [ANDROID.md](../docs/ANDROID.md) |
 
+## Quest install (`quest/`)
+
+One-command installers for the prebuilt Quest APK. Each downloads temporary
+Android platform-tools, fetches the release APK, copies the retail game data,
+and installs on the headset.
+
+| Script | What it does | Invoked by |
+|--------|--------------|------------|
+| [quest/install-quest-linux.sh](quest/install-quest-linux.sh) | Download the latest Quest APK, copy game data to `/sdcard/lba2cc/`, and install with temporary adb on Linux. | manual ([README.md](../README.md#install-on-quest-prebuilt-apk)) |
+| [quest/install-quest-macos.sh](quest/install-quest-macos.sh) | Same for macOS, including the Apple Silicon/Rosetta check. | manual ([README.md](../README.md#install-on-quest-prebuilt-apk)) |
+| [quest/install-quest-windows.ps1](quest/install-quest-windows.ps1) | Same for Windows, with a temporary `adb.exe` and PowerShell prompts. | manual ([README.md](../README.md#install-on-quest-prebuilt-apk)) |
+| [quest/install-quest-windows.cmd](quest/install-quest-windows.cmd) | Double-click launcher for the PowerShell installer. | manual |
+
 ## Release dry-runs (`dev/`)
 
 Local wrappers that build a release binary and then delegate to the matching
