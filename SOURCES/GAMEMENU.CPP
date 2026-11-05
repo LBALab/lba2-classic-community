@@ -34,7 +34,7 @@
 #include <POLYGON/POLYFILT.H>  /* POLY_TEX_FILTER_* (Texture filter row) */
 
 #include "GAMEMENU_MOUSE.H"
-#include "CONFIG_FILE.H" /* ConfigFile_MarkVSyncSetThisRun, ConfigFile_Setting (Graphics rows) */
+#include "CONFIG_FILE.H" /* ConfigFile_MarkVSyncSetThisRun, ConfigFile_Setting (Display's rendering rows) */
 #include "UI_LAYOUT.H"   /* UI_CENTER_X, UI_VCENTER_OFS */
 
 #include <dirent.h>
@@ -102,10 +102,9 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_RETAIL_FIXES 2117
 #define MENU_ID_CAMERA 2118
 #define MENU_ID_CAMERA_INTERIOR 2119
-#define MENU_ID_GRAPHICS 2120
-#define MENU_ID_TEXTURE_FILTER 2121
-#define MENU_ID_DITHER_SHADING 2122
-#define MENU_ID_PRESENT_FILTER 2123
+#define MENU_ID_TEXTURE_FILTER 2120
+#define MENU_ID_DITHER_SHADING 2121
+#define MENU_ID_PRESENT_FILTER 2122
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -141,7 +140,7 @@ U16 RealGameMainMenu[] = {
 
 U16 GameOptionMenu[] = {
     0,   // selected
-    7,   // nb entries
+    6,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -149,8 +148,6 @@ U16 GameOptionMenu[] = {
     26, // menu precedent
     0,
     MENU_ID_DISPLAY,
-    0,
-    MENU_ID_GRAPHICS,
     0,
     MENU_ID_SOUND_VOLUME,
     0,
@@ -164,12 +161,13 @@ U16 GameOptionMenu[] = {
 // Display submenu: a "Resolution: <current>" row that opens the resolution
 // sub-page (GereResolutionMenu), plus a "Vsync" toggle and the "Fullscreen"
 // toggle (moved here from Advanced options because it belongs with the other
-// display settings). Plain "Back" returns to Options. Fullscreen stays the
-// last entry so the always-fullscreen-device path in GereDisplayMenu can drop
-// it by count. See GereDisplayMenu + GereResolutionMenu.
+// display settings), and one cycling row per rendering option BootSettings
+// (CONFIG_FILE.CPP) own (RenderRowCycle). Plain "Back" returns to Options.
+// Fullscreen stays the last entry so the always-fullscreen-device path in
+// GereDisplayMenu can drop it by count. See GereDisplayMenu + GereResolutionMenu.
 U16 DisplayMenu[] = {
     0,   // selected
-    4,   // nb entries
+    7,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -180,28 +178,13 @@ U16 DisplayMenu[] = {
     0,
     MENU_ID_DISPLAY_VSYNC,
     0,
-    MENU_ID_DISPLAY_FULLSCREEN,
-};
-
-// Graphics submenu: the rendering options BootSettings (CONFIG_FILE.CPP) own,
-// one cycling row each. Every row reads and writes its T_SETTING through
-// ConfigFile_Setting, so the range, the default and the "set this run" mark
-// that keeps a menu choice from being overwritten by a per-run environment
-// override all live in the table and nowhere here. See GereGraphicsMenu.
-U16 GraphicsMenu[] = {
-    0,   // selected
-    4,   // nb entries
-    260, // y center
-    0,   // .dia num
-
-    0,
-    26, // menu precedent
-    0,
     MENU_ID_TEXTURE_FILTER,
     0,
     MENU_ID_DITHER_SHADING,
     0,
     MENU_ID_PRESENT_FILTER,
+    0,
+    MENU_ID_DISPLAY_FULLSCREEN,
 };
 
 // Resolution sub-page, opened from the Display submenu's Resolution row.
@@ -452,26 +435,44 @@ const char *GetLocalizedResDialogLabel(int which) {
     return GetLocalizedMenuLabel(kMap[which]);
 }
 
-/* The live value of a Graphics row, read from the settings table rather than
-   from the global it writes, so the menu cannot name a variable the table does
-   not own. A key the table lacks is a programming error; the row then shows
-   its first value rather than reading through NULL. */
-static S32 GraphicsSettingValue(const char *key) {
-    const T_SETTING *decl = ConfigFile_Setting(key);
-    return (decl != NULL) ? *decl->value : 0;
+/* The setting behind a rendering row of the Display page, by its menu id, the
+   three looked up once, here alone: the rows step and read it through the table,
+   so the range, the owner's hook and the "set this run" mark that keeps a menu
+   choice from being overwritten by a per-run override stay there. A key the table
+   lacks says so in the log, and its row shows its first value and does not step. */
+static const T_SETTING *RenderRowSetting(S32 id) {
+    static const char *const keys[] = {"TextureFilter", "DitherShading", "PresentFilter"};
+    static const T_SETTING *rows[3];
+    static S32 resolved = FALSE;
+    if (!resolved) {
+        S32 i;
+        for (i = 0; i < 3; i++) {
+            rows[i] = ConfigFile_Setting(keys[i]);
+            if (rows[i] == NULL)
+                Log_Error("Display menu: no setting named %s", keys[i]);
+        }
+        resolved = TRUE;
+    }
+    return rows[id - MENU_ID_TEXTURE_FILTER];
 }
 
-/* Step a Graphics row to its next value, wrapping at the table's own range,
-   through Settings_Apply so the owner is told (the present filter reaches the
-   window backend through its on_change hook) and the run is marked as having
-   set it: without that mark a value that lands back on what LBA2_TEXFILTER or
-   LBA2_PRESENT_FILTER forced would be written back at the stored preference. */
-static void GraphicsSettingCycle(const char *key) {
-    const T_SETTING *decl = ConfigFile_Setting(key);
+/* What a rendering row shows: the value in use, which for Scaling is the backend's
+   answer rather than the preference, kept for a build that can do it. */
+static S32 RenderRowValue(S32 id) {
+    const T_SETTING *decl = RenderRowSetting(id);
     if (decl == NULL)
-        return;
-    Settings_Apply(decl, (*decl->value >= decl->max) ? decl->min : *decl->value + 1);
+        return 0;
+    return id == MENU_ID_PRESENT_FILTER ? ConfigFile_PresentFilterInUse() : *decl->value;
 }
+
+/* Step a rendering row to its next value. Scaling goes on past a filter the
+   backend refuses, so the row never shows or keeps one the window does not use. */
+static void RenderRowCycle(S32 id) {
+    const T_SETTING *decl = RenderRowSetting(id);
+    if (decl != NULL)
+        Settings_Cycle(decl, RenderRowValue(id), id == MENU_ID_PRESENT_FILTER ? ConfigFile_PresentFilterInUse : NULL);
+}
+
 static void BuildCustomMenuText(S32 num, char *string) {
     // Resolution sub-page rows: id in the reserved range maps to a catalog
     // entry's label (e.g. "1280x720 (16:9)"). s_resMenuCount is set by
@@ -549,12 +550,8 @@ static void BuildCustomMenuText(S32 num, char *string) {
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayVSync ? MENU_LABEL_VSYNC_ON : MENU_LABEL_VSYNC_OFF));
         break;
 
-    case MENU_ID_GRAPHICS:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GRAPHICS));
-        break;
-
     case MENU_ID_TEXTURE_FILTER: {
-        const S32 v = GraphicsSettingValue("TextureFilter");
+        const S32 v = RenderRowValue(num);
         CopyUtf8ToCp850(string, 256,
                         GetLocalizedMenuLabel(v == POLY_TEX_FILTER_BILINEAR     ? MENU_LABEL_TEXFILTER_BILINEAR
                                               : v == POLY_TEX_FILTER_HORIZONTAL ? MENU_LABEL_TEXFILTER_HORIZONTAL
@@ -564,12 +561,11 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DITHER_SHADING:
         CopyUtf8ToCp850(string, 256,
-                        GetLocalizedMenuLabel(GraphicsSettingValue("DitherShading") ? MENU_LABEL_DITHER_ON
-                                                                                    : MENU_LABEL_DITHER_OFF));
+                        GetLocalizedMenuLabel(RenderRowValue(num) ? MENU_LABEL_DITHER_ON : MENU_LABEL_DITHER_OFF));
         break;
 
     case MENU_ID_PRESENT_FILTER: {
-        const S32 v = GraphicsSettingValue("PresentFilter");
+        const S32 v = RenderRowValue(num);
         CopyUtf8ToCp850(string, 256,
                         GetLocalizedMenuLabel(v == PLATFORM_FILTER_PIXELART ? MENU_LABEL_PRESENT_PIXELART
                                               : v == PLATFORM_FILTER_LINEAR ? MENU_LABEL_PRESENT_LINEAR
@@ -3503,8 +3499,8 @@ S32 GereDisplayMenu(void) {
 
     /* The Fullscreen toggle is the last entry; drop it on always-fullscreen
        devices (Android phones/TVs) where windowed mode does not exist, leaving
-       Back + Resolution + Vsync. nb_entries 4 = full menu, 3 = hide Fullscreen. */
-    DisplayMenu[1] = Window_SupportsWindowedMode() ? 4 : 3;
+       the rows above it. nb_entries 7 = full menu, 6 = hide Fullscreen. */
+    DisplayMenu[1] = Window_SupportsWindowedMode() ? 7 : 6;
 
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
@@ -3537,52 +3533,13 @@ S32 GereDisplayMenu(void) {
             ConfigFile_MarkVSyncSetThisRun();
             Window_SetVSync(DisplayVSync);
             break;
-        }
-    }
 
-    CopyScreen(Screen, Log);
-    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
-
-    WaitNoInput();
-
-    return FALSE;
-}
-
-// Graphics submenu: a self-contained submenu of OptionsMenu, one cycling row
-// per rendering option. The Scaling row applies to the frame being shown; the
-// rasterizer rows show on the next scene frame, behind the shaded menu. All
-// persist with the rest of the settings through WriteConfigFile, as the
-// Display rows do.
-S32 GereGraphicsMenu(void) {
-    S32 select;
-    S32 flag = 0;
-
-    CopyScreen(Screen, Log);
-    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
-
-    if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-    }
-
-    while (!flag) {
-        select = DoGameMenu(GraphicsMenu);
-
-        switch (select) {
-        case 26:
-        case 1000:
-            flag = 1;
-            break;
-
+        /* Scaling shows at once, on the frame being shown. The rasterizer rows
+           show after leaving the menu: its backdrop is a copy of the scene. */
         case MENU_ID_TEXTURE_FILTER:
-            GraphicsSettingCycle("TextureFilter");
-            break;
-
         case MENU_ID_DITHER_SHADING:
-            GraphicsSettingCycle("DitherShading");
-            break;
-
         case MENU_ID_PRESENT_FILTER:
-            GraphicsSettingCycle("PresentFilter");
+            RenderRowCycle(select);
             break;
         }
     }
@@ -3833,10 +3790,6 @@ S32 OptionsMenu(S32 flagflip) {
 
         case MENU_ID_DISPLAY:
             GereDisplayMenu();
-            break;
-
-        case MENU_ID_GRAPHICS:
-            GereGraphicsMenu();
             break;
         }
     }

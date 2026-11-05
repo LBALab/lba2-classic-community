@@ -230,6 +230,22 @@ static inline void Settings_Apply(const T_SETTING *s, S32 value) {
         s->on_change(*s->value);
 }
 
+/* Step a row on from `from` to its next value, wrapping at its range, as a menu
+ * row does. `in_use`, for an owner that may refuse a value it was told (NULL
+ * otherwise), says what it took: a refused value is stepped past, so the row ends
+ * on one the owner uses, and neither shows nor keeps one it does not. */
+static inline void Settings_Cycle(const T_SETTING *s, S32 from, S32 (*in_use)(void)) {
+    S32 value = from;
+    S32 tries;
+
+    for (tries = s->min; tries <= s->max; tries++) {
+        value = value >= s->max ? s->min : value + 1;
+        Settings_Apply(s, value);
+        if (in_use == NULL || in_use() == value)
+            return;
+    }
+}
+
 /* Set a row to its value from before it existed, as the console would set it.
  * Returns 0, touching nothing, for a row that has none. */
 static inline S32 Settings_ApplyBefore(const T_SETTING *s) {

@@ -233,18 +233,11 @@ const struct MenuLabelRow LocalizedMenuLabels[MENU_LABEL_COUNT] = {
       "Fallos originales: a medida",
       "Bug originali: su misura",
       "Bugs originais: sob medida"}},
-    /* The Graphics submenu (GereGraphicsMenu): the software-rasterizer and
-       present-time options CONFIG_FILE.CPP's BootSettings own. One label per
-       value, like the Vsync rows, so a translation never has to format a
-       value word into a sentence. Rows stay under the 31 characters that fit
-       at 640x480. */
-    {MENU_LABEL_GRAPHICS,
-     {"Graphics",
-      "Graphismes",
-      "Grafik",
-      "Gráficos",
-      "Grafica",
-      "Gráficos"}},
+    /* The Display submenu's rendering rows (GereDisplayMenu): the
+       software-rasterizer and present-time options CONFIG_FILE.CPP's BootSettings
+       own. One label per value, like the Vsync rows, so a translation never has
+       to format a value word into a sentence. Rows stay under the 31 characters
+       that fit at 640x480. */
     {MENU_LABEL_TEXFILTER_OFF,
      {"Texture filter: Off",
       "Filtrage textures : non",
@@ -283,22 +276,22 @@ const struct MenuLabelRow LocalizedMenuLabels[MENU_LABEL_COUNT] = {
     {MENU_LABEL_PRESENT_NEAREST,
      {"Scaling: Nearest",
       "Mise à l'échelle : brute",
-      "Skalierung: Nearest",
+      "Skalierung: direkt",
       "Escalado: directo",
-      "Scaling: diretto",
+      "Ridimensionamento: diretto",
       "Escala: direta"}},
     {MENU_LABEL_PRESENT_LINEAR,
      {"Scaling: Linear",
       "Mise à l'échelle : linéaire",
       "Skalierung: linear",
       "Escalado: lineal",
-      "Scaling: lineare",
+      "Ridimensionamento: lineare",
       "Escala: linear"}},
     {MENU_LABEL_PRESENT_PIXELART,
      {"Scaling: Pixel art",
       "Mise à l'échelle : pixel art",
       "Skalierung: Pixel-Art",
       "Escalado: pixel art",
-      "Scaling: pixel art",
+      "Ridimensionamento: pixel art",
       "Escala: pixel art"}},
 };

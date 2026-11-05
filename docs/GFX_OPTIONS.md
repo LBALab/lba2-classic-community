@@ -4,7 +4,7 @@ Variables and locations that can be changed or exposed as options to improve gra
 
 ## Shipped options
 
-All four are off by default, so a stock run renders exactly as before. Three of them have a row in the Options → Graphics submenu (see [MENU.md](MENU.md)); interior render scaling is read once at startup and stays environment-only. All of them can also be set from the console or the config file.
+All four are off by default, so a stock run renders exactly as before. Three of them have a row in the Options → Display submenu (see [MENU.md](MENU.md)); interior render scaling is read once at startup and stays environment-only. All of them can also be set from the console or the config file.
 
 | Option | Menu row | Console | lba2.cfg | Environment | Values |
 |--------|----------|---------|----------|-------------|--------|
