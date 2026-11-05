@@ -196,7 +196,7 @@ ResolutionX=768
 ResolutionY=480
 ```
 
-Read at boot: if both keys are present and valid, they seed the initial render resolution. `--resolution WxH` on the CLI overrides. If both are missing, a Quest build uses the headset's per-eye OpenXR recommendation (1680×1760 on Quest 3 / 3S, 1440×1584 on Quest 2 / Pro; the framebuffer starts at the Quest 3 / 3S size because it is allocated before the session exists, then reconciles to the runtime's live value); other builds auto-detect a widescreen size and fall back to `640×480`.
+Read at boot: if both keys are present and valid, they seed the initial render resolution. `--resolution WxH` on the CLI overrides. If both are missing, a Quest build uses the headset's per-eye OpenXR recommendation (1680×1760 on Quest 3 / 3S, 1440×1584 on Quest 2 / Pro; Quest 3S shares Quest 2's 1832×1920 panel but its 100% render scale is still 1680×1760; the framebuffer starts at the Quest 3 / 3S size because it is allocated before the session exists, then reconciles to the runtime's live value); other builds auto-detect a widescreen size and fall back to `640×480`.
 
 Write: on resolution-switch success (after the keep-confirm dialog), write the new values back to `lba2.cfg`. Same mechanism as the existing `WriteConfigFile` in `PERSO.CPP:2008`.
 

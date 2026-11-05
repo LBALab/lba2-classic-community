@@ -34,13 +34,15 @@ extern "C" {
 #define RES_MIN_H 200
 #define RES_MAX_H ADELINE_MAX_Y_RES
 
-/* Quest 3 / 3S 100%-render-scale per-eye size (1680x1760). The engine sizes
-   its framebuffer before the OpenXR session exists, so the boot resolver
-   cannot query the runtime and uses this as the pre-session fallback; the
-   post-session reconcile (Res_ApplyHeadsetNative) swaps in the live
-   recommendation, which is 1440x1584 on Quest 2 / Pro. The head-mounted
-   Display ladder is built from that live recommendation too, falling back to
-   this constant when the runtime has not reported a size. */
+/* Quest 3 / 3S 100%-render-scale per-eye size (1680x1760). Quest 3S shares
+   Quest 2's 1832x1920 panel, but Meta's table gives the 3S the same 1680x1760
+   default render target as Quest 3 (the panel is ~1.09x that; Quest 2 defaults
+   to 1440x1584). The engine sizes its framebuffer before the OpenXR session
+   exists, so the boot resolver cannot query the runtime and uses this as the
+   pre-session fallback; the post-session reconcile (Res_ApplyHeadsetNative)
+   swaps in the live recommendation. The head-mounted Display ladder is built
+   from that live recommendation too, falling back to this constant when the
+   runtime has not reported a size. */
 #define RES_QUEST_NATIVE_W 1680
 #define RES_QUEST_NATIVE_H 1760
 

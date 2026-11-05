@@ -4,11 +4,12 @@
  * The Display menu and the `resolution` console verb build the headset ladder
  * from the runtime's live per-eye recommendation, so the rungs are per-device.
  * The pins below lock the historical Quest 3 / 3S table (the values the fixed
- * ladder used to carry), the Quest 2 / Pro table, and the Quest 1 case where
- * the 0.25x rung falls below the engine's minimum width and is dropped. The
- * invariants cover what the menu relies on: ascending height, multiple-of-8
- * width, width following the recommendation's aspect, and a native rung equal
- * to the recommendation.
+ * ladder used to carry; Quest 3S shares Quest 2's 1832x1920 panel but Meta's
+ * default render target is still 1680x1760), the Quest 2 / Pro table, and the
+ * Quest 1 case where the 0.25x rung falls below the engine's minimum width and
+ * is dropped. The invariants cover what the menu relies on: ascending height,
+ * multiple-of-8 width, width following the recommendation's aspect, and a
+ * native rung equal to the recommendation.
  */
 
 #include "RES_CATALOG.H"
@@ -107,6 +108,20 @@ int main() {
     };
     expectLadder("Quest 2 / Pro", 1440, 1584, quest2, 6);
     checkInvariants("Quest 2 / Pro", 1440, 1584);
+
+    /* If the runtime reports the 3S panel size instead (a render-scale override,
+       or a runtime variant that recommends the panel), the ladder follows it;
+       no per-device table is assumed. */
+    static const Step quest3sPanel[] = {
+        {456, 480, "0.25x"},
+        {608, 640, "0.33x"},
+        {912, 960, "0.5x"},
+        {1216, 1280, "0.67x"},
+        {1368, 1440, "0.75x"},
+        {1832, 1920, "native"},
+    };
+    expectLadder("Quest 3S panel", 1832, 1920, quest3sPanel, 6);
+    checkInvariants("Quest 3S panel", 1832, 1920);
 
     /* Quest 1: 0.25x would be 304x336, below RES_MIN_W, so the ladder starts
        at 0.33x. */
