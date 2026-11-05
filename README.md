@@ -62,7 +62,7 @@ The installer downloads temporary Android platform-tools, fetches the latest Que
 
 On Windows, the installer reuses an existing `adb` from `PATH` or the Android SDK when it finds one; otherwise it downloads a temporary copy and Windows may ask for permission. Use `-AdbPath` to point at your own `adb.exe`.
 
-If adb cannot see the headset, enable Developer Mode and USB debugging, use a data cable, and accept the debugging prompt in the headset. On Windows, install the Meta Quest ADB driver if the device is not listed.
+If adb cannot see the headset, enable Developer Mode and USB debugging, use a data cable, and accept the debugging prompt in the headset.
 
 Manual fallback:
 
@@ -78,7 +78,7 @@ If an older build used a different debug key, rerun the installer with `--clean`
 
 You need a legitimate copy of LBA2 ([GOG](https://www.gog.com/game/little_big_adventure_2), [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/), or your retail CD). The engine does not ship assets.
 
-Point the game at the folder containing `lba2.hqr` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder). The first launch opens a folder picker; the Quest installer copies the folder for you.
+Point the game at the folder containing `*.hqr` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder) the Quest installer copies the folder for you.
 
 ## Other platforms
 
