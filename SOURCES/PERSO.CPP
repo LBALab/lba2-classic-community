@@ -4579,6 +4579,14 @@ int main(int argc, char *argv[]) {
 
     Log_Info("main: calling InitProgram");
     InitProgram();
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    /* ReadConfigFile (inside InitProgram) creates the OpenXR session, which is
+       the first moment the headset's real per-eye recommendation is known. The
+       boot resolve had to use the Quest 3 / 3S constant, so reconcile now, while
+       the framebuffer is the only state that depends on it and before InitMemory
+       and the boot log. A CLI / cfg / menu choice is left alone. */
+    Res_ApplyHeadsetNative();
+#endif
     Log_Info("main: calling InitMemory");
     InitMemory(); // Alloue petits buffers
     Log_Info("main: InitMemory done");

@@ -118,31 +118,30 @@ static bool Res_EffectiveDisplay(U32 *outW, U32 *outH) {
     return *outW != 0 && *outH != 0;
 }
 
-/* Head-mounted resolution ladder. The in-headset view is the OpenXR swapchain,
- * whose aspect is the eye FOV's (~square on Quest) — not an aspect the game's
- * content is authored for. Offering panel-aspect or panel-native sizes made
- * the world look stretched and let oversized entries crop; so on a headset the
- * menu offers ONLY the game's intended modern aspect (16:9), sized to fit the
- * swapchain width exactly: every entry renders fully visible, centred with
- * cinema bars, and switching between them never changes the framing. The
- * largest entry is the swapchain-width maximum (1680x945 on a Quest 3). */
-/* Head-mount ladder: resolutions matching the per-eye swapchain dimensions
- * (1680×1760 on Quest 3).  The old 16:9 ladder caused a 1.86× vertical
- * upscale when blitted to the swapchain — every source pixel became ~1.86
- * destination pixels vertically, which the user perceives as blur.  These
- * entries are 1:1 with the swapchain at various quality steps. */
-static const ResModeEntry kHeadMountLadder[] = {
-    {416, 440, "0.25x"},
-    {560, 587, "0.33x"},
-    {840, 880, "0.5x"},
-    {1120, 1173, "0.67x"},
-    {1256, 1320, "0.75x"},
-    {RES_QUEST_NATIVE_W, RES_QUEST_NATIVE_H, "native"},
-};
-#define kHeadMountLadderCount ((int)(sizeof(kHeadMountLadder) / sizeof(kHeadMountLadder[0])))
-
+/* True when the in-headset OpenXR swapchain is the surface the player sees, so
+   the Display ladder must follow its per-eye size instead of a monitor mode. */
 static bool Res_HeadMounted(void) {
     return OpenXR_GetSwapchainWidth() != 0;
+}
+
+/* Head-mounted resolution ladder: quality steps of the runtime's recommended
+ * per-eye size, so every rung matches the actual swapchain aspect and the
+ * largest is 1:1. The recommendation is per-device (1680x1760 on Quest 3 / 3S,
+ * 1440x1584 on Quest 2 / Pro), so a fixed Quest 3 table would leave the older
+ * headsets rendering more pixels than their eye buffer asks for, and the
+ * "native" row would not be the mode the boot resolver picked. The ladder math
+ * lives in RES_CATALOG.H so the host test can pin it. Falls back to the Quest
+ * 3 / 3S constant when the runtime reports a size the engine could not have
+ * adopted (no session yet, or out of range). */
+static int Res_BuildHeadMountLadder(ResModeEntry *out, int cap) {
+    U32 sw = OpenXR_GetSwapchainWidth();
+    U32 sh = OpenXR_GetSwapchainHeight();
+    if (sw < RES_MIN_W || sw > RES_MAX_W || (sw & 7) != 0 || sh < RES_MIN_H ||
+        sh > RES_MAX_H) {
+        sw = RES_QUEST_NATIVE_W;
+        sh = RES_QUEST_NATIVE_H;
+    }
+    return Res_BuildHeadMountLadderFor(sw, sh, out, cap);
 }
 
 int Res_BuildMenuList(ResModeEntry *out, int cap) {
@@ -157,16 +156,10 @@ int Res_BuildMenuList(ResModeEntry *out, int cap) {
         n++;
     }
 
-    /* Head-mounted builds: 16:9 ladder only (see kHeadMountLadder). The
-       classic 4:3 anchor is deliberately absent — an aspect change is exactly
-       what these entries must not do. */
+    /* Head-mounted builds: steps of the runtime's per-eye recommendation,
+       appended after the classic anchor. See Res_BuildHeadMountLadder. */
     if (Res_HeadMounted()) {
-        /* Entries above the swapchain size are supersampled: the present
-         * blit downscales them to fit, so every option stays fully visible
-         * at the same 16:9 framing. */
-        for (int i = 0; i < kHeadMountLadderCount && n < cap; i++) {
-            out[n++] = kHeadMountLadder[i];
-        }
+        n += Res_BuildHeadMountLadder(out + n, cap - n);
         return n;
     }
 
@@ -225,13 +218,10 @@ int Res_BuildCatalog(ResModeEntry *out, int cap, bool includeAdvanced) {
     const bool hasDisplay = Res_EffectiveDisplay(&dispW, &dispH);
     int n = 0;
 
-    /* Head-mounted builds: the 16:9 ladder only — no curated tables (their
+    /* Head-mounted builds: the per-eye ladder only — no curated tables (their
        mixed aspects are monitor-oriented). */
     if (Res_HeadMounted()) {
-        for (int i = 0; i < kHeadMountLadderCount && n < cap; i++) {
-            out[n++] = kHeadMountLadder[i];
-        }
-        return n;
+        return Res_BuildHeadMountLadder(out, cap);
     }
 
     /* Recommended: 640x480 always present, the rest gated by display fit. */

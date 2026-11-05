@@ -66,15 +66,29 @@ bool Res_ValidateDimensions(U32 w, U32 h);
 
 /* Boot-time resolution resolver: writes the effective (W, H) the engine
    should boot at, following the precedence
-       --resolution CLI  >  lba2.cfg ResolutionX/Y  >  Quest native (OpenXR
-       builds)  >  widescreen auto-detect  >  compile-time default.
+       --resolution CLI  >  lba2.cfg ResolutionX/Y  >  headset per-eye
+       recommendation (OpenXR builds)  >  widescreen auto-detect  >
+       compile-time default.
    Reads lba2.cfg via a transient DefFileBuffer init against an internal
    static buffer; never allocates from the engine heap, so it's safe to
    call BEFORE Mem_ConfigureScreenBuffers / InitMainBuffer. Requires
    PathConfigFile to be resolved first (call GetCfgPath); silently falls
    back to the compile-time default otherwise. Logs a one-line warning if
-   the cfg held an invalid value so the player can spot a corrupted key. */
+   the cfg held an invalid value so the player can spot a corrupted key.
+   Before the OpenXR session exists the headset rung is the Quest 3 / 3S
+   constant; see Res_ApplyHeadsetNative for the post-session resolve. */
 void Res_LoadBootDimensions(U32 *outW, U32 *outH);
+
+/* Reconcile an auto-derived boot resolution with the headset's live
+   recommendation. Call once after InitProgram (which creates the OpenXR
+   session): the boot resolve cannot query the runtime, but the per-device
+   100%-render-scale size differs (Quest 2 / Pro 1440x1584, Quest 3 / 3S
+   1680x1760). No-op when the player chose a resolution (CLI / cfg / Display
+   menu), when no headset swapchain exists, or when the sizes already match.
+   Rebuilds the framebuffer and its surfaces only; it runs before any palette
+   or cube is loaded, so no scene cache needs reloading. Returns true when a
+   resize happened. */
+bool Res_ApplyHeadsetNative(void);
 
 /* Auto-detect a widescreen boot resolution from the primary display: writes
    (snapped-width, 480) and returns true when the display is wider than 4:3.
@@ -85,12 +99,13 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH);
 bool Res_AutoDetectDimensions(U32 *outW, U32 *outH);
 
 /* One-word provenance of the last Res_LoadBootDimensions result, for the boot
-   log: "CLI", "cfg", "quest", "auto", or "default". Static literal; never
-   NULL. */
+   log: "CLI", "cfg", "headset", "quest", "auto", or "default". Static literal;
+   never NULL. "headset" is the live OpenXR recommendation; "quest" is the
+   pre-session Quest 3 / 3S fallback. */
 const char *Res_BootDimensionsSource(void);
 
 /* True when the live resolution was derived rather than chosen by the player:
-   Quest native, display auto-detect, or the compile-time default.
+   headset native, display auto-detect, or the compile-time default.
    WriteConfigFile uses this to skip persisting ResolutionX/Y, so a derived
    resolution re-derives each launch instead of freezing into the cfg. Cleared
    by a successful Res_Switch and by a CLI/cfg value at boot. */

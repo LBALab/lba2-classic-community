@@ -281,6 +281,7 @@ try {
         Write-Host "[dry-run] would run: adb shell mkdir -p $Destination"
         Write-Host "[dry-run] would run: adb push <assets> $Destination/"
         Write-Host "[dry-run] would run: adb install -r $ApkPath"
+        Write-Host "[dry-run] would run: adb shell appops set $Package MANAGE_EXTERNAL_STORAGE allow"
         if (-not $NoLaunch) {
             Write-Host "[dry-run] would run: adb shell am start -n $Package/$Activity"
         }
@@ -393,6 +394,18 @@ Checklist:
         }
     } else {
         Write-Host "Installed $ApkName."
+    }
+
+    # Android 11+ keeps /sdcard/<dir>/ behind MANAGE_EXTERNAL_STORAGE, a special
+    # app-op the player normally grants in Settings. adb can pre-grant it;
+    # failure is non-fatal because the app opens Settings on first launch.
+    Write-Step "Granting all-files access"
+    Invoke-Adb shell appops set $Package MANAGE_EXTERNAL_STORAGE allow 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Granted all-files access to $Package."
+    } else {
+        Write-Host "Could not grant all-files access automatically."
+        Write-Host "On first launch the app opens Settings; allow 'All files access' and relaunch."
     }
 
     if (-not $NoLaunch) {
