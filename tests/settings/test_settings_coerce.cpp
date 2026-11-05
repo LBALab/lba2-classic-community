@@ -401,6 +401,67 @@ static void test_a_row_without_one_is_left_alone(void) {
     ASSERT_EQ_INT(0, s.before.has);
 }
 
+/* An owner that refuses some values, as a present filter a build cannot do: it uses the value it
+ * was told, or falls back to 0, and says which. */
+static S32 cycle_refused = 0; /* a bit per value */
+static S32 cycle_in_use = 0;
+static void cycle_owner(S32 v) {
+    cycle_in_use = (cycle_refused >> v) & 1 ? 0 : v;
+}
+static S32 cycle_owner_in_use(void) {
+    return cycle_in_use;
+}
+
+/* A menu row steps through the row's range and wraps. */
+static void test_a_row_cycles_through_its_range(void) {
+    T_SETTING s = row(SETTING_OR_DEFAULT, 0, 0, 2);
+    S32 v = 0;
+    s.value = &v;
+    Settings_Cycle(&s, v, NULL);
+    ASSERT_EQ_INT(1, v);
+    Settings_Cycle(&s, v, NULL);
+    ASSERT_EQ_INT(2, v);
+    Settings_Cycle(&s, v, NULL);
+    ASSERT_EQ_INT(0, v);
+}
+
+/* A value the owner refuses is stepped past, so the row never holds one it does not use. */
+static void test_a_row_steps_past_what_its_owner_refuses(void) {
+    T_SETTING s = row(SETTING_OR_DEFAULT, 0, 0, 2);
+    S32 v = 1;
+    s.value = &v;
+    s.on_change = cycle_owner;
+    cycle_refused = 1 << 2;
+    cycle_in_use = 1;
+    Settings_Cycle(&s, cycle_in_use, cycle_owner_in_use);
+    ASSERT_EQ_INT(0, v); /* 2 refused, on to 0 */
+    ASSERT_EQ_INT(0, cycle_in_use);
+    Settings_Cycle(&s, cycle_in_use, cycle_owner_in_use);
+    ASSERT_EQ_INT(1, v);
+
+    /* An owner that takes only 0 keeps the row there, from any value. */
+    cycle_refused = (1 << 1) | (1 << 2);
+    Settings_Cycle(&s, cycle_in_use, cycle_owner_in_use);
+    ASSERT_EQ_INT(0, v);
+    Settings_Cycle(&s, cycle_in_use, cycle_owner_in_use);
+    ASSERT_EQ_INT(0, v);
+    ASSERT_EQ_INT(0, cycle_in_use);
+}
+
+/* A preference the build cannot do steps from what is in use, not from the preference: the row
+ * showed Nearest, so the next one is what the player sees next. */
+static void test_a_row_steps_from_what_is_in_use(void) {
+    T_SETTING s = row(SETTING_OR_DEFAULT, 0, 0, 2);
+    S32 v = 2; /* the cfg's, refused at boot */
+    s.value = &v;
+    s.on_change = cycle_owner;
+    cycle_refused = 1 << 2;
+    cycle_in_use = 0;
+    Settings_Cycle(&s, cycle_in_use, cycle_owner_in_use);
+    ASSERT_EQ_INT(1, v);
+    ASSERT_EQ_INT(1, cycle_in_use);
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -428,6 +489,9 @@ int main(void) {
     RUN_TEST(test_the_header_appends_and_refuses_a_cut_line);
     RUN_TEST(test_a_value_from_before_is_applied_and_told);
     RUN_TEST(test_a_row_without_one_is_left_alone);
+    RUN_TEST(test_a_row_cycles_through_its_range);
+    RUN_TEST(test_a_row_steps_past_what_its_owner_refuses);
+    RUN_TEST(test_a_row_steps_from_what_is_in_use);
     TEST_SUMMARY();
     return test_failures != 0;
 }
