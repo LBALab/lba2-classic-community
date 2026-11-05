@@ -101,9 +101,10 @@ adb push ress.hqr /sdcard/lba2cc/
 ```
 
 `/sdcard/lba2cc/` is general external storage, so on **Android 11+ (API 30+)**
-the app needs **All Files Access** (`MANAGE_EXTERNAL_STORAGE`). The game checks
-for it on launch and opens the system Settings page if it is missing — grant it
-and relaunch. You can also pre-grant it:
+the app needs **All files access** (`MANAGE_EXTERNAL_STORAGE`). The Quest
+installers pre-grant it after `adb install`; if that fails, the game checks on
+launch and opens the system Settings page — grant it there and relaunch. To
+grant it by hand:
 
 ```bash
 adb shell appops set org.lbalab.lba2cc MANAGE_EXTERNAL_STORAGE allow

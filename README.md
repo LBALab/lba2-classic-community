@@ -58,7 +58,7 @@ Invoke-WebRequest -OutFile install-quest-windows.ps1 https://github.com/simsas-e
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-quest-windows.ps1
 ```
 
-The installer downloads temporary Android platform-tools, fetches the latest Quest APK from the [Releases page](https://github.com/simsas-experiments/lba2-classic-quest/releases), asks for the folder containing `lba2.hqr`, copies the game data to `/sdcard/lba2cc/`, and installs the APK. It does not need Docker or root. The same scripts live in [`scripts/quest/`](scripts/quest) if you already cloned the repository; on Windows, put the `.cmd` launcher beside the `.ps1` to double-click it.
+The installer downloads temporary Android platform-tools, fetches the latest Quest APK from the [Releases page](https://github.com/simsas-experiments/lba2-classic-quest/releases), asks for the folder containing `lba2.hqr`, copies the game data to `/sdcard/lba2cc/`, installs the APK, and pre-grants the all-files access needed to read it. It does not need Docker or root. The same scripts live in [`scripts/quest/`](scripts/quest) if you already cloned the repository; on Windows, put the `.cmd` launcher beside the `.ps1` to double-click it.
 
 On Windows, the installer reuses an existing `adb` from `PATH` or the Android SDK when it finds one; otherwise it downloads a temporary copy and Windows may ask for permission. Use `-AdbPath` to point at your own `adb.exe`.
 
@@ -68,6 +68,7 @@ Manual fallback:
 
 ```bash
 adb install -r lba2cc-<version>-quest-arm64-v8a.apk
+adb shell appops set org.lbalab.lba2cc MANAGE_EXTERNAL_STORAGE allow
 adb shell mkdir -p /sdcard/lba2cc
 adb push /path/to/lba2 /sdcard/lba2cc/
 ```

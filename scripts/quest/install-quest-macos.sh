@@ -242,6 +242,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "[dry-run] would run: adb shell mkdir -p $DEST"
     echo "[dry-run] would run: adb push $ASSETS/. $DEST/"
     echo "[dry-run] would run: adb install -r $APK_PATH"
+    echo "[dry-run] would run: adb shell appops set $PACKAGE MANAGE_EXTERNAL_STORAGE allow"
     if [ "$LAUNCH" -eq 1 ]; then
         echo "[dry-run] would run: adb shell am start -n $PACKAGE/$ACTIVITY"
     fi
@@ -336,6 +337,17 @@ if ! install_once; then
 fi
 
 echo "Installed $APK_NAME."
+
+# Android 11+ keeps /sdcard/<dir>/ behind MANAGE_EXTERNAL_STORAGE, a special
+# app-op the player normally grants in Settings. adb can pre-grant it; failure
+# is non-fatal because the app opens the Settings page on first launch.
+step "Granting all-files access"
+if adb_cmd shell appops set "$PACKAGE" MANAGE_EXTERNAL_STORAGE allow >/dev/null 2>&1; then
+    echo "Granted all-files access to $PACKAGE."
+else
+    echo "Could not grant all-files access automatically."
+    echo "On first launch the app opens Settings; allow \"All files access\" and relaunch."
+fi
 
 if [ "$LAUNCH" -eq 1 ]; then
     if adb_cmd shell am start -n "$PACKAGE/$ACTIVITY" >/dev/null 2>&1; then

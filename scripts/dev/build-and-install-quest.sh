@@ -262,6 +262,15 @@ if [ ${PIPESTATUS[0]} -ne 0 ]; then
   fatal "ADB install failed."
 fi
 
+# Android 11+ keeps /sdcard/lba2cc/ behind MANAGE_EXTERNAL_STORAGE, a special
+# app-op the player normally grants in Settings. adb can pre-grant it; failure
+# is non-fatal because the app opens the Settings page on first launch.
+if adb -s "$QUEST_SERIAL" shell appops set org.lbalab.lba2cc MANAGE_EXTERNAL_STORAGE allow >/dev/null 2>&1; then
+  log "Granted all-files access (MANAGE_EXTERNAL_STORAGE)."
+else
+  log "WARN: could not grant all-files access; the app opens Settings on first launch."
+fi
+
 # ---------------------------------------------------------------------------
 # 6. Launch
 # ---------------------------------------------------------------------------
