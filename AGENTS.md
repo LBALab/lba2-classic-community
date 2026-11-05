@@ -4,11 +4,14 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Principles
 
+The project's principles, each with why it holds and what follows, are in
+[docs/PRINCIPLES.md](docs/PRINCIPLES.md). The five below are how they apply to day-to-day work.
+
 1. **Truth hierarchy and doc accuracy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins — fix the docs in the same commit or PR (environment trumps willpower; maintainers may forget). Keep `docs/ASM_VALIDATION_PROGRESS.md` and `docs/ASM_TO_CPP_REFERENCE.md` current.
 
 2. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
 
-3. **Optional features behind flags:** New behaviour that changes the experience is opt-in (build options, config flags, runtime toggles). A fix to a bug the original has is on by default and can be switched off; the original stays reachable. See [the retail-fix Decision](docs/knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md).
+3. **Optional features behind flags:** New behaviour that changes the experience is opt-in (build options, config flags, runtime toggles), off by default when it lands. A fix to a bug the original has is on by default and can be switched off; a change that brings back the original's behaviour is a fix and needs no switch; the original stays reachable. The original is the 1990s CD release, not the 2022 Classic release, and where the source and the release disagree the release wins. See [the retail-fix Decision](docs/knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md).
 
 4. **Quality over speed:** Equivalence tests must pass. Do not relax tests to unblock. Prefer smaller, well-tested changes. Fix bugs before merging.
 
@@ -47,7 +50,7 @@ Apply these behavior rules on every non-trivial task:
 1. **Think before coding:** State assumptions explicitly. If intent is ambiguous, ask before implementing. Surface tradeoffs instead of silently picking one path.
 2. **Simplicity first:** Prefer the minimum code and the minimum API needed to satisfy the request. Avoid speculative abstractions and "future-proofing" unless requested.
 3. **Surgical changes:** Touch only files and lines needed for the requested outcome. Avoid drive-by refactors, formatting churn, or unrelated cleanup.
-4. **Goal-driven execution:** Define concrete success criteria (preferably tests or reproducible checks), implement, then verify results before declaring done.
+4. **Goal-driven execution:** Define concrete success criteria (preferably tests or reproducible checks), implement, then verify results before declaring done. Measure against a control (main, or the setting off), and before trusting a new test or probe, show that it fails on the code it should catch.
 
 ## Project overview
 
@@ -55,6 +58,7 @@ Apply these behavior rules on every non-trivial task:
 - **Main work:** Porting x86 assembly to C++ while preserving exact behavior. ASM remains the source of truth.
 - **Stack:** C++98 game logic, LIB386 engine libraries (C linkage), x86 ASM (UASM), SDL3, libsmacker.
 - **Structure:** `SOURCES/` = game logic; `LIB386/` = engine (3D, audio, rendering); `docs/` = reference documentation.
+- **Shape:** a core (the game's rules, save and data formats; the platform contracts) under two rings of settings, Modern inside Experimental. The original is the reference: with every setting the port added switched off, the game plays as it did. Platforms are tiered by how often they are tested on hardware. See [docs/ARCHITECTURE.md "The rings and the core"](docs/ARCHITECTURE.md#the-rings-and-the-core).
 
 ## Build & test
 
@@ -85,7 +89,7 @@ Apply these behavior rules on every non-trivial task:
 | Android-specific behaviour (JNI, TV detection, storage permission) | Put it behind `LIB386/PLATFORM/SDL3/ANDROID.CPP` (legacy API: `LIB386/H/SYSTEM/ANDROID.H`), stubbed off Android; `<jni.h>` in that TU only. Native objects stay private to the backend. Callers stay `#ifdef`-free | CODESTYLE.md, docs/ANDROID.md, docs/PLATFORM.md §8 |
 | Platform input, events, presentation, clocks or host services | Use the SDK-free `PLATFORM/PLATFORM.H` contract. SDK types/calls belong only in the selected platform backend or AIL audio implementation. Physical key IDs belong to `PLATFORM/INPUT.H`; preserve cfg/recording values | docs/PLATFORM_ABSTRACTION.md |
 | Adding a platform conditional, a global, an STL include, or a `DEFINES.H` include | `make arch-check` refuses all four outside the layer that owns them. A file that genuinely belongs in the platform layer joins a named list in the checker, and owes a label in the per-module table | scripts/ci/check-arch.py, docs/plan/ARCH_RULES_PLAN.md, docs/ENGINE_GAME_SEAM.md |
-| Adding an Auto camera setting (cvar `cam_*`) | Its row ends `SETTING_RECORDED, SETTING_BEFORE(v)` when it switches a later behaviour on (`v` switches it off), or `SETTING_BEFORE_NONE` when it only tunes another. The camera fixtures start from these values; `make settings-before-check` refuses a row that says neither | docs/CAMERA_INTERNALS.md, SOURCES/SETTINGS.H |
+| Adding a setting | It lands Experimental and off; a retail fix is the exception, on by default under Fix retail bugs (see "Fixing a bug"). Its row says `SETTING_BEFORE(v)` when it switches a behaviour on (`v` switches it off), or `SETTING_BEFORE_NONE` when it only tunes another; `make settings-before-check` refuses a `cam_` or `fix_` row that says neither, and the camera fixtures start from these values. It is `SETTING_RECORDED` unless it only changes how the run is shown or heard. The core reaches it through a hook that does nothing when it is off (`test_ring_off_is_gone.sh`). A tuning value gets no menu row: Modern offers a few tested choices | docs/ARCHITECTURE.md "Moving inward", SOURCES/SETTINGS.H, docs/CAMERA_INTERNALS.md |
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default. The config beside the game data is read as a layer under the run's own, not copied into it; writes reach the owned file alone | docs/CONFIG.md, docs/GAME_DATA.md |
@@ -100,9 +104,11 @@ Apply these behavior rules on every non-trivial task:
 | Writing a plan, design trail, or research writeup before the work | Put it in `docs/plan/`, not `docs/`. Add it to the "Plans & research" table in docs/README.md with a status. `docs/` is what the engine does today; `docs/plan/` is what was proposed and why. When a plan lands, mark it Implemented and fold the durable parts into the reference doc; a plan must never be the only description of shipped behaviour | docs/README.md "Plans & research" |
 | Adding, moving, or removing a script under scripts/ | Add or update its row in scripts/README.md in the same commit | scripts/README.md |
 | Making a script or workflow depend on a new external tool | Add its row to docs/TOOLING.md **and** a probe to `scripts/dev/check-tooling.sh` in the same commit. Never restate a version in the doc — cite the file that pins it | docs/TOOLING.md |
+| A change to the core: the game's rules, its save or data formats, or a platform contract (PAL, console output, recording, settings tables, harness) | Find the Decision that covers it, or write one first; a contract grows by adding and does not break | docs/ARCHITECTURE.md "The rings and the core" |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 1 |
 | A subsystem the knowledge bundle has a concept for: timing, recording, control, console, transitions, save, input, movement | Read the owning Subsystem under `docs/knowledge/` and its Quirks before changing behaviour that looks wrong; a Quirk is original behaviour that is load bearing and looks like a defect. A change to a contract a concept carries updates the concept in the same PR, and a new load-bearing fact is a new concept rather than a comment. `make knowledge-check` is the gate | docs/knowledge/index.md, docs/knowledge/SCHEMA.md |
-| Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
+| Fixing a bug | First check whether the 1990s release has it (the 1997 source at commit 333929a, or a 90s build where they disagree). If it does, the fix gets its own `fix_` switch, on by default. Then: if the affected logic is pure-data, extract it to a pure function and add a host test; otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here", [the retail-fix Decision](docs/knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md) |
+| Saying what a platform supports (README, release notes, docs) | Claim nothing beyond its tier; a tagged release ships tier 1 builds only | docs/ARCHITECTURE.md "Where it runs" |
 | Editing docs (any `.md`) | Sentence-case headings; bold for structure only (list-item / paragraph leads, table row labels), not mid-sentence emphasis; verify file/line refs; from `docs/`, link to source with `../SOURCES/...` / `../LIB386/...` | "Editing docs" below; CONTRIBUTING.md "Doing good work here" |
 
 ## Code conventions
@@ -209,6 +215,8 @@ Contributors do not need to edit `CHANGELOG.md`;
 it is regenerated at release time. Use `chore:` for any PR you want kept
 out of the public changelog (formatting, tooling, internal cleanups).
 See [docs/RELEASING.md](docs/RELEASING.md).
+
+**The PR body follows [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md):** what and why, how it was checked and against what control, and what was not checked. `gh pr create --body` does not load the template, so copy its sections.
 
 **Do not include `(#issue_num)` in the PR title.** When a PR is
 squash-merged, GitHub appends `(#PR_num)` to the resulting commit subject

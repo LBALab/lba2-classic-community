@@ -38,6 +38,7 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/CDTRACKS.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
+#include <SYSTEM/HQFILE.H> // HQF_NbRes: the cube command's range
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
@@ -97,8 +98,39 @@ static void cmd_cube(int argc, const char *argv[]) {
         Console_Print("Usage: cube <number>");
         return;
     }
+    char *end;
+    long cube = strtol(argv[1], &end, 0);
+    if (end == argv[1] || *end != '\0') {
+        Console_Print("cube: '%s' is not a number", argv[1]);
+        return;
+    }
+
+    /* SCENE.HQR holds the largest scene size in entry 0, so cube N is entry N + 1. Its last
+       offset is the end of the file, not a scene: reading it loads a header that is not there. */
+    char scenePath[ADELINE_MAX_PATH];
+    GetResPath(scenePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+    S32 nbCubes = HQF_NbRes(scenePath) - 1;
+    if (cube < 0 || cube >= nbCubes) {
+        Console_Print("cube: no cube %ld, the scenes are 0 to %d", cube, nbCubes - 1);
+        return;
+    }
+
+    /* The phantom cube is the sea past an island's edge. It loads no island of its own and
+       draws the horizon from the one in memory, on the island walking off the edge records
+       (DoAnimExt in EXTFUNC.CPP). Indoors no island is loaded, so it would draw from data
+       that was never read. The map square is not set here: DoAnimExt clears PhantomX and
+       PhantomY every frame before the change applies, so the console's sea is the island
+       map's corner square (0, 0), open sea on every island. */
+    if (cube == NUM_CUBE_PHANTOM) {
+        if (CubeMode != CUBE_EXTERIEUR) {
+            Console_Print("cube: %d is the sea past an island's edge; go outdoors first", NUM_CUBE_PHANTOM);
+            return;
+        }
+        PhantomIsland = Island;
+    }
+
     Console_Close();
-    NewCube = (S32)strtol(argv[1], NULL, 0);
+    NewCube = (S32)cube;
     Console_Print("Cube %d (change on next frame)", NewCube);
 }
 
@@ -636,6 +668,18 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         }
         Advanced_MainCapture(argv[2]);
         Console_Print("ui menu-advanced -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
+        return;
+    }
+    if (argc >= 3 && !strcmp(argv[1], "menu-camera")) {
+        /* The Camera page, opened from Advanced options. Same black-bg
+           convention as `display`. */
+        if (Console_GetCaptureBlackBg()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        }
+        Camera_MainCapture(argv[2]);
+        Console_Print("ui menu-camera -> %s (presented_matches_rendered=%d)", argv[2],
                       (int)Menu_CaptureMatchesPresented());
         return;
     }
@@ -2533,7 +2577,7 @@ void Console_RegisterAll(void) {
                               "Without a path, writes state_<time>.json under shoot/. Diffing two "
                               "dumps from one session says what changed between two moments.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-advanced|menu-main|menu-main-options|config|slideshow} <path> | ui config-pad | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
+                              "ui {inventory|holomap|menu-options|menu-advanced|menu-camera|menu-main|menu-main-options|config|slideshow} <path> | ui config-pad | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "

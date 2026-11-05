@@ -20,6 +20,11 @@ extern S32 SaveVueDistance;
 // Game
 extern void PtrInit3DGame();
 
+/* Place the isometric (interior) camera: the eye, and the water clip line that is measured from it.
+ * `CameraCenter` is the usual caller; the interior follow places the eye a second time, per frame,
+ * between the anchor moving and the frame being drawn (FOLLOWCAM.H). Split out so both do both. */
+extern void SetIsoCamera(S32 x, S32 y, S32 z);
+
 /*──────────────────────────────────────────────────────────────────────────*/
 // Objects
 /*--------------------------------------------------------------------------*/

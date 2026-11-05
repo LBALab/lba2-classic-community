@@ -43,7 +43,10 @@ Main Menu
 │   │   ├── Reverse stereo channels OFF/ON (12/13)
 │   │   ├── Detail Level (45)             [slider 0–3]
 │   │   ├── Movie camera OFF/ON (46/47)
-│   │   ├── Auto camera / Classic camera [custom localized label, community addition]
+│   │   ├── Camera [custom localized label, community addition]
+│   │   │   ├── Back (26)
+│   │   │   ├── Outdoors: Auto / Classic [custom localized label]
+│   │   │   └── Indoors: Follow / Classic [custom localized label]
 │   │   ├── Small videos / Full screen videos (27/28)
 │   │   └── Don't display text / Display text (16/17)
 │   └── Controls [custom localized label]
@@ -110,7 +113,8 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **Graphics** (`GereGraphicsMenu`, `GraphicsMenu`): one cycling row per rendering option in [GFX_OPTIONS.md](GFX_OPTIONS.md): texture filter, dithered shading, and the filter that scales the frame to the window. Each row reads and steps its `T_SETTING` through `ConfigFile_Setting` and `Settings_Apply`, so the range, the on-change hook and the "set this run" mark stay in the settings table; a change applies on the frame being shown and persists with the other settings through `WriteConfigFile`. Interior render scaling (`LBA2_ISO_DIV`) has no row: it is read once at startup.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
-- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, and subtitle display; includes the existing Detail Level slider. Fullscreen moved to Display.
+- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, video playback size, subtitle display and Fix retail bugs; includes the existing Detail Level slider; the Camera row opens the Camera page. Fullscreen moved to Display. The page has eight rows, which fill the screen at 640x480, so a new setting goes on a sub-page.
+- **Camera** (`GereCameraMenu`, `CameraMenu`): the outdoor camera (`FollowCamera`, Auto or Classic) and the indoor one (`FollowCamInterior`, Follow or Classic), two separate switches.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Controls** (`GereControllerMenu`, `ControllerMenu`): `MenuConfig` and `MenuGamepadConfig` edit gameplay bindings (both in [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP)). The standalone legacy config tool remains in [SOURCES/CONFIG/](../SOURCES/CONFIG/).
 

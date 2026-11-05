@@ -144,6 +144,175 @@ static void test_stepping_always_reaches_the_target(void) {
     ASSERT_TRUE(worst < 700);
 }
 
+/* THE INTERIOR FOLLOW, which is a step over tiles rather than over angles (FOLLOWCAM_MATH.H's
+ * `FollowCamIsoStep`). Same family of failure as the rotation lerp above and a different rule: an
+ * isometric view is the tile it is centred on, so "following" there is two integers moving.
+ *
+ * The one property it must have is the one the classic recentre does not: it never passes the hero.
+ * The classic line (`want + (want - now) / 2`) overshoots by design, which a one-off recentre of an
+ * off-screen hero can afford and a camera running on consecutive frames cannot -- it would step past
+ * him and back, once per tile. */
+static void test_iso_step_never_passes_the_target(void) {
+    S32 now, want;
+    S32 bad = 0;
+
+    for (now = -24; now <= 24 && !bad; now++) {
+        for (want = -24; want <= 24; want++) {
+            S32 next = FollowCamIsoStep(now, want);
+
+            if (want == now) {
+                if (next != now)
+                    bad = 1;
+            } else if (want > now) {
+                if (next <= now || next > want)
+                    bad = 1;
+            } else if (next >= now || next < want) {
+                bad = 1;
+            }
+            if (bad)
+                break;
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* And it arrives: a gap of any size closes in a handful of frames, because half of what is left is a
+ * step and a single tile is never truncated to none. The truncation is the failure that matters -- a
+ * camera one brick behind the hero for ever, with the view dirty every frame -- and it is the same
+ * failure FollowCamRotStep's own floor exists for. */
+static void test_iso_step_arrives_in_a_few_frames(void) {
+    S32 gap;
+    S32 worst = 0;
+    S32 stuck = 0;
+
+    for (gap = -64; gap <= 64; gap++) {
+        S32 at = 0;
+        S32 frames = 0;
+
+        while (at != gap) {
+            S32 next = FollowCamIsoStep(at, gap);
+            if (next == at) {
+                stuck = 1;
+                break;
+            }
+            at = next;
+            if (++frames > 64) {
+                stuck = 1;
+                break;
+            }
+        }
+        if (stuck)
+            break;
+        if (frames > worst)
+            worst = frames;
+    }
+
+    ASSERT_EQ_INT(0, stuck);
+    /* 64 tiles is six frames of halving; anything slower than a dozen is a camera a player drives
+     * away from rather than one that follows. */
+    ASSERT_TRUE(worst <= 12);
+}
+
+/* The contrast, stated as a test rather than as a comment: the classic line the follow replaced
+ * overshoots, so reusing it here would fail the test above. Pinned on the arithmetic itself --
+ * `want + (want - now) / 2` -- because the point is that the two rules are different, not that one
+ * of them is a bug in the place it is used. */
+static void test_the_classic_recentre_formula_overshoots(void) {
+    S32 now = 0, want = 5;
+
+    ASSERT_EQ_INT(7, want + (want - now) / 2);
+    ASSERT_TRUE((want + (want - now) / 2) > want);
+    /* and the follow's answer stays behind him */
+    ASSERT_EQ_INT(2, FollowCamIsoStep(now, want));
+}
+
+/* THE PAN AND THE PROJECTION ARE THE SAME ARITHMETIC, and this is the test that says so. The brick
+ * lattice is blitted on whole-tile pixels (GRILLE.CPP's `Map2Screen`) while objects and sprites are
+ * projected (LPROJISO.CPP), so a camera between two tiles has to move both by one amount or the hero
+ * slides across a grid that stands still.
+ *
+ * `iso_px`/`iso_py` below are `LongProjectPointIso` written out (it subtracts the camera, folds it
+ * into two linear terms and adds the projection centre), which is the reference the pan has to
+ * match. Checked over a brick's worth of lag in every direction rather than at a few points: the
+ * failures are a sign and a shift, and both show up immediately. */
+static S32 iso_px(S32 wx, S32 wz, S32 camx, S32 camz) {
+    return (3 * ((wx - camx) - (wz - camz))) >> 6;
+}
+
+static S32 iso_py(S32 wx, S32 wy, S32 wz, S32 camx, S32 camy, S32 camz) {
+    return (6 * (((wx - camx) + (wz - camz))) - 15 * (wy - camy)) >> 8;
+}
+
+static void test_iso_pan_matches_the_projection_over_a_brick(void) {
+    const S32 brick = 512;
+    S32 dx, dy, dz, bad = 0;
+
+    for (dx = -brick; dx <= brick; dx += 17) {
+        for (dz = -brick; dz <= brick; dz += 17) {
+            for (dy = -brick; dy <= brick; dy += 64) {
+                S32 panx = FollowCamIsoPanX(dx, dz);
+                S32 pany = FollowCamIsoPanY(dx, dy, dz);
+
+                /* A point on the tile the camera is anchored to, projected with the eye on the tile
+                 * and again with it moved by the lag: the difference is the pan, to within the unit
+                 * the two integer divisions truncate by. */
+                /* `dx`/`dy`/`dz` are the eye's LAG: it sits at the anchor plus them, so the reference
+                 * camera is the anchor moved by +d. */
+                S32 refx = iso_px(3 * brick, 2 * brick, 3 * brick + dx, 2 * brick + dz) - iso_px(3 * brick, 2 * brick, 3 * brick, 2 * brick);
+                S32 refy = iso_py(3 * brick, brick, 2 * brick, 3 * brick + dx, brick + dy, 2 * brick + dz) - iso_py(3 * brick, brick, 2 * brick, 3 * brick, brick, 2 * brick);
+
+                if (panx - refx > 1 || panx - refx < -1)
+                    bad++;
+                if (pany - refy > 1 || pany - refy < -1)
+                    bad++;
+            }
+        }
+    }
+
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* And the units it is in: a brick of lag is exactly a brick of picture. `Map2Screen` steps 24 pixels
+ * per tile across and 12 per tile down (15 per brick up), so these are the numbers a player sees --
+ * a pan of 1 would be a pixel here, not a tile there. */
+static void test_iso_pan_is_measured_in_bricks(void) {
+    ASSERT_EQ_INT(0, FollowCamIsoPanX(0, 0));
+    ASSERT_EQ_INT(0, FollowCamIsoPanY(0, 0, 0));
+
+    /* The eye one brick further along +x, +z, and one brick up: content moves the other way. +x is
+     * right and DOWN on an iso screen, so the eye moving +x takes the picture up (the 15-per-brick
+     * rise for y is the same sign for the same reason). */
+    ASSERT_EQ_INT(-24, FollowCamIsoPanX(512, 0));
+    ASSERT_EQ_INT(24, FollowCamIsoPanX(0, 512));
+    ASSERT_EQ_INT(-12, FollowCamIsoPanY(0, 0, 512));
+    ASSERT_EQ_INT(-12, FollowCamIsoPanY(512, 0, 0));
+    ASSERT_EQ_INT(15, FollowCamIsoPanY(0, 256, 0));
+
+    /* Half a brick is half of that, and never a whole one: the point of the exercise. */
+    ASSERT_EQ_INT(-12, FollowCamIsoPanX(256, 0));
+}
+
+/* An interior glide's length follows its distance: 6 ms a pixel between the setting's floor and the
+ * 1.5 s ceiling, and a cut stays a cut. The square root is exact on the pixels that matter. */
+static void test_iso_glide_length_follows_the_distance(void) {
+    /* Short: the floor (cam_shot_blend_ms). */
+    ASSERT_EQ_INT(600, FollowCamIsoGlideMs(0, 0, 600, 6, 1500));
+    ASSERT_EQ_INT(600, FollowCamIsoGlideMs(30, 40, 600, 6, 1500)); /* 50 px, 300 ms */
+    /* Between: 6 ms a pixel, Euclidean and either sign. */
+    ASSERT_EQ_INT(1200, FollowCamIsoGlideMs(120, -160, 600, 6, 1500)); /* 200 px */
+    ASSERT_EQ_INT(1200, FollowCamIsoGlideMs(-160, 120, 600, 6, 1500));
+    ASSERT_EQ_INT(1014, FollowCamIsoGlideMs(169, 0, 600, 6, 1500));
+    ASSERT_EQ_INT(1008, FollowCamIsoGlideMs(120, 118, 600, 6, 1500)); /* sqrt 28324 = 168.3, rounded down */
+    /* Long: the ceiling, unless the floor is longer still. */
+    ASSERT_EQ_INT(1500, FollowCamIsoGlideMs(3000, 3000, 600, 6, 1500));
+    ASSERT_EQ_INT(2000, FollowCamIsoGlideMs(3000, 3000, 2000, 6, 1500));
+    /* The largest pan a cube allows does not overflow. */
+    ASSERT_EQ_INT(1500, FollowCamIsoGlideMs(0x7fffffff, 0x7fffffff, 600, 6, 1500));
+    /* 0 is the cut, whatever the distance. */
+    ASSERT_EQ_INT(0, FollowCamIsoGlideMs(300, 0, 0, 6, 1500));
+    ASSERT_EQ_INT(0, FollowCamIsoGlideMs(300, 0, -5, 6, 1500));
+}
+
 /* A divisor of zero would be a division fault rather than a slow camera, and the console can set
  * the cvars these come from to anything. */
 /* Standing on the target is not a reason to move. Promoting a zero step to the minimum would
@@ -575,6 +744,12 @@ int main(void) {
     RUN_TEST(test_hd_shrink_matches_the_documented_working_point);
     RUN_TEST(test_hd_shrink_truncates_once_rather_than_subtracting);
     RUN_TEST(test_hd_shrink_is_bounded_and_never_grows);
+    RUN_TEST(test_iso_step_never_passes_the_target);
+    RUN_TEST(test_iso_step_arrives_in_a_few_frames);
+    RUN_TEST(test_the_classic_recentre_formula_overshoots);
+    RUN_TEST(test_iso_pan_matches_the_projection_over_a_brick);
+    RUN_TEST(test_iso_pan_is_measured_in_bricks);
+    RUN_TEST(test_iso_glide_length_follows_the_distance);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -3,7 +3,7 @@
 #include <POLYGON/POLYFILT.H>
 
 #include "DEMO_SEED.H"
-#include "FOLLOWCAM.H" /* FollowCamera: camera zones re-aim the Auto camera */
+#include "FOLLOWCAM.H" /* FollowCamera: camera zones re-aim the Auto camera; the interior follow's cuts */
 #include "RECORD.H"    /* Record_SeedHook: the boot scene load's seed on a replay */
 #include "SAVEGAME.H"
 #include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
@@ -1346,6 +1346,10 @@ void ChangeCube() {
     LastJoyFlag = TRUE;
     FirstTime = AFF_ALL_FLIP;
     CameraZone = FALSE;
+    /* A new scene is a cut for the interior follow, however it was entered. A door places the
+       camera below with CameraCenter(0), which keeps the follow's state, so without this a room
+       that opens inside a camera zone glided in from the room just left. */
+    FollowCamIsoGlideReset();
     NewCube = -1;
 
     SamplePlayed = 2 + 4 + 8; // joue le premier sample en 1er
@@ -6326,6 +6330,11 @@ void SetZoneCamera(T_ZONE *ptrz) {
 
     if (CubeMode == CUBE_INTERIEUR) {
         if (StartXCube != info0 OR StartYCube != info1 OR StartZCube != info2) {
+            /* A new shot, from another zone's or from the follow's: with the interior follow on,
+               the view glides into it from what is on screen (cam_shot_blend_ms). Does nothing
+               with the follow off. */
+            FollowCamIsoShotTookView();
+
             StartXCube = info0;
             StartYCube = info1;
             StartZCube = info2;

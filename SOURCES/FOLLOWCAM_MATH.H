@@ -94,6 +94,59 @@ static inline S32 FollowCamRotStep(S32 diff, S32 divisor, S32 minStep) {
     return step;
 }
 
+/* One frame of the INTERIOR follow: the view's tile, stepped toward the hero's.
+ *
+ * An interior's camera is the tile grid, not an angle (INTEXT.CPP's CameraCenter(0) positions the eye
+ * at `StartXCube * SIZE_BRICK_XZ`), so "follow the player" there means moving the view by whole tiles.
+ * The classic path moves it only once the hero reaches the screen margin, and by
+ * `want + (want - now) / 2` -- more than half the gap, which OVERSHOOTS the target and comes back.
+ * That is harmless for a one-shot recentre of a hero who is off screen and unwatched, and it is not
+ * harmless for a camera that runs on consecutive frames while the player watches it: an overshoot
+ * there is a visible wobble past the hero and back.
+ *
+ * So this one never passes the target: half the gap, floored at one tile so a gap of one closes in
+ * one frame rather than truncating to zero and standing still (the same failure FollowCamRotStep's
+ * floor exists for), and never more than what is left. A gap of two tiles takes two frames, four
+ * takes three, and a teleport inside one cube arrives in tens of frames rather than at once -- which
+ * is the pan a player expects from a camera, not a cut.
+ *
+ * Negative arithmetic is C's (toward zero): -3 steps -1 and -1 steps -1, both of which close. */
+static inline S32 FollowCamIsoStep(S32 now, S32 want) {
+    S32 d = want - now;
+    S32 step;
+
+    if (d == 0)
+        return now;
+
+    step = d / 2;
+    if (d > 0 && step < 1)
+        step = 1;
+    if (d < 0 && step > -1)
+        step = -1;
+
+    return now + step;
+}
+
+/* The pixel shift a distance between the isometric eye and its tile gives the picture.
+ *
+ * The projection (LPROJISO.CPP's `LongProjectPointIso`) subtracts the camera and then folds it into
+ * two linear terms, so moving the eye by (dx, dy, dz) moves every projected point by exactly these
+ * two amounts. It is also what the BRICK LATTICE has to move by: bricks are blitted on whole-tile
+ * pixels (`Map2Screen`, GRILLE.CPP) rather than projected, so without this the grid would stand
+ * still while the hero, the decors and the sprites slid across it. The two are the same number for
+ * the same reason, which is why it lives here next to the arithmetic it mirrors and is pinned
+ * against a tile's worth of pixels by tests/camera.
+ *
+ * One pixel of lag is 512/24 units across and 256/15 up; the shifts are integers, so a lag under
+ * that simply repeats the previous pixel. */
+static inline S32 FollowCamIsoPanX(S32 dx, S32 dz) {
+    return (3 * (dz - dx)) >> 6;
+}
+
+static inline S32 FollowCamIsoPanY(S32 dx, S32 dy, S32 dz) {
+    return (15 * dy - 6 * (dx + dz)) >> 8;
+}
+
 /* One frame of easing a yaw offset (`AddBetaCam`) toward the offset it is being
  * returned to, the shortest way round. Lands exactly on the target and stays
  * there: the lazy pan drift this sits beside divides first and tests after, so
@@ -190,6 +243,40 @@ static inline S32 FollowCamBlendWeight(S32 elapsedMs, S32 durMs) {
 
     t = (S64)elapsedMs * 1000 / durMs;
     return (S32)(t * t * (3000 - 2 * t) / 1000000);
+}
+
+/* How long the interior view takes to glide `panX`, `panY` pixels: long enough that it never moves
+ * faster than `msPerPx` allows at the eased curve's middle, which is half again its average speed.
+ * `floorMs` is the shortest glide (cam_shot_blend_ms; 0 or less is a cut, and stays one), and
+ * `ceilMs` the longest, unless the floor is longer still. A fixed length moved a 340-pixel hand-over
+ * at 14 pixels a frame, against the follow's 1 to 3 while he walks. */
+static inline S32 FollowCamIsoGlideMs(S32 panX, S32 panY, S32 floorMs, S32 msPerPx, S32 ceilMs) {
+    U64 sq = (U64)((S64)panX * panX + (S64)panY * panY);
+    U64 d = 0;
+    U64 bit = (U64)1 << 62;
+    S64 ms;
+
+    if (floorMs <= 0)
+        return 0;
+    /* Integer square root, one bit a turn: 32 turns whatever the distance. */
+    while (bit > sq)
+        bit >>= 2;
+    while (bit != 0) {
+        if (sq >= d + bit) {
+            sq -= d + bit;
+            d = (d >> 1) + bit;
+        } else {
+            d >>= 1;
+        }
+        bit >>= 2;
+    }
+
+    ms = (S64)d * msPerPx;
+    if (ms > ceilMs)
+        ms = ceilMs;
+    if (ms < floorMs)
+        ms = floorMs;
+    return (S32)ms;
 }
 
 /* `weight` thousandths of the way from `from` to `to`. */

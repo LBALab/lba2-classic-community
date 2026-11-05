@@ -27,7 +27,7 @@ times every fixture, reports the ones over their tier's budget, and keeps the ti
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-94 fixtures: 54 small, 29 medium, 11 big.
+96 fixtures: 55 small, 30 medium, 11 big.
 
 | Fixture | Tier | What it pins | Also needs |
 |---|---|---|---|
@@ -40,6 +40,7 @@ suite still passes, since CI cannot say so.
 | [test_blowgun_release_throttle.sh](test_blowgun_release_throttle.sh) | medium | #407 regression: the fixed-timestep throttle must not drop a hero input EDGE. | - |
 | [test_camera_axes.sh](test_camera_axes.sh) | medium | Elevation and zoom: the two Auto-camera axes that are not orbit. | - |
 | [test_camera_interior.sh](test_camera_interior.sh) | small | The Auto camera must stay out of interiors, whatever the player has it set to. | - |
+| [test_camera_interior_follow.sh](test_camera_interior_follow.sh) | medium | The interior follow keeps the hero in the middle of the isometric view, the switch is what does it, and a camera zone still owns the view. | - |
 | [test_camlib_tsv.sh](test_camlib_tsv.sh) | small | camlib's trace reader returns every frame the log recorded, including the ones glued behind a console echo. | - |
 | [test_camzone_blend.sh](test_camzone_blend.sh) | medium | A scripted shot taking the view from the Auto camera, and giving it back, is a blend with cam_shot_blend_ms on, not a cut. | - |
 | [test_camzone_hold.sh](test_camzone_hold.sh) | medium | A camera zone's authored angle must survive the Auto camera being switched on. | - |
@@ -56,6 +57,7 @@ suite still passes, since CI cannot say so.
 | [test_console_audio_cvars.sh](test_console_audio_cvars.sh) | small | The audio cvars are the same settings the cfg holds, from the other end. | - |
 | [test_console_audio_stereo.sh](test_console_audio_stereo.sh) | small | What the console does to reverse stereo is what the cfg holds afterwards. | - |
 | [test_console_config_write.sh](test_console_config_write.sh) | small | The console verbs that persist a setting actually persist it. | - |
+| [test_console_cube_range.sh](test_console_cube_range.sh) | small | The console's cube command refuses a cube the game data does not have. | - |
 | [test_demo.sh](test_demo.sh) | medium | --demo: deterministic scripted-playthrough fixture. | - |
 | [test_demo_behaviour_menu.sh](test_demo_behaviour_menu.sh) | big | #358 regression: the fixed-timestep throttle must not skip a full-scene-flip frame. | - |
 | [test_dodge_direction.sh](test_dodge_direction.sh) | medium | The dodge is a modifier: it changes what a direction means rather than doing anything itself. | - |

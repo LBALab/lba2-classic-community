@@ -55,7 +55,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 
 | Command       | Description |
 |---------------|-------------|
-| **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). |
+| **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). A number the game data has no scene for (past 221 on the full game, or below 0) is refused with the valid range, and the console stays open. Cube 94 is the sea past an island's edge, where Twinsen drowns: it draws the island already loaded, so it is refused indoors. From outdoors it keeps the island the hero is on and enters the sea at the corner of the island's map, so the horizon is open sea and Twinsen drowns. |
 | **load**      | Load save by player name as printed by `listsaves`, or by file name (with optional `.lba`). |
 | **loadbug**   | Load bug save by name or file (optional `.lba`), default `bug`. |
 | **listsaves** | List save games (player names from .lba files). |

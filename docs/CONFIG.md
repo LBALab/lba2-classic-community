@@ -107,7 +107,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Key | Purpose | Source | Menu |
 |-----|---------|--------|------|
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Outdoors: Auto" / "Outdoors: Classic" | ReadConfigFile / WriteConfigFile | Options → Advanced options → Camera |
 | TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | Options → Graphics |
 | PresentFilter | Filter that stretches the frame to the window, nearest by default. Console cvar `gfx_presentfilter` | ReadConfigFile / WriteConfigFile | Options → Graphics ("Scaling") |
 | RetailFixes | Fix retail bugs: 0 no, 1 yes (default), 2 custom. Console cvar `fix_retail`. See "Retail fixes" below | RetailFix_ReadConfig / RetailFix_WriteConfig | Options → Advanced options |

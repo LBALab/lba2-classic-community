@@ -12,6 +12,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
+- An experimental interior follow camera, off by default: Options → Advanced
+  options → Camera → **Indoors: Follow** (`cam_interior 1` in the console,
+  `FollowCameraInterior: 1` in `lba2.cfg`) keeps Twinsen in the
+  middle of the isometric view, the room sliding under him as he walks instead
+  of jumping a brick at a time when he nears the screen edge. Camera shots
+  placed by the game's designers still hold their rooms, and the view glides
+  into and out of them, taking longer the farther it has to go. A room opens
+  on the view it keeps.
+
+- Options → Advanced options has a **Camera** page with the two camera
+  switches: Outdoors (Auto or Classic, the row that used to read Auto camera /
+  Classic camera) and Indoors (Follow or Classic).
+
 - A screen opened just as the game resumes from the pause menu shows the scene
   behind it, not the menu. The inventory, the behaviour menu and the other
   screens opened during play take whatever is on screen as their background,
@@ -19,7 +32,33 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   save made on that frame kept the menu as its thumbnail
   ([#832](https://github.com/LBALab/lba2-classic-community/issues/832)).
 
+### Developer tools
+
+- The console's `cube` command refuses a cube the game data does not have, and
+  says which ones it has, instead of crashing. `cube 222` read past the end of
+  the scene file and stopped the engine; a negative number, a huge one or text
+  was taken too
+  ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
+
+- `cube 94`, the sea past an island's edge where Twinsen drowns, is refused
+  indoors instead of crashing: it draws the island already loaded, and indoors
+  there is none. From outdoors it keeps the island the hero is on, where it used
+  to switch to Citadel's, and Twinsen drowns in open sea
+  ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
+
+### Stability & fixes
+
+- Reading an entry a game data file does not hold now fails cleanly instead of
+  unpacking garbage. The last slot of every data file is its end, not an entry;
+  reading it, or an entry cut short in a damaged file, used to reuse the sizes
+  of the previous read and could stop the engine, as `cube 222` did
+  ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
+
 ### Contributors
+
+Thanks to SIN for the interior follow camera: they designed and wrote it, with
+the math that keeps the bricks and the hero in step, its host tests and its
+fixture, and pointed out the door wobble that the later fixes went after.
 
 Thanks to EPmager for reporting the inventory drawn over the pause menu, with
 logs, recordings and a video of the four data and controller combinations
