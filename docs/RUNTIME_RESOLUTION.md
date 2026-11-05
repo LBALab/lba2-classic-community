@@ -147,7 +147,7 @@ If the new mode failed to allocate (out of memory) or SDL refused to create the 
 | **Recommended** | A small fixed list of common aspect ratios, filtered to `≤ display`. Today's list: `640×480` (4:3), `768×480` (16:10), `1024×480` (~21:10), `1280×720` (16:9 — experimental), `1920×1080` (16:9 — experimental), plus a synthetic `Native` entry resolved to `display_W × display_H` snapped to `W % 8 == 0`. |
 | **Advanced** | A curated list of common modes (320×200 … 1680×1024), filtered to `≤ display`. Shown behind `resolution --all` so the default list isn't dozens of entries. |
 
-> **Menu vs console.** The two tiers above (`Res_BuildCatalog`) back the **console** `resolution` verb: a curated, power-user list plus arbitrary `WxH`. The **in-game menu** uses a different builder, `Res_BuildMenuList`: the `640×480` classic anchor plus a ladder of **display-aspect-matched** modes at 480/720/1080 render heights, computed per monitor. Every menu entry therefore fills the player's exact panel (no letterbox/pillarbox). For example, a 16:9 panel offers `640×480, 848×480, 1280×720, 1920×1080`; a 16:10 panel offers `768×480, 1152×720, 1728×1080`; an odd-aspect laptop gets its own widths. The `@480` rung equals the boot auto-detect value, so the first-launch resolution is always a listed (and markable) entry. Rungs that don't fit the panel, or whose width would exceed 1920 (ultrawide at 1080), are dropped.
+> **Menu vs console.** The two tiers above (`Res_BuildCatalog`) back the **console** `resolution` verb: a curated, power-user list plus arbitrary `WxH`. The **in-game menu** uses a different builder, `Res_BuildMenuList`: the `640×480` classic anchor plus a ladder of **display-aspect-matched** modes at 480/720/1080 render heights, computed per monitor. Every menu entry therefore fills the player's exact panel (no letterbox/pillarbox). For example, a 16:9 panel offers `640×480, 848×480, 1280×720, 1920×1080`; a 16:10 panel offers `768×480, 1152×720, 1728×1080`; an odd-aspect laptop gets its own widths. The `@480` rung equals the boot auto-detect value, so the first-launch resolution is always a listed (and markable) entry. Rungs that don't fit the panel, or whose width would exceed 1920 (ultrawide at 1080), are dropped. On an OpenXR headset the menu ladder is instead built from the runtime's recommended per-eye size (1/4, 1/3, 1/2, 2/3, 3/4 and native), so its native rung is the same mode the boot resolver picked and every step keeps the swapchain aspect.
 
 ### Aspect labeling
 
@@ -196,7 +196,7 @@ ResolutionX=768
 ResolutionY=480
 ```
 
-Read at boot: if both keys are present and valid, they seed the initial render resolution. `--resolution WxH` on the CLI overrides. If both are missing, a Quest build boots at 1680×1760 (the per-eye swapchain recommendation); other builds auto-detect a widescreen size and fall back to `640×480`.
+Read at boot: if both keys are present and valid, they seed the initial render resolution. `--resolution WxH` on the CLI overrides. If both are missing, a Quest build uses the headset's per-eye OpenXR recommendation (1680×1760 on Quest 3 / 3S, 1440×1584 on Quest 2 / Pro; the framebuffer starts at the Quest 3 / 3S size because it is allocated before the session exists, then reconciles to the runtime's live value); other builds auto-detect a widescreen size and fall back to `640×480`.
 
 Write: on resolution-switch success (after the keep-confirm dialog), write the new values back to `lba2.cfg`. Same mechanism as the existing `WriteConfigFile` in `PERSO.CPP:2008`.
 

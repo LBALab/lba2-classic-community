@@ -28,6 +28,7 @@
 #include <SYSTEM/LOG.H>     /* Log_Debug (per-switch trace, off by default) */
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/MOUSE.H>      /* ClearMouseBox — re-anchor mouse limits after resolution change */
+#include <SYSTEM/OPENXR.H>     /* OpenXR_GetSwapchainWidth/Height (headset per-eye size) */
 #include <SYSTEM/RESOLUTION.H> /* RESOLUTION_X / RESOLUTION_Y compile-time defaults */
 
 #ifdef USE_GPURENDERER
@@ -353,13 +354,26 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
        writing the cfg keys above. */
 #if defined(LBA2_OPENXR) && defined(__ANDROID__)
     /* Quest: auto-detect would pick a 480-high display mode, but the in-headset
-       view is the per-eye swapchain. The framebuffer is sized before the OpenXR
-       session exists, so the runtime cannot be queried here; boot at the same
-       size the head-mounted ladder calls native. A CLI or saved cfg value above
-       still wins, and the Display menu can pick a lower rung for performance. */
-    *outW = RES_QUEST_NATIVE_W;
-    *outH = RES_QUEST_NATIVE_H;
-    g_bootDimSource = "quest";
+       view is the per-eye swapchain. Before the session exists the runtime
+       cannot be queried, so the first resolve (the one that sizes MainBuffer)
+       uses the Quest 3 / 3S 100%-render-scale size. The post-InitProgram resolve
+       that feeds the boot log sees the live swapchain and reports the headset's
+       real recommendation (Quest 2 / Pro: 1440x1584). A CLI or saved cfg value
+       above still wins, and the Display menu can pick a lower rung for
+       performance. */
+    {
+        const U32 sw = OpenXR_GetSwapchainWidth();
+        const U32 sh = OpenXR_GetSwapchainHeight();
+        if (sw != 0 && sh != 0 && Res_ValidateDimensions(sw, sh)) {
+            *outW = sw;
+            *outH = sh;
+            g_bootDimSource = "headset";
+        } else {
+            *outW = RES_QUEST_NATIVE_W;
+            *outH = RES_QUEST_NATIVE_H;
+            g_bootDimSource = "quest";
+        }
+    }
     g_resIsAutoDerived = true;
     return;
 #else
@@ -378,6 +392,56 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
     *outH = RESOLUTION_Y;
     g_bootDimSource = "default";
     g_resIsAutoDerived = true;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+bool Res_ApplyHeadsetNative(void) {
+    /* Runs once after InitProgram, which is where ReadConfigFile brings up the
+       OpenXR session. The boot resolve ran before that session existed, so it
+       could only guess the headset's 100%-render-scale size; the runtime's
+       recommendation is per-device (Quest 2 / Pro 1440x1584, Quest 3 / 3S
+       1680x1760). Leave a player-chosen resolution alone. No palette or cube is
+       loaded yet, so unlike Res_Switch this only rebuilds the framebuffer and
+       its surfaces; the main loop's first frame is a full redraw. */
+    if (!g_resIsAutoDerived)
+        return false;
+
+    const U32 newW = OpenXR_GetSwapchainWidth();
+    const U32 newH = OpenXR_GetSwapchainHeight();
+    if (newW == 0 || newH == 0)
+        return false;
+    if (!Res_ValidateDimensions(newW, newH)) {
+        Log_Warn("Res_ApplyHeadsetNative: headset recommends %ux%u, outside the "
+                 "supported range; keeping %ux%u\n",
+                 newW, newH, ModeDesiredX, ModeDesiredY);
+        return false;
+    }
+    if (ModeDesiredX == newW && ModeDesiredY == newH)
+        return false;
+
+    const U32 oldW = ModeDesiredX;
+    const U32 oldH = ModeDesiredY;
+    if (!RebuildEngineBuffers(newW, newH) || !ResizeSdlSurfaces(newW, newH)) {
+        Log_Warn("Res_ApplyHeadsetNative: rebuild at %ux%u failed, reverting to "
+                 "%ux%u\n",
+                 newW, newH, oldW, oldH);
+        TeardownEngineBuffers();
+        if (!RebuildEngineBuffers(oldW, oldH) || !ResizeSdlSurfaces(oldW, oldH)) {
+            TheEnd(NOT_ENOUGH_MEM, "Res_ApplyHeadsetNative revert");
+            return false;
+        }
+        return false;
+    }
+
+    /* InitProgram's MemoClipWindow captured the boot dimensions; re-anchor it
+       so any later UnsetClipWindow restores the whole new framebuffer. */
+    MemoClipWindow();
+    /* Provenance for the boot log, which re-reads Res_LoadBootDimensions after
+       this call and now sees the live swapchain. */
+    g_bootDimSource = "headset";
+    Log_Info("Res: headset native %ux%u (boot default was %ux%u)\n",
+             newW, newH, oldW, oldH);
+    return true;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/

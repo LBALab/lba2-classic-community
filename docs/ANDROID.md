@@ -199,6 +199,13 @@ camera and the room looks flat. Set
 `LBA2_OXR_GLDEBUG=1` to log GL errors from the present stages; release runs
 skip the per-present error queries.
 
+The render size follows the headset. The framebuffer is allocated before the
+OpenXR session exists, so it starts at the Quest 3 / 3S 100%-render-scale size
+(1680×1760 per eye); once `InitProgram` has created the session,
+`Res_ApplyHeadsetNative` resizes it to the runtime's live
+`recommendedImageRect*` (1440×1584 on Quest 2 / Pro, 1680×1760 on Quest 3 / 3S).
+A `--resolution` or `lba2.cfg` choice still wins.
+
 Exterior scenes use a single-pass path: the 3D scene is traversed once from
 the eye-0 camera, and each draw is submitted twice with its own scissor and
 an eye-1 camera delta supplied to the shader. The screen-space 2D overlay is

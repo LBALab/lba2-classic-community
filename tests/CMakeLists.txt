@@ -54,6 +54,7 @@ add_subdirectory(gl_nearclip)
 add_subdirectory(stereolook)
 add_subdirectory(stereo_policy)
 add_subdirectory(bench_terrain)
+add_subdirectory(res_ladder)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
