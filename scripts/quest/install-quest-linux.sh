@@ -207,16 +207,28 @@ if [ ! -d "$ASSETS" ]; then
     exit 1
 fi
 
-if [ ! -f "$ASSETS/lba2.hqr" ]; then
+# The retail CD ships LBA2.HQR, and Linux filesystems are case-sensitive.
+# Match the marker the same way the engine's Discover() does at runtime.
+has_game_data() {
+    local candidate
+    for candidate in "$1"/[Ll][Bb][Aa]2.[Hh][Qq][Rr]; do
+        if [ -f "$candidate" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! has_game_data "$ASSETS"; then
     for sub in Common CommonClassic; do
-        if [ -f "$ASSETS/$sub/lba2.hqr" ]; then
+        if has_game_data "$ASSETS/$sub"; then
             ASSETS="$ASSETS/$sub"
             break
         fi
     done
 fi
 
-if [ ! -f "$ASSETS/lba2.hqr" ]; then
+if ! has_game_data "$ASSETS"; then
     echo "lba2.hqr was not found in: $ASSETS" >&2
     echo "Point the script at the folder that contains lba2.hqr." >&2
     exit 1
