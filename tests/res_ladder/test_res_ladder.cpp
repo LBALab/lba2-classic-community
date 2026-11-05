@@ -86,16 +86,24 @@ static void checkInvariants(const char *name, unsigned sw, unsigned sh) {
 int main() {
     /* Quest 3 / 3S: the historical fixed table, unchanged. */
     static const Step quest3[] = {
-        {416, 440, "0.25x"},   {560, 587, "0.33x"},   {840, 880, "0.5x"},
-        {1120, 1173, "0.67x"}, {1256, 1320, "0.75x"}, {1680, 1760, "native"},
+        {416, 440, "0.25x"},
+        {560, 587, "0.33x"},
+        {840, 880, "0.5x"},
+        {1120, 1173, "0.67x"},
+        {1256, 1320, "0.75x"},
+        {1680, 1760, "native"},
     };
     expectLadder("Quest 3 / 3S", 1680, 1760, quest3, 6);
     checkInvariants("Quest 3 / 3S", 1680, 1760);
 
     /* Quest 2 / Pro: same fractions of their 1440x1584 eye buffer. */
     static const Step quest2[] = {
-        {360, 396, "0.25x"},   {480, 528, "0.33x"},   {720, 792, "0.5x"},
-        {960, 1056, "0.67x"},  {1080, 1188, "0.75x"}, {1440, 1584, "native"},
+        {360, 396, "0.25x"},
+        {480, 528, "0.33x"},
+        {720, 792, "0.5x"},
+        {960, 1056, "0.67x"},
+        {1080, 1188, "0.75x"},
+        {1440, 1584, "native"},
     };
     expectLadder("Quest 2 / Pro", 1440, 1584, quest2, 6);
     checkInvariants("Quest 2 / Pro", 1440, 1584);
@@ -103,8 +111,11 @@ int main() {
     /* Quest 1: 0.25x would be 304x336, below RES_MIN_W, so the ladder starts
        at 0.33x. */
     static const Step quest1[] = {
-        {400, 448, "0.33x"},  {608, 672, "0.5x"},   {808, 896, "0.67x"},
-        {912, 1008, "0.75x"}, {1216, 1344, "native"},
+        {400, 448, "0.33x"},
+        {608, 672, "0.5x"},
+        {808, 896, "0.67x"},
+        {912, 1008, "0.75x"},
+        {1216, 1344, "native"},
     };
     expectLadder("Quest 1", 1216, 1344, quest1, 5);
     checkInvariants("Quest 1", 1216, 1344);
