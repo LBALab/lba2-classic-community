@@ -221,9 +221,14 @@ extern S32 FollowCamIsoGlide(void);
  * CameraCenter (INTEXT.CPP), which then places the camera on the tile's corner as it always has. */
 extern void FollowCamIsoPlaceView(void);
 
-/* Set the isometric projection centre: `base` (Init3DView's framebuffer centre) plus the view's pan.
- * Init3DView goes through this, so every menu that restores the 3D view keeps the pan. */
+/* Set the isometric projection centre: `base` (Init3DView's framebuffer centre) plus the pan already on
+ * screen. Init3DView goes through this, so every menu that restores the 3D view keeps the pan. It moves
+ * the pan only when the tile has moved since, which is a new picture the bricks are redrawn for. */
 extern void FollowCamIsoCentre(S32 baseX, S32 baseY);
+
+/* AffScene is about to redraw the bricks: bring the pan to the view's, so the room and the objects drawn
+ * over it agree. With the main loop's glide and a new tile, the only times the pan changes. */
+extern void FollowCamIsoBricksRedrawn(void);
 
 /* The pixel shift the projection centre carries now (FOLLOWCAM_MATH.H's `FollowCamIsoPan*` of the
  * eye's offset, as last applied). The brick lattice adds it. Zero whenever the eye is on its tile --

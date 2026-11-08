@@ -5508,6 +5508,8 @@ startaffscene:
         BoxReset();
         Cls();
 
+        /* The interior follow's pan moves only on a frame like this one, which redraws the bricks. */
+        FollowCamIsoBricksRedrawn();
         RefreshGrille();
 
         ChangeIncrustPos(oldxporg, oldyporg, XpOrgw, YpOrgw);

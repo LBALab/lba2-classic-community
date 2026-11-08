@@ -64,6 +64,11 @@ Thanks to EPmager for reporting the inventory drawn over the pause menu, with
 logs, recordings and a video of the four data and controller combinations
 ([#832](https://github.com/LBALab/lba2-classic-community/issues/832)).
 
+Thanks to EPmager for reporting the interior follow camera leaving a room
+behind its walls when a dialogue opened during a glide, with exact steps, a
+camera trace, a recording and a video
+([#857](https://github.com/LBALab/lba2-classic-community/issues/857)).
+
 ## [0.13.2] - 2026-10-22
 
 On a 64-bit Android phone, a Galaxy S22+, the attract reel with the Auto
