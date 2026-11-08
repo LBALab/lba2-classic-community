@@ -88,6 +88,11 @@ static S32 FollowCamIsoPanAppliedX = 0;
 static S32 FollowCamIsoPanAppliedY = 0;
 static S32 FollowCamIsoCentreX = 0;
 static S32 FollowCamIsoCentreY = 0;
+/* The tile the applied pan was measured from: the pan is an offset from it, so a new tile is a new
+ * picture, and the bricks are redrawn for it anyway. */
+static S32 FollowCamIsoPanTileX = -1;
+static S32 FollowCamIsoPanTileY = -1;
+static S32 FollowCamIsoPanTileZ = -1;
 /* The eye the applied pan was measured from (the view as shown), and the blend that carries the
  * picture from one owner's view to the other's when a camera zone or a scripted shot takes the
  * interior view or gives it back (cam_shot_blend_ms, the setting the exterior blend uses). */
@@ -1509,7 +1514,10 @@ static void iso_view_pan_wanted(S32 *x, S32 *y, S32 *sx, S32 *sy, S32 *sz) {
     *y = FollowCamIsoPanY(*sx - tx, *sy - ty, *sz - tz);
 }
 
-void FollowCamIsoCentre(S32 baseX, S32 baseY) {
+/* Move the projection centre to the pan the view wants now. Only a frame that redraws the bricks does
+ * this: the lattice is blitted once into the background and kept, while every object is projected
+ * afresh, so a pan that moves on any other frame moves the actors and not the room they stand in. */
+static void iso_view_take_pan(S32 baseX, S32 baseY) {
     S32 panX, panY, sx, sy, sz;
 
     iso_view_pan_wanted(&panX, &panY, &sx, &sy, &sz);
@@ -1523,12 +1531,39 @@ void FollowCamIsoCentre(S32 baseX, S32 baseY) {
     FollowCamIsoCentreY = baseY;
     FollowCamIsoPanAppliedX = panX;
     FollowCamIsoPanAppliedY = panY;
+    FollowCamIsoPanTileX = StartXCube;
+    FollowCamIsoPanTileY = StartYCube;
+    FollowCamIsoPanTileZ = StartZCube;
 
     SetIsoProjection(baseX + panX, baseY + panY);
 }
 
-/* Put the projection centre on the pan the view wants, if it is not there already. Returns TRUE when
- * it moved, which is a frame the whole scene must be redrawn on. */
+/* THE PAN ON SCREEN, NOT THE ONE WANTED. Init3DView and CameraCenter also run inside the game's modal
+ * loops -- a dialogue drawing the item just used in its corner restores the view through both, every
+ * frame -- and those loops draw objects over bricks they do not redraw. Read afresh here, a blend still
+ * running moved the actors with the clock while the room stayed where it was last drawn, and once the
+ * blend was over the glide found the pan already in place and never redrew it: Twinsen walked through
+ * walls until a menu or a door redrew the scene. The pan changes only with the bricks: on the glide's
+ * frame, on any full redraw (FollowCamIsoBricksRedrawn), or here when the tile itself has moved. */
+void FollowCamIsoCentre(S32 baseX, S32 baseY) {
+    if (CubeMode != CUBE_INTERIEUR) {
+        FollowCamIsoPanAppliedX = 0;
+        FollowCamIsoPanAppliedY = 0;
+    } else if (StartXCube != FollowCamIsoPanTileX OR StartYCube != FollowCamIsoPanTileY OR StartZCube != FollowCamIsoPanTileZ) {
+        /* The tile moved (a camera zone's shot, a found object's close-up): the bricks are redrawn
+           for the new one, and the pan it wants is the one that picture is drawn with. */
+        iso_view_take_pan(baseX, baseY);
+        return;
+    }
+    FollowCamIsoCentreX = baseX;
+    FollowCamIsoCentreY = baseY;
+
+    SetIsoProjection(baseX + FollowCamIsoPanAppliedX, baseY + FollowCamIsoPanAppliedY);
+}
+
+/* Put the projection centre on the pan the view wants, and note the view as the one on screen: the
+ * caller is about to draw the bricks with it. Returns TRUE when the pan moved, which is a frame the
+ * whole scene must be redrawn on. */
 static S32 iso_view_apply_pan(void) {
     S32 panX, panY, sx, sy, sz;
 
@@ -1544,18 +1579,24 @@ static S32 iso_view_apply_pan(void) {
     }
 
     iso_view_pan_wanted(&panX, &panY, &sx, &sy, &sz);
-    if (panX == FollowCamIsoPanAppliedX AND panY == FollowCamIsoPanAppliedY)
-        return 0;
+    S32 moved = (panX != FollowCamIsoPanAppliedX OR panY != FollowCamIsoPanAppliedY);
+    S32 oldPanY = FollowCamIsoPanAppliedY;
+
+    /* Taken even when nothing moves: this is the view a blend that starts next starts from (a camera
+       zone taking the view back after a found object's close-up). */
+    iso_view_take_pan(FollowCamIsoCentreX, FollowCamIsoCentreY);
 
     /* The camera has not moved, but the water clip line is a projected Y and the centre has: it moves
        with the picture. It was measured where the hero went into the water (OBJECT.CPP), so it is
        shifted, not projected again from where he stands now. */
-    S32 oldPanY = FollowCamIsoPanAppliedY;
-
-    FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
     if (FlagWater)
         FlagWater += FollowCamIsoPanAppliedY - oldPanY;
-    return 1;
+    return moved;
+}
+
+void FollowCamIsoBricksRedrawn(void) {
+    if (CubeMode == CUBE_INTERIEUR)
+        iso_view_apply_pan();
 }
 
 /* A CUT THE FOLLOW OWNS PUTS ITS TILE UNDER THE HERO. A scene load and the centre key aim the
@@ -1630,7 +1671,7 @@ static S32 iso_view_glide(void) {
         if (iso_view_owned_cut() AND iso_view_snap_tile()) {
             /* The camera is the tile, so it moves with it, and the whole scene is redrawn. */
             iso_view_place(ex, ey, ez);
-            FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
+            iso_view_take_pan(FollowCamIsoCentreX, FollowCamIsoCentreY);
             SetIsoCamera(StartXCube * SIZE_BRICK_XZ, StartYCube * SIZE_BRICK_Y, StartZCube * SIZE_BRICK_XZ);
             return 1;
         }
@@ -1670,7 +1711,7 @@ static S32 iso_view_glide(void) {
      * moved: the room jumped 43 pixels for one frame and back (cube 220 of the demo, riding up). The
      * tile goes to him in the frame he gets there, which moves nothing on screen. */
     if (!iso_view_near(tx, ty, tz) AND iso_view_snap_tile()) {
-        FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
+        iso_view_take_pan(FollowCamIsoCentreX, FollowCamIsoCentreY);
         SetIsoCamera(StartXCube * SIZE_BRICK_XZ, StartYCube * SIZE_BRICK_Y, StartZCube * SIZE_BRICK_XZ);
         return 1;
     }
