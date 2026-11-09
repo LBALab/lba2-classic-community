@@ -192,15 +192,15 @@ On the console:
 [`tools/uwp/xbox-lba2cc.py`](../../tools/uwp/xbox-lba2cc.py) runs the engine on the console as if it were the local binary, as `scripts/dev/android-lba2cc.sh` does on a phone, so `tests/automation` runs there unchanged:
 
 ```sh
-export LBA2_BIN=$PWD/tools/uwp/xbox-lba2cc.py      # runs out/build/uwp-snd's lba2cc.exe (LBA2_XBOX_EXE)
+export LBA2_BIN=$PWD/tools/uwp/xbox-lba2cc.py      # runs out/build/uwp's lba2cc.exe (LBA2_XBOX_EXE)
 export LBA2_GAME_DIR=/path/to/a/link/to/Common      # the data the console holds in LocalState\Game
 export LBA2_TEST_SAVE=/path/to/a/folder/with/one.LBA RING_JOBS=1 LBA2_TEST_TIMEOUT=180
 tests/automation/run.sh --fast --no-record
 ```
 
-Each call is one run of the app: the exe goes over when it changed, the arguments and environment go to `args.txt` and `env.txt`, host paths become `LocalState\t\…` paths (temp folders, the save's folder, the repository; the game data is not copied, so `LBA2_GAME_DIR` must hold what the console holds, checked by `LBA2.HQR`'s size), named files go up, their folders come back while the app runs and after it, and the paths it prints are mapped back. Runs wait for each other, since the console runs one copy of an app, and a run with no user folder of its own gets one, so the player's `lba2.cfg` and saves are never touched. `SDL_VIDEODRIVER=dummy` becomes `--headless`. About 5 to 10 seconds a run.
+Each call is one run of the app: the exe goes over when it changed, the arguments and environment go to `args.txt` and `env.txt`, host paths become `LocalState\t\…` paths (temp folders, the save's folder, the repository; the game data is not copied, so `LBA2_GAME_DIR` must hold what the console holds, checked by `LBA2.HQR`'s size), named files go up, their folders come back while the app runs and after it, and the paths it prints are mapped back. Runs wait for each other, since the console runs one copy of an app, and a run with no user folder of its own gets one, so the player's `lba2.cfg` and saves are never touched. `SDL_VIDEODRIVER=dummy` becomes `--headless`, unless `SDL_AUDIODRIVER=dummy` without `--no-audio` asks for a sound device, which the console has. When the caller sends stdout and stderr to one file, the console writes one, so lines keep their order across the two. A named file brings the files that extend its name (`x.rec.lba` with `x.rec`). About 5 to 10 seconds a run.
 
-Not reachable that way: a path the engine writes into a file keeps its console spelling (`profile_bind`), a fixture that builds an install of links to the game data would need it copied (`console_config_write`), and `LBA2_GAME_DIR` named `Common` makes `cli_contract` pass the install root, which the console's layout does not have (a link with another name skips that case).
+Not reachable that way: a path the engine writes into a file keeps its console spelling (`profile_bind`, and `record_replay`'s command-position arm, whose recording holds a path the replay then writes to), two runs timed side by side wait for each other (`record_replay`'s rate arm), a fixture that builds an install of links to the game data would need it copied (`console_config_write`), and `LBA2_GAME_DIR` named `Common` makes `cli_contract` pass the install root, which the console's layout does not have (a link with another name skips that case).
 
 ## Also needed
 

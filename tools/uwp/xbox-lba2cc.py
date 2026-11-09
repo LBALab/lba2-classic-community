@@ -28,11 +28,11 @@ copied back after it, so a log or lba2.cfg next to it comes back too. The game
 data is NOT copied: LBA2_GAME_DIR must hold what the console holds (checked by
 LBA2.HQR's size). Paths the engine prints are mapped back.
 
-Not supported: watching files while the engine runs (results come back at the
-end), stdin, arguments with newlines, more than 127 arguments of up to 1023 bytes.
+Files the run deletes are deleted here too, when this wrapper put them here.
+Not supported: stdin, arguments with newlines, more than 127 arguments of up to 1023 bytes.
 
 Env:
-  LBA2_XBOX_EXE   the lba2cc.exe to run (default out/build/uwp-snd); it replaces
+  LBA2_XBOX_EXE   the lba2cc.exe to run (default out/build/uwp); it replaces
                   the console's copy when it differs from the last one sent
   XBOX_SH         the homelab Device Portal helper (default ~/code/homelab/ops/xbox.sh)
   LBA2_XBOX_STATE state shared between calls (default /tmp/lba2cc-xbox-state)
@@ -51,7 +51,7 @@ import urllib.parse
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 XBOX = os.environ.get("XBOX_SH", os.path.expanduser("~/code/homelab/ops/xbox.sh"))
-EXE = os.environ.get("LBA2_XBOX_EXE", os.path.join(REPO, "out/build/uwp-snd/SOURCES/lba2cc.exe"))
+EXE = os.environ.get("LBA2_XBOX_EXE", os.path.join(REPO, "out/build/uwp/SOURCES/lba2cc.exe"))
 STATE = os.environ.get("LBA2_XBOX_STATE", "/tmp/lba2cc-xbox-state")
 MAX_ARGS, ARG_SIZE = 127, 1023
 # Variables the engine reads, passed through env.txt.
@@ -105,6 +105,29 @@ def ls_sizes(dev_path):
             for i in json.loads(r.stdout or b"{}").get("Items", [])}
 
 
+# Host files this run uploaded or brought back: the ones a deletion on the
+# console may be mirrored onto.
+TOUCHED = set()
+
+
+def own_output(path):
+    """Whether path is where this wrapper's stdout or stderr goes. A fixture
+    may send them into a folder the run brings back; the console's copy of
+    that file is empty, and copying it over would erase what was printed."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    for fd in (1, 2):
+        try:
+            o = os.fstat(fd)
+        except OSError:
+            continue
+        if (o.st_dev, o.st_ino) == (st.st_dev, st.st_ino):
+            return True
+    return False
+
+
 def sync_live(dev, host, sizes):
     """While the app runs: files whose size changed come back, so a fixture
     watching a log sees it grow (some stop the run with SIGKILL once a line is in)."""
@@ -117,13 +140,14 @@ def sync_live(dev, host, sizes):
         if size is None:
             sync_live(key, os.path.join(host, name), sizes)
             continue
-        if sizes.get(key) == size:
+        if sizes.get(key) == size or own_output(os.path.join(host, name)):
             continue
         data = download(dev, name)
         if data is None:
             continue
         with open(os.path.join(host, name), "wb") as f:
             f.write(data)
+        TOUCHED.add(os.path.join(host, name))
         sizes[key] = size
 
 
@@ -186,27 +210,37 @@ def upload_tree(host, dev):
         if os.path.basename(host) != dev.rpartition("\\")[2]:
             die("cannot upload %s under another name" % host)
         upload(parent, [host])
+        TOUCHED.add(host)
         return
     for root, dirs, files in os.walk(host):
         rel = os.path.relpath(root, host)
         target = dev if rel == "." else dev + "\\" + rel.replace("/", "\\")
         mkdirs(target)
-        upload(target, [os.path.join(root, f) for f in sorted(files) if not os.path.islink(os.path.join(root, f))])
+        paths = [os.path.join(root, f) for f in sorted(files) if not os.path.islink(os.path.join(root, f))]
+        upload(target, paths)
+        TOUCHED.update(paths)
 
 
-def download_tree(dev, host):
+def download_tree(dev, host, seen=None):
+    """Brings dev back to host; returns the host paths the console has, or
+    None when the folder could not be listed."""
+    top = seen is None
+    seen = set() if top else seen
     items = ls(dev)
     if items is None:
-        return
+        return None if top else seen
     os.makedirs(host, exist_ok=True)
     for name, is_dir in items:
         if is_dir:
-            download_tree(dev + "\\" + name, os.path.join(host, name))
+            download_tree(dev + "\\" + name, os.path.join(host, name), seen)
+            continue
+        path = os.path.join(host, name)
+        seen.add(path)
+        if own_output(path):
             continue
         data = download(dev, name)
         if data is None:
             continue
-        path = os.path.join(host, name)
         try:
             with open(path, "rb") as f:
                 if f.read() == data:
@@ -215,6 +249,8 @@ def download_tree(dev, host):
             pass
         with open(path, "wb") as f:
             f.write(data)
+        TOUCHED.add(path)
+    return seen
 
 
 def file_hash(path):
@@ -444,8 +480,11 @@ def main():
         check_game_dir(os.environ["LBA2_GAME_DIR"])
 
     # SDL's dummy video driver is how some fixtures ask for a windowless run;
-    # the UWP build has no SDL, and --headless is its way to say the same.
-    if os.environ.get("SDL_VIDEODRIVER") == "dummy" and "--headless" not in args:
+    # the UWP build has no SDL, and --headless is its way to say the same. Not
+    # when the dummy audio driver asks for a sample device with sound on:
+    # --headless opens none, and the console has a real one.
+    wants_sound = os.environ.get("SDL_AUDIODRIVER") == "dummy" and "--no-audio" not in args
+    if os.environ.get("SDL_VIDEODRIVER") == "dummy" and not wants_sound and "--headless" not in args:
         args = ["--headless"] + args
     dev_args = [tr.arg(a) for a in args]
     env = {}
@@ -487,7 +526,16 @@ def main():
                 watch.append((i, rel, True))
             mkdirs("\\LocalState\\t\\run\\%d" % i + ("\\" + folder_rel.replace("/", "\\") if folder_rel else ""))
     mkdirs("\\LocalState\\t\\home")
-    for rel in sorted(tr.repo_files):
+    # A named file brings the files that extend its name: the engine finds
+    # a recording's savegame (x.rec.lba) next to x.rec without being told.
+    repo = set(tr.repo_files)
+    for rel in tr.repo_files:
+        host = os.path.join(REPO, rel)
+        if os.path.isfile(host):
+            d, base = os.path.split(rel)
+            repo.update(os.path.join(d, f) for f in os.listdir(os.path.dirname(host))
+                        if f.startswith(base + "."))
+    for rel in sorted(repo):
         host = os.path.join(REPO, rel)
         if os.path.exists(host):
             upload_tree(host, "\\LocalState\\t\\repo\\" + rel.replace("/", "\\"))
@@ -561,13 +609,22 @@ def main():
 
     for i, rel, single in watch:
         dev = "\\LocalState\\t\\run\\%d" % i
+        host = os.path.join(tr.temps[i], rel)
         if single:
             data = download(dev, rel)
             if data is not None:
-                with open(os.path.join(tr.temps[i], rel), "wb") as f:
-                    f.write(data)
+                if not own_output(host):
+                    with open(host, "wb") as f:
+                        f.write(data)
+            elif host in TOUCHED and os.path.isfile(host):
+                os.remove(host)
         else:
-            download_tree(dev + "\\" + rel.replace("/", "\\"), os.path.join(tr.temps[i], rel))
+            seen = download_tree(dev + "\\" + rel.replace("/", "\\"), host)
+            # Deleted on the console, so deleted here: a run that cleans up
+            # after itself must look as if it did.
+            for path in sorted(TOUCHED) if seen is not None else []:
+                if path.startswith(host + os.sep) and path not in seen and os.path.isfile(path):
+                    os.remove(path)
     for name in ("args.txt", "env.txt"):
         remove("\\LocalState", name)
 
