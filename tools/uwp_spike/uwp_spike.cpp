@@ -201,6 +201,61 @@ class Inspectable : public I {
     LONG m_refs;
 };
 
+/* An event delegate is a plain COM object, not IInspectable. Like SDL's C
+   delegates, it answers IAgileObject so WinRT may call it from any thread. */
+template <class I>
+class Delegate : public I {
+  public:
+    Delegate() : m_refs(1) {
+    }
+    virtual ~Delegate() {
+    }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **out) {
+        if (iid == __uuidof(IUnknown) || iid == __uuidof(IAgileObject) || iid == __uuidof(I)) {
+            *out = static_cast<I *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *out = NULL;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() {
+        return (ULONG)InterlockedIncrement(&m_refs);
+    }
+    ULONG STDMETHODCALLTYPE Release() {
+        LONG left = InterlockedDecrement(&m_refs);
+        if (left == 0)
+            delete this;
+        return (ULONG)left;
+    }
+
+  private:
+    LONG m_refs;
+};
+
+/* The window is shown from the view's Activated event, as SDL does. */
+class OnActivated
+    : public Delegate<__FITypedEventHandler_2_Windows__CApplicationModel__CCore__CCoreApplicationView_Windows__CApplicationModel__CActivation__CIActivatedEventArgs> {
+  public:
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreApplicationView *view, ABI::Windows::ApplicationModel::Activation::IActivatedEventArgs *) {
+        ICoreWindow *window = NULL;
+        if (SUCCEEDED(view->get_CoreWindow(&window)) && window) {
+            window->Activate();
+            window->Release();
+        }
+        return S_OK;
+    }
+};
+
+/* Does nothing. SDL found that an Xbox reports no gamepads unless something
+   subscribes to GamepadAdded (SDL_winrtapp_direct3d.cpp, "HACK ALERT"). */
+class OnGamepadAdded : public Delegate<__FIEventHandler_1_Windows__CGaming__CInput__CGamepad> {
+  public:
+    HRESULT STDMETHODCALLTYPE Invoke(IInspectable *, WGI::IGamepad *) {
+        return S_OK;
+    }
+};
+
 class View : public Inspectable<IFrameworkView> {
   public:
     View() : m_window(NULL) {
@@ -208,7 +263,17 @@ class View : public Inspectable<IFrameworkView> {
     ~View() {
         SafeRelease(m_window);
     }
-    HRESULT STDMETHODCALLTYPE Initialize(ICoreApplicationView *) {
+    HRESULT STDMETHODCALLTYPE Initialize(ICoreApplicationView *view) {
+        EventRegistrationToken token;
+        OnActivated *activated = new OnActivated();
+        view->add_Activated(activated, &token);
+        activated->Release();
+        if (SUCCEEDED(Factory(RuntimeClass_Windows_Gaming_Input_Gamepad, __uuidof(WGI::IGamepadStatics),
+                              (void **)&g_pads))) {
+            OnGamepadAdded *added = new OnGamepadAdded();
+            g_pads->add_GamepadAdded(added, &token);
+            added->Release();
+        }
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE SetWindow(ICoreWindow *window) {
@@ -224,12 +289,10 @@ class View : public Inspectable<IFrameworkView> {
     HRESULT STDMETHODCALLTYPE Run() {
         OpenLog();
         Log("run");
-        m_window->Activate();
         if (!CreateSwapChain(m_window)) {
             Log("swap chain failed");
             return E_FAIL;
         }
-        Factory(RuntimeClass_Windows_Gaming_Input_Gamepad, __uuidof(WGI::IGamepadStatics), (void **)&g_pads);
         ICoreDispatcher *dispatcher = NULL;
         m_window->get_Dispatcher(&dispatcher);
         int x = FRAME_W / 2, y = FRAME_H / 2;

@@ -50,7 +50,7 @@ The other route is a `PLATFORM_BACKEND=uwp` of our own. llvm-mingw ships the Win
 
 [`tools/uwp_spike/uwp_spike.cpp`](../../tools/uwp_spike/uwp_spike.cpp) tries the parts a backend needs, in C++98:
 
-- the app entry: hand-written `IFrameworkViewSource` and `IFrameworkView` objects passed to `CoreApplication::Run`, a loop in `Run` that pumps the window's dispatcher,
+- the app entry: hand-written `IFrameworkViewSource` and `IFrameworkView` objects passed to `CoreApplication::Run`, a loop in `Run` that pumps the window's dispatcher, and two hand-written event delegates (`Activated`, `GamepadAdded`),
 - presentation: a D3D11 swap chain on the CoreWindow whose back buffer is the game's size, written with `UpdateSubresource` and scaled by DXGI with `DXGI_SCALING_ASPECT_RATIO_STRETCH`, so no shader is needed,
 - input: the first `Windows.Gaming.Input` gamepad's reading,
 - paths: the `LocalState` folder from `ApplicationData`.
@@ -62,6 +62,39 @@ x86_64-w64-mingw32uwp-clang++ -std=gnu++98 -Wall -Wextra -O2 -municode -mwindows
 
 It builds with no warnings and imports only API sets and `d3d11.dll`. It has not run: that needs an app package and a Windows PC or an Xbox in Developer Mode.
 
+### What SDL2 does
+
+SDL2 2.32.10's UWP code was read for its shape (`src/core/winrt`, `src/video/winrt`, `src/render/direct3d11`, `src/joystick/windows/SDL_windows_gaming_input.c`, `src/audio/wasapi`, `src/filesystem/winrt`). About 5,000 lines are UWP-specific, but most cover XAML hosting, phones, rotation, pointers and OpenGL ES, which lba2cc does not need. Its gamepad code is plain C over the same WinRT COM interfaces, so the C++/CX is a convenience in SDL, not a requirement.
+
+Same as the spike:
+
+- `main` runs on the CoreWindow thread, inside `IFrameworkView::Run`, with no second thread. `SDL_PumpEvents` calls `ProcessEvents(ProcessAllIfPresent)`. The engine's blocking loop fits the same way.
+- The app quits by returning from `Run`; SDL never calls `CoreApplication::Exit`.
+- Paths: the install folder from `Package::Current->InstalledLocation`, the writable one from `ApplicationData::Current->LocalFolder`. Plain CRT file I/O works in both.
+
+Taken into the spike:
+
+- The window is activated from `CoreApplicationView::Activated`.
+- Something must subscribe to `Gamepad.GamepadAdded`, or an Xbox reports no gamepads ("HACK ALERT" in `SDL_winrtapp_direct3d.cpp`). The handler does nothing.
+
+To take into the backend:
+
+- Suspend: take a deferral in `Suspending`, call `IDXGIDevice3::Trim`, complete within about 5 seconds. `ProcessEvents` does not return while the app is suspended, so the game loop just stops inside the pump. Anything that must be saved is saved from the handler.
+- While the window is hidden, pump with `ProcessOneAndAllPending`, which blocks, so the game does not spin.
+- `Closed` does not mean quit by itself. After it, the pump must stop calling `ProcessEvents` and the engine must be told to leave.
+- B on an Xbox raises `SystemNavigationManager.BackRequested`. SDL turns it into a key and marks it handled only when asked to. The mingw-w64 headers do not declare `SystemNavigationManager`, so its two interfaces would be declared by hand.
+- `InputPane.Visible` is wrong on Xbox; the on-screen keyboard is tracked with its Showing and Hiding events. lba2cc only needs it for save names, which already fall back to automatic names.
+- Gamepad readings are all zero when the app loses focus. SDL treats that as centred sticks.
+- Keyboard: `KeyDown`/`KeyUp` give a virtual key and a scan code. SDL maps them through a virtual-key table and `src/events/scancodes_windows.h` to SDL scancodes, which are the engine's physical key IDs. Left and right Shift come from the scan code.
+- WACK has failed when DXGI reports no display outputs; display queries need a fallback to the window bounds.
+- Device loss: `DXGI_ERROR_DEVICE_REMOVED` from `Present` or `ResizeBuffers` means recreating the device and swap chain.
+- Window size in pixels is the CoreWindow bounds times `LogicalDpi / 96`.
+
+Where the spike differs:
+
+- Presentation. SDL makes the swap chain the window's size with `DXGI_SCALING_NONE` and draws a textured quad with precompiled shaders (`ps_4_0_level_9_1` bytecode in C arrays). It never writes into the back buffer with `UpdateSubresource` and never relies on DXGI scaling, so the spike's shortcut is unproven. It also cannot honour `set_present_filter`, since DXGI picks the filter. The backend should draw a quad. The shader bytecode needs `fxc`, which is Windows-only; SDL's own arrays are zlib-licensed and could be reused, or the shaders compiled once on Windows and checked in.
+- Audio. SDL uses WASAPI, activated with `ActivateAudioInterfaceAsync` on the default render device, then an ordinary event-driven WASAPI loop. It has no XAudio2 code. The activation needs one more hand-written COM object (`IActivateAudioInterfaceCompletionHandler`, agile). `AUDCLNT_E_DEVICE_INVALIDATED` means activating again.
+
 ### Shape of the backend
 
 The contract has 63 callbacks. The null backend already does clocks, threads, CPU and memory probes, paths and directories with OS calls, and it builds for UWP unchanged, so the UWP backend can start from it:
@@ -70,12 +103,12 @@ The contract has 63 callbacks. The null backend already does clocks, threads, CP
 |---|---|
 | `system` | As the null backend |
 | `events` | `pump` calls `CoreDispatcher::ProcessEvents`; key, focus, size and suspend events come from CoreWindow handlers |
-| `window` | The spike's swap chain; fullscreen only, as on Switch |
+| `window` | A window-sized swap chain and a textured quad, as SDL draws; fullscreen only, as on Switch |
 | `input` | `Windows.Gaming.Input.Gamepad` for pads; CoreWindow key events, mapped to the engine's physical key IDs, for a keyboard |
 | `host` | Paths under `LocalState`; message boxes, folder dialogs and clipboard report unsupported, as the null backend does |
 | entry | `wWinMain` runs `CoreApplication::Run`; the view's `Run` calls `Lba2Main`. The engine's blocking loop fits, because the event poll pumps the dispatcher |
 
-Audio is separate. The SDL audio module reaches SDL only through its output transport (`LIB386/AIL/SDL/AUDIO_DEVICE.H`), but that header uses `SDL_AudioSpec` and SDL's WAV loader. A UWP build needs that transport on XAudio2 or WASAPI and those two types replaced with neutral ones.
+Audio is separate. The engine's SDL audio module reaches SDL only through its output transport (`LIB386/AIL/SDL/AUDIO_DEVICE.H`), but that header uses `SDL_AudioSpec` and SDL's WAV loader. A UWP build needs that transport on WASAPI, as SDL does, and those two types replaced with neutral ones.
 
 ### Testing
 
