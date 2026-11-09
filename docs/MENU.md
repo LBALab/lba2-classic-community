@@ -22,6 +22,9 @@ Main Menu
 │   │   ├── Resolution: <current> [custom localized label]
 │   │   │   └── Back (26) + one row per resolution in the catalog
 │   │   ├── Vsync OFF/ON          [custom localized label]
+│   │   ├── Texture filter: Off / Horizontal / Bilinear [custom localized label]
+│   │   ├── Dithered shading: Off / On                  [custom localized label]
+│   │   ├── Scaling: Nearest / Linear / Pixel art       [custom localized label]
 │   │   └── Fullscreen / Windowed [custom localized label, hidden on always-fullscreen devices]
 │   ├── Sound volume (11)
 │   │   ├── Back (26)
@@ -104,7 +107,7 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 ## Submenus
 
 - **Options** (`OptionsMenu`): top-level submenu for Display, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels for new submenu concepts. Controls groups gameplay keyboard/gamepad remapping. Calls `GereDisplayMenu()`, `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `GereControllerMenu()`. Calls `SetDetailLevel()` on exit.
-- **Display** (`GereDisplayMenu`, `DisplayMenu`): the resolution row opens `GereResolutionMenu`, a page built at run time from the resolution catalog; the Vsync and Fullscreen rows toggle. Fullscreen is the last row, so on always-fullscreen devices the menu drops it by count.
+- **Display** (`GereDisplayMenu`, `DisplayMenu`): the resolution row opens `GereResolutionMenu`, a page built at run time from the resolution catalog; the Vsync and Fullscreen rows toggle. Fullscreen is the last row, so on always-fullscreen devices the menu drops it by count. Three rows cycle a rendering option from [GFX_OPTIONS.md](GFX_OPTIONS.md): texture filter, dithered shading, and the filter that scales the frame to the window. Each reads and steps its `T_SETTING` through `ConfigFile_Setting` and `Settings_Cycle`, so the range, the hook and the "set this run" mark stay in the table, and persists through `WriteConfigFile` with the other rows. Scaling applies on the frame being shown; the texture filter and the dither show after leaving the menu, whose backdrop is a copy of the scene. Scaling shows the filter in use (`ConfigFile_PresentFilterInUse`) and steps past one the build cannot do, so the row never shows or saves a filter the window does not use; a stored preference for one survives until the row is changed. Interior render scaling (`LBA2_ISO_DIV`) has no row: it is read once at startup.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
 - **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, video playback size, subtitle display and Fix retail bugs; includes the existing Detail Level slider; the Camera row opens the Camera page. Fullscreen moved to Display. The page has eight rows, which fill the screen at 640x480, so a new setting goes on a sub-page.

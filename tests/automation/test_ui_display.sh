@@ -24,4 +24,4 @@ GOLDEN="$REPO/tests/savegame/corpus/baselines/ui/display_Anon1.png"
 [ -f "$LBA2_TEST_SAVE" ] || skip "fixture save missing: $LBA2_TEST_SAVE"
 
 # Plasma strip excluded, as in test_ui_menu_main.sh.
-ui_compare --exclude 46,127,549,49 "--black-bg display" "$GOLDEN"
+ui_compare --exclude 46,43,549,49 "--black-bg display" "$GOLDEN"
