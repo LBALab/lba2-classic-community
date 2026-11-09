@@ -94,7 +94,7 @@ game / engine policy / software rasteriser
 game audio policy -> AIL headers -> selected AIL backend
 ```
 
-The platform implementation does not link `sys`, `svg`, `console`, or game code. It receives frame/event data rather than reading `Log`, `TabKeys`, game globals, or renderer dirty boxes. Backend diagnostics use `Platform_Log` in [PLATFORM.CPP](../LIB386/PLATFORM/PLATFORM.CPP); the engine registers its logger through `Platform_SetLogOutput`, so there is no upward logging dependency.
+The platform implementation does not link `sys`, `svg`, `console`, or game code. It receives frame/event data rather than reading `Log`, `TabKeys`, game globals, or renderer dirty boxes. Backend diagnostics use `Platform_Log` in [PLATFORM.CPP](../LIB386/PLATFORM/PLATFORM.CPP); the engine registers its logger through `Platform_SetLogOutput`, so there is no upward logging dependency. The same goes for suspension: the engine registers what to keep with `Platform_SetSuspendHandler`, and a backend whose app may be ended while suspended (UWP) calls `Platform_NotifySuspend` from its suspend handler, on the game's thread.
 
 The preserved Android service declarations in [ANDROID.H](../LIB386/H/SYSTEM/ANDROID.H) and their primitive type header are the only kernel-header exceptions. Their implementation belongs to the platform library, not `sys`.
 

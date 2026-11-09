@@ -6,6 +6,7 @@
 
 #include <windows.applicationmodel.h>
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,6 +15,7 @@ int Lba2Main(int argc, char *argv[]);
 using namespace ABI::Windows::ApplicationModel::Core;
 using namespace ABI::Windows::UI::Core;
 namespace AM = ABI::Windows::ApplicationModel;
+namespace AA = ABI::Windows::ApplicationModel::Activation;
 
 namespace {
 enum { MAX_ARGS = 32,
@@ -22,12 +24,40 @@ enum { MAX_ARGS = 32,
 int s_exitCode = 0;
 DWORD s_gameThread = 0;
 
+enum { MAX_NOTES = 40,
+       NOTE_SIZE = 256 };
+char s_notes[MAX_NOTES][NOTE_SIZE];
+int s_noteCount = 0;
+bool s_logReady = false;
+
+const char *ExecutionStateName(AA::ApplicationExecutionState state) {
+    switch (state) {
+    case AA::ApplicationExecutionState_NotRunning:
+        return "not running (first launch, or it crashed)";
+    case AA::ApplicationExecutionState_Running:
+        return "running";
+    case AA::ApplicationExecutionState_Suspended:
+        return "suspended";
+    case AA::ApplicationExecutionState_Terminated:
+        return "ended by the system while suspended";
+    case AA::ApplicationExecutionState_ClosedByUser:
+        return "closed by the player";
+    }
+    return "unknown";
+}
+
 /* The window is shown from the view's Activated event. */
 class OnViewActivated
     : public UwpDelegate<__FITypedEventHandler_2_Windows__CApplicationModel__CCore__CCoreApplicationView_Windows__CApplicationModel__CActivation__CIActivatedEventArgs> {
   public:
     HRESULT STDMETHODCALLTYPE Invoke(ICoreApplicationView *view,
-                                     ABI::Windows::ApplicationModel::Activation::IActivatedEventArgs *) {
+                                     ABI::Windows::ApplicationModel::Activation::IActivatedEventArgs *args) {
+        AA::ApplicationExecutionState previous = AA::ApplicationExecutionState_NotRunning;
+        if (args)
+            args->get_PreviousExecutionState(&previous);
+        /* Says how the last run ended, the only record left when the system
+           ended a suspended app: that run's log stops at "suspending". */
+        Uwp_Note("UWP: activated; the previous run was %s", ExecutionStateName(previous));
         ICoreWindow *window = NULL;
         if (SUCCEEDED(view->get_CoreWindow(&window)) && window)
             window->Activate();
@@ -36,11 +66,12 @@ class OnViewActivated
     }
 };
 
-/* Suspension waits on the deferral; the driver's spare memory goes back
-   first, as every suspended app is asked to. The game is not told: its loop
-   simply stops inside the event pump until the app resumes. Everything here
-   assumes the event arrives on the game's thread, inside its pump; the log
-   says if it ever does not. */
+/* Suspension waits on the deferral; the game keeps what it registered with
+   Platform_SetSuspendHandler (the settings), since a suspended app may be
+   ended without another event, and the driver's spare memory goes back, as
+   every suspended app is asked to. The game's loop simply stops inside the
+   event pump until the app resumes. Everything here assumes the event arrives
+   on the game's thread, inside its pump; the log says if it ever does not. */
 class OnSuspending : public UwpDelegate<__FIEventHandler_1_Windows__CApplicationModel__CSuspendingEventArgs> {
   public:
     HRESULT STDMETHODCALLTYPE Invoke(IInspectable *, AM::ISuspendingEventArgs *args) {
@@ -49,16 +80,29 @@ class OnSuspending : public UwpDelegate<__FIEventHandler_1_Windows__CApplication
         if (SUCCEEDED(args->get_SuspendingOperation(&operation)))
             operation->GetDeferral(&deferral);
         const DWORD thread = GetCurrentThreadId();
-        if (thread == s_gameThread)
+        if (thread == s_gameThread) {
             Platform_Log(PLATFORM_LOG_INFO, "UWP: suspending");
-        else
-            Platform_Log(PLATFORM_LOG_WARN, "UWP: suspending on thread %lu, not the game's %lu",
+            /* The game is stopped inside its pump, so its code may run here. */
+            Platform_NotifySuspend();
+        } else {
+            Platform_Log(PLATFORM_LOG_WARN, "UWP: suspending on thread %lu, not the game's %lu; nothing saved",
                          (unsigned long)thread, (unsigned long)s_gameThread);
+        }
         Uwp_WindowTrim();
         if (deferral)
             deferral->Complete();
         Uwp_Release(deferral);
         Uwp_Release(operation);
+        return S_OK;
+    }
+};
+
+/* Logged so a run's log shows whether the app came back from a suspension
+   or was ended in it. */
+class OnResuming : public UwpDelegate<__FIEventHandler_1_IInspectable> {
+  public:
+    HRESULT STDMETHODCALLTYPE Invoke(IInspectable *, IInspectable *) {
+        Uwp_Note("UWP: resuming");
         return S_OK;
     }
 };
@@ -102,7 +146,7 @@ int BuildArguments(char storage[MAX_ARGS][ARG_SIZE], char *argv[MAX_ARGS]) {
         if (len == 0)
             continue;
         /* Said once per run, so a file left behind is not a silent surprise. */
-        Platform_Log(PLATFORM_LOG_INFO, "UWP: argument from args.txt: %s", storage[argc]);
+        Uwp_Note("UWP: argument from args.txt: %s", storage[argc]);
         argv[argc] = storage[argc];
         ++argc;
     }
@@ -124,6 +168,9 @@ class View : public UwpInspectable<IFrameworkView> {
             OnSuspending *suspending = new OnSuspending();
             app->add_Suspending(suspending, &token);
             suspending->Release();
+            OnResuming *resuming = new OnResuming();
+            app->add_Resuming(resuming, &token);
+            resuming->Release();
         }
         Uwp_Release(app);
         Uwp_WatchGamepads();
@@ -157,6 +204,28 @@ class ViewSource : public UwpInspectable<IFrameworkViewSource> {
     }
 };
 } // namespace
+
+void Uwp_Note(const char *format, ...) {
+    char line[NOTE_SIZE];
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(line, sizeof line, format, ap);
+    va_end(ap);
+    if (s_logReady)
+        Platform_Log(PLATFORM_LOG_INFO, "%s", line);
+    else if (s_noteCount < MAX_NOTES)
+        strcpy(s_notes[s_noteCount++], line);
+}
+
+/* The first pump comes after the game has opened its log. */
+void Uwp_FlushNotes(void) {
+    if (s_logReady)
+        return;
+    s_logReady = true;
+    for (int i = 0; i < s_noteCount; ++i)
+        Platform_Log(PLATFORM_LOG_INFO, "%s", s_notes[i]);
+    s_noteCount = 0;
+}
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     if (FAILED(RoInitialize(RO_INIT_MULTITHREADED)))

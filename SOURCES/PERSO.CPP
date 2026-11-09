@@ -2193,6 +2193,15 @@ void Message(const char *mess, S32 flag) {
 #define ADD_SIGNED(name, variable) Crash_AddState(name, (const void *)&(variable), sizeof(variable), 1)
 #define ADD_UNSIGNED(name, variable) Crash_AddState(name, (const void *)&(variable), sizeof(variable), 0)
 
+/* A suspended app may be ended by the system with no exit, so TheEndInfo's
+   write never runs: keep the settings when the app is suspended instead. */
+static void SaveSettingsOnSuspend(void) {
+    if (WriteConfigFileAside())
+        Log_Info("Settings saved on suspend");
+    else
+        Log_Warn("Settings not saved on suspend: out of memory");
+}
+
 static void register_crash_state(void) {
     T_OBJET *hero = &ListObjet[NUM_PERSO];
 
@@ -2618,6 +2627,7 @@ int Lba2Main(int argc, char *argv[]) {
     SetPresentTimingCallbacks(Perftrace_PresentBegin, Perftrace_PresentEnd);
 
     atexit(TheEndInfo);
+    Platform_SetSuspendHandler(SaveSettingsOnSuspend);
     register_crash_state();
 
     BootExit_NoteContext(""); /* past the cfg: a later failure names itself */

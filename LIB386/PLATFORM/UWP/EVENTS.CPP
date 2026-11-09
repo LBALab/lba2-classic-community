@@ -168,6 +168,8 @@ struct VisibilityChanged {
     static void Handle(Abi *args) {
         boolean visible = TRUE;
         args->get_Visible(&visible);
+        if ((visible != 0) != s_visible)
+            Uwp_Note(visible ? "UWP: window shown" : "UWP: window hidden");
         s_visible = visible != 0;
     }
 };
@@ -296,6 +298,7 @@ bool Uwp_EventsInit(void) {
 void Uwp_EventsShutdown(void) { UwpQueueClear(&s_queue); }
 
 void Uwp_Pump(void) {
+    Uwp_FlushNotes();
     if (s_dispatcher && !s_closed) {
         /* Hidden, the game has nothing to show: wait for the next window
            event instead of spinning. A suspended app stops inside here. */

@@ -6,6 +6,7 @@
 namespace {
 PlatformLogFn s_logOutput = NULL;
 void *s_logUserdata = NULL;
+PlatformSuspendFn s_suspendHandler = NULL;
 } // namespace
 
 extern "C" {
@@ -28,6 +29,13 @@ void Platform_Log(PlatformLogLevel level, const char *fmt, ...) {
         static const char *tags[] = {"DEBUG", "INFO", "WARN", "ERROR"};
         fprintf(stderr, "[%s] %s\n", tags[level], message);
     }
+}
+
+void Platform_SetSuspendHandler(PlatformSuspendFn handler) { s_suspendHandler = handler; }
+
+void Platform_NotifySuspend(void) {
+    if (s_suspendHandler)
+        s_suspendHandler();
 }
 
 bool Platform_ConvertIndexedFrame(const PlatformFrame *frame, uint32_t *pixels, uint32_t pitch) {

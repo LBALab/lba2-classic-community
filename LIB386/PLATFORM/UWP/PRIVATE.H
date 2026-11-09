@@ -16,6 +16,12 @@ bool Uwp_Fail(const char *format, ...);
    the narrow file calls use; empty when unavailable. */
 const char *Uwp_LocalState(void);
 
+/* ENTRY.CPP: an INFO line for the game's log. Lines from before the log is
+   open (the arguments, the launch) are kept and written by Uwp_FlushNotes,
+   which the first pump calls; stderr goes nowhere on the console. */
+void Uwp_Note(const char *format, ...);
+void Uwp_FlushNotes(void);
+
 /* EVENTS.CPP: the window's events, set up once the CoreWindow exists. */
 void Uwp_AttachWindow(ABI::Windows::UI::Core::ICoreWindow *window);
 void Uwp_DetachWindow(void);

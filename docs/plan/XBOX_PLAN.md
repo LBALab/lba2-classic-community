@@ -166,7 +166,7 @@ The exe imports only API sets, `d3d11.dll`, `d2d1.dll` and `xaudio2_9.dll`; libc
 | Part | How |
 |---|---|
 | Base | Clocks, CPU and memory probes, the error slot, the install folder, directory creation and removal come from `HOST_OS.CPP`, which the null backend uses too. The UWP table is its own, by named fields. |
-| Entry | `wWinMain` runs `CoreApplication::Run`; the view's `Run` calls `Lba2Main` on the window's thread. `Suspending` takes a deferral and trims the device. |
+| Entry | `wWinMain` runs `CoreApplication::Run`; the view's `Run` calls `Lba2Main` on the window's thread. `Suspending` takes a deferral, saves the settings through `Platform_NotifySuspend` and trims the device. The log records each activation with how the previous run ended, and hiding, suspending, resuming and showing. |
 | Events | CoreWindow key, character, activation, visibility, close and size events go into a queue that `poll` drains. `pump` calls `ProcessEvents`, blocking while the window is hidden and never after `Closed`. |
 | Present | A swap chain the window's size (`DXGI_SCALING_NONE`); Direct2D draws the frame into a letterbox with nearest or linear filtering, so no shader is compiled. Pixelart is refused. A lost device is recreated. |
 | Pads | `Windows.Gaming.Input` is listed and read on every pump; arrivals, departures, presses and stick moves become events. The `GamepadAdded` subscription is made at startup. |
@@ -189,6 +189,6 @@ On the console:
 ## Also needed
 
 - Audio: nothing recovers after the output device is lost (XAudio2's critical error is logged). Chosen over WASAPI, which on the console reports a 7.1 float mix: with it the transport would resample, convert and mix by itself.
-- Lifecycle: the game is not told it is being suspended; a save from the `Suspending` handler would keep progress if the console ends the app.
+- Lifecycle: the console may end a suspended app with no further event (going Home and back then starts the game afresh; the next log says "the previous run was ended by the system while suspended"). The settings are saved on suspend, so they survive it, as they survive closing the window on a desktop. Progress since the last autosave or visit to the menu is lost, as it is when a desktop window is closed; saving the game itself on suspend is not done, because the pump the handler runs in can be inside any scene, menu or dialogue. The Device Portal's stop goes the same way (suspend, then end), so `xbox-run.sh` runs test it.
 - Pointer: no mouse or touch; the backend reports pointer modes as unsupported.
 - Packaging: an `AppxManifest.xml`, icons and a signed MSIX. Microsoft's cross-platform `makemsix` may build one without Windows; not tried.

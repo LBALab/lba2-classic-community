@@ -235,6 +235,14 @@ extern const PlatformInterface g_platform;
 void Platform_SetLogOutput(PlatformLogFn callback, void *userdata);
 void Platform_Log(PlatformLogLevel level, const char *fmt, ...);
 
+/* The app is about to be suspended, after which the system may end it without
+   another word (UWP on the Xbox). The game registers what must be kept; a
+   backend that suspends calls Platform_NotifySuspend from its suspend handler,
+   on the game's thread, before letting the app be frozen. */
+typedef void (*PlatformSuspendFn)(void);
+void Platform_SetSuspendHandler(PlatformSuspendFn handler);
+void Platform_NotifySuspend(void);
+
 /* Shared software-present conversion; pitches are bytes. Padding is untouched. */
 bool Platform_ConvertIndexedFrame(const PlatformFrame *frame, uint32_t *pixels, uint32_t pitch);
 
