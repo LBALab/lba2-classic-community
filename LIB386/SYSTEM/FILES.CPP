@@ -16,7 +16,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h> // MoveFileExA (atomic replace)
 #include <io.h>      // _commit (fsync equivalent)
-#include <process.h> // _getpid
 #endif
 
 // -----------------------------------------------------------------------------
@@ -206,7 +205,7 @@ static int AtomicRename(const char *tmp, const char *dst) {
 
 static int AtomicGetPid(void) {
 #ifdef _WIN32
-    return (int)_getpid();
+    return (int)GetCurrentProcessId();
 #else
     return (int)getpid();
 #endif

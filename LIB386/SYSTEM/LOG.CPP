@@ -12,6 +12,9 @@
 #if defined(_WIN32)
 #include <io.h>      /* _isatty, _fileno */
 #include <windows.h> /* GetStdHandle, SetConsoleMode (VT enable) */
+#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+#define LBA_WINDOWS_APP 1 /* UWP (Xbox Dev Mode): no console */
+#endif
 #else
 #include <unistd.h> /* isatty, fileno */
 #endif
@@ -209,7 +212,10 @@ void console_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) 
 }
 
 int terminal_enabled(void) {
-#if defined(_WIN32)
+#if defined(LBA_WINDOWS_APP)
+    /* A UWP app (Xbox Dev Mode) has no console to colour. */
+    return 0;
+#elif defined(_WIN32)
     if (!_isatty(_fileno(stderr)))
         return 0;
 #else
@@ -219,7 +225,7 @@ int terminal_enabled(void) {
     const char *nc = getenv("NO_COLOR");
     if (nc && nc[0] != '\0')
         return 0;
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(LBA_WINDOWS_APP)
     /* Turn on ANSI escape processing for the console; bail if unavailable so we
      * don't spew raw escapes. */
     HANDLE h = GetStdHandle(STD_ERROR_HANDLE);
