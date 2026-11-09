@@ -183,6 +183,16 @@ bool DeviceLost(HRESULT hr) {
     return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET || hr == D2DERR_RECREATE_TARGET;
 }
 
+/* Whatever a failed recreation or resize left missing is built again here,
+   so the next present tries again instead of every later one failing. */
+bool EnsureSurfaces() {
+    if (!s_d2d && !CreateDevice())
+        return false;
+    if (!s_target && !CreateTarget())
+        return false;
+    return s_frame || CreateFrameBitmap();
+}
+
 bool Draw() {
     s_d2d->BeginDraw();
     D2D1_COLOR_F black = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -257,7 +267,7 @@ bool Uwp_WindowInitialized(void) { return s_initialized; }
 bool Uwp_WindowCreate(uint32_t width, uint32_t height, bool) {
     if (!s_initialized)
         return Uwp_Fail("UWP window is not initialised");
-    if (s_frame)
+    if (s_frameW)
         return Uwp_Fail("UWP presentation surface already exists");
     if (width == 0 || height == 0 || width > 16384 || height > 16384)
         return Uwp_Fail("UWP: invalid frame size %ux%u", width, height);
@@ -276,13 +286,14 @@ void Uwp_WindowDestroy(void) {
 }
 
 bool Uwp_WindowResize(uint32_t width, uint32_t height, bool) {
-    if (!s_d2d)
+    if (!s_frameW)
         return Uwp_Fail("UWP presentation surface is unavailable");
     if (width == 0 || height == 0 || width > 16384 || height > 16384)
         return Uwp_Fail("UWP: invalid frame size %ux%u", width, height);
     s_frameW = width;
     s_frameH = height;
-    return CreateFrameBitmap();
+    /* Without a device the bitmap is made with it, at the next present. */
+    return !s_d2d || CreateFrameBitmap();
 }
 
 bool Uwp_WindowSize(int32_t *width, int32_t *height) {
@@ -331,8 +342,10 @@ bool Uwp_SetPresentFilter(PlatformPresentFilter mode) {
 }
 
 bool Uwp_Present(const PlatformFrame *frame) {
-    if (!frame || !s_frame || frame->width != s_frameW || frame->height != s_frameH)
+    if (!frame || !s_frameW || frame->width != s_frameW || frame->height != s_frameH)
         return Uwp_Fail("Indexed frame does not match the UWP presentation surface");
+    if (!EnsureSurfaces())
+        return false;
     const uint32_t pitch = s_frameW * sizeof(uint32_t);
     if (!Platform_ConvertIndexedFrame(frame, s_pixels, pitch))
         return false;
