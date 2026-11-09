@@ -128,7 +128,7 @@ For platform-specific builds, use the presets in `CMakePresets.json` (all use th
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
 | `PLATFORM_BACKEND` | `sdl3`, `sdl2`, `null` | `sdl3` | Window, presentation, input, clocks and host services. SDL3 is the default; SDL2 supports desktop and Switch homebrew with audio, but no native folder picker. Android requires SDL3. `null` presents offscreen without an SDK and requires `SOUND_BACKEND=null`. See [docs/PLATFORM_ABSTRACTION.md](docs/PLATFORM_ABSTRACTION.md). |
-| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `sdl` | Sound backend. `sdl` uses the selected SDL2/SDL3 platform's SDK. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
+| `SOUND_BACKEND` | `null`, `miles`, `sdl`, `xaudio2` | `sdl` | Sound backend. `sdl` uses the selected SDL2/SDL3 platform's SDK. `xaudio2` is the same sound code over XAudio2, for `PLATFORM_BACKEND=uwp`. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
 | `MVIDEO_BACKEND` | `null`, `smacker` | `smacker` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools: overlay, FPS counter, screenshots, collision visualization, benchmarks, cheat codes, bug save/load, command-line scene selection. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `LBA2_BUILD_TESTS` | `ON`, `OFF` | `OFF` | Build CTest targets (ASM equivalence + host tests such as `test_res_discovery`). |

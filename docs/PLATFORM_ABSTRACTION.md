@@ -153,7 +153,7 @@ Path removal succeeds if the path is already absent. Directory removal requires 
 3. Translate native events, physical-key IDs, controller buttons and axis ranges into the fixed engine vocabulary. Supply capabilities appropriate to the host, including permanently fullscreen devices.
 4. Present indexed pixels and handle overlays, scaling, and coordinate mapping consistently. Do not depend on engine framebuffer globals.
 5. Supply host paths and meaningful failure results for unavailable clipboard/dialog services. Preserve allocation pairing and borrowed-data lifetimes.
-6. Select or add an AIL audio backend separately; `SOUND_BACKEND=null` is the existing silent choice. The `sdl` AIL implementation uses the selected SDL2/SDL3 SDK, sharing decoding and voice policy through a private output transport.
+6. Select or add an AIL audio backend separately; `SOUND_BACKEND=null` is the existing silent choice. The `sdl` AIL implementation uses the selected SDL2/SDL3 SDK, sharing decoding and voice policy through a private output transport (`AUDIO_DEVICE.H`) and host services (`SDK.H`); `xaudio2` is the same code over an XAudio2 transport, so another host can add its own transport the same way.
 7. Add a behavioral check for every callback, including ownership, error results, and observable state where applicable; a non-null function pointer alone does not prove correct wiring. Run the SDK-free contract fixture, host suite, and existing ASM equivalence suite.
 
 SDL1 can implement the same contract without exposing its different event/renderer APIs. KallistiOS can present the software framebuffer through native facilities and map controller input into the same game policy. Neither implementation is shipped yet.

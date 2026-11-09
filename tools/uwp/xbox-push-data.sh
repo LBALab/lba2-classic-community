@@ -6,7 +6,7 @@
 #
 # GAME_DIR is the folder holding the HQR files (a retail install's Common). Only its files
 # are copied unless SUBFOLDERs are named (VOX, VIDEO, Music): those add voices, video and
-# music, which the silent build does not use yet. Files are overwritten, never deleted.
+# music. Files are overwritten, never deleted.
 # The app must have run once since it was registered (tools/uwp/xbox-run.sh does both):
 # its LocalState does not exist before, and the portal then accepts uploads and drops them.
 set -euo pipefail

@@ -65,8 +65,8 @@ if(PLATFORM_BACKEND STREQUAL "uwp")
     if(NOT LBA2_WINDOWS_APP)
         message(FATAL_ERROR "PLATFORM_BACKEND=uwp needs a UWP toolchain: -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw-x86_64-uwp.cmake")
     endif()
-    if(NOT SOUND_BACKEND STREQUAL "null")
-        message(FATAL_ERROR "PLATFORM_BACKEND=uwp requires SOUND_BACKEND=null for now.")
+    if(NOT SOUND_BACKEND MATCHES "^(null|xaudio2)$")
+        message(FATAL_ERROR "PLATFORM_BACKEND=uwp requires SOUND_BACKEND=xaudio2 or null.")
     endif()
     # NULL/ANDROID.CPP: the engine's Android hooks, answered "not Android".
     add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP HOST_OS.CPP NULL/ANDROID.CPP

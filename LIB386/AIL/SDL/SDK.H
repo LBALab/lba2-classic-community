@@ -4,9 +4,63 @@
    host, under AIL_ names: the output transport's spec, log and error, a thread,
    a semaphore, an atomic, the clock and the WAV hints. The rules files reach the
    host only through this header and AUDIO_DEVICE.H, so another transport can
-   take SDL's place. */
+   take SDL's place: SDL2 and SDL3 below, or XAudio2 (AUDIO_DEVICE_XAUDIO2.CPP)
+   for a UWP build without SDL. */
 
 #include <SYSTEM/ADELINE_TYPES.H>
+
+#ifdef LBA2_AIL_XAUDIO2
+
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    volatile int value;
+} AILAtomicInt;
+/* Set and Add return the previous value, as SDL's do. */
+inline int AIL_AtomicGet(AILAtomicInt *a) { return __atomic_load_n(&a->value, __ATOMIC_SEQ_CST); }
+inline int AIL_AtomicSet(AILAtomicInt *a, int v) { return __atomic_exchange_n(&a->value, v, __ATOMIC_SEQ_CST); }
+inline int AIL_AtomicAdd(AILAtomicInt *a, int v) { return __atomic_fetch_add(&a->value, v, __ATOMIC_SEQ_CST); }
+
+/* SDL3's values: the low byte is the sample size in bits. */
+#define AIL_AUDIO_U8 0x0008
+#define AIL_AUDIO_S16LE 0x8010
+#define AIL_AUDIO_S16 AIL_AUDIO_S16LE
+#define AIL_AUDIO_BITSIZE(format) ((format) & 0xFF)
+
+typedef struct {
+    int format;
+    int channels;
+    int freq;
+} AILAudioSpec;
+#define AILCALL __cdecl
+
+void AIL_Log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+bool AIL_SetError(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+const char *AIL_GetError(void);
+#define AIL_Free free
+#define AIL_Zero(x) memset(&(x), 0, sizeof(x))
+
+/* No hints are set on this build, so the WAV reader keeps its defaults. */
+#define AIL_HINT_WAVE_RIFF_CHUNK_SIZE "SDL_WAVE_RIFF_CHUNK_SIZE"
+#define AIL_HINT_WAVE_TRUNCATION "SDL_WAVE_TRUNCATION"
+#define AIL_HINT_WAVE_FACT_CHUNK "SDL_WAVE_FACT_CHUNK"
+inline const char *AIL_GetHint(const char *) { return NULL; }
+
+typedef struct AILThread AILThread;
+typedef struct AILSemaphore AILSemaphore;
+typedef int(AILCALL *AILThreadFunction)(void *data);
+
+AILThread *AIL_CreateThread(AILThreadFunction fn, const char *name, void *data);
+void AIL_WaitThread(AILThread *thread);
+AILSemaphore *AIL_CreateSemaphore(U32 initial);
+void AIL_DestroySemaphore(AILSemaphore *semaphore);
+/* Zero means signaled, positive means timeout. */
+int AIL_WaitSemaphoreTimeout(AILSemaphore *semaphore, int timeoutMs);
+bool AIL_SignalSemaphore(AILSemaphore *semaphore);
+U64 AIL_Ticks();
+
+#else
 
 #ifdef LBA2_USE_SDL2
 #include <SDL.h>
@@ -89,3 +143,5 @@ inline U64 AIL_Ticks() {
     return SDL_GetTicks();
 #endif
 }
+
+#endif

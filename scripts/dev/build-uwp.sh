@@ -66,7 +66,7 @@ BUILD="$REPO_DIR/out/build/uwp-ci"
 cmake -S "$REPO_DIR" -B "$BUILD" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$REPO_DIR/cmake/llvm-mingw-x86_64-uwp.cmake" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=null -DMVIDEO_BACKEND=null \
+    -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=xaudio2 -DMVIDEO_BACKEND=null \
     -DLBA2_BUILD_TESTS=OFF -DLBA2_BUILD_SAVE_TOOLS=OFF
 cmake --build "$BUILD" --target lba2cc
 

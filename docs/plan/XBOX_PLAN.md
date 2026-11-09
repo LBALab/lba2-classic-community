@@ -1,6 +1,6 @@
 # Xbox (UWP Dev Mode): first build probe
 
-Status: experiment. The game runs on an Xbox Series S in Developer Mode through its own UWP platform backend, silent, with the gamepad.
+Status: experiment. The game runs on an Xbox Series S in Developer Mode through its own UWP platform backend, with sound and the gamepad.
 
 The target is a UWP app sideloaded onto an Xbox in Developer Mode, the same homebrew posture as the [Switch port](../SWITCH.md). The licensed GDK route needs an NDA and publisher rights, so it is out of scope for this repository.
 
@@ -147,19 +147,19 @@ Audio is separate. The engine's SDL audio module reaches SDL only through its ou
 
 ## The backend
 
-`PLATFORM_BACKEND=uwp` ([`LIB386/PLATFORM/UWP`](../../LIB386/PLATFORM/UWP)) runs the game on an Xbox Series S, 2026-11-09: it starts a new game, A answers the dialogue, the left stick walks, B no longer closes the app. Silent (`SOUND_BACKEND=null`) and without video (`MVIDEO_BACKEND=null`).
+`PLATFORM_BACKEND=uwp` ([`LIB386/PLATFORM/UWP`](../../LIB386/PLATFORM/UWP)) runs the game on an Xbox Series S, 2026-11-09: it starts a new game, A answers the dialogue, the left stick walks, B no longer closes the app. Sound through XAudio2 (`SOUND_BACKEND=xaudio2`): effects, voices and music, confirmed on the TV the same day. No video yet (`MVIDEO_BACKEND=null`).
 
 ```sh
 export LLVM_MINGW_ROOT=/path/to/llvm-mingw-<version>-ucrt-macos-universal
 cmake -S . -B out/build/uwp -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw-x86_64-uwp.cmake \
   -DCMAKE_BUILD_TYPE=Release \
-  -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=null -DMVIDEO_BACKEND=null
+  -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=xaudio2 -DMVIDEO_BACKEND=null
 tools/uwp/xbox-run.sh 20                                   # build, run, screenshot, fetch LocalState
-tools/uwp/xbox-push-data.sh /path/to/LBA2/Common VIDEO     # once, after the first run
+tools/uwp/xbox-push-data.sh /path/to/LBA2/Common VIDEO VOX Music   # once, after the first run
 ```
 
-The exe imports only API sets, `d3d11.dll` and `d2d1.dll`; libc++ is linked in.
+The exe imports only API sets, `d3d11.dll`, `d2d1.dll` and `xaudio2_9.dll`; libc++ is linked in.
 
 [`scripts/dev/build-uwp.sh`](../../scripts/dev/build-uwp.sh) builds it with a pinned llvm-mingw (downloaded and checked against its published digest, or `LLVM_MINGW_ROOT`), and the `Xbox (UWP, experimental)` workflow runs it on every push. [`check-uwp-build.py`](../../scripts/ci/check-uwp-build.py) then checks what no host can run: every imported function is one `libwindowsapp.a` or `libucrtapp.a` offers (plus `D2D1CreateFactory`, allowed but missing there), and the backend's table assigns every callback in `PLATFORM.H`. Its selftest builds a `MessageBoxA` probe and drops a callback, and both must be rejected.
 
@@ -172,6 +172,7 @@ The exe imports only API sets, `d3d11.dll` and `d2d1.dll`; libc++ is linked in.
 | Pads | `Windows.Gaming.Input` is listed and read on every pump; arrivals, departures, presses and stick moves become events. The `GamepadAdded` subscription is made at startup. |
 | Keys | Scan codes (E0 prefix included) to physical key IDs, with virtual keys as fallback; the Xbox's gamepad and navigation keys are dropped, since the pad is read directly. |
 | Back | `SystemNavigationManager.BackRequested` is marked handled; unhandled, B closes the app. The interfaces are declared by hand in `NAVIGATION.H`, their IDs from the Windows metadata as the `windows` crate prints them; the handler's ID is computed by the WinRT rule, checked by reproducing the headers' `EventHandler<Gamepad>` ID. |
+| Sound | The SDL sound backend's rules (samples, music, CD audio, WAV) over an XAudio2 transport, [`AUDIO_DEVICE_XAUDIO2.CPP`](../../LIB386/AIL/SDL/AUDIO_DEVICE_XAUDIO2.CPP): one source voice per stream, which XAudio2 resamples, mixes and sets the volume of. A stream's bytes are handed to its voice one buffer per processing pass, just ahead of need; the effects mixer is asked for more there, as SDL3 asks it. The rules reach the host through [`SDK.H`](../../LIB386/AIL/SDL/SDK.H). WAV music must be PCM; the game's music is Ogg. |
 | Paths | Saves, config and log in `LocalState`, whose path is converted to the ANSI code page the engine's file calls read (refused if it cannot be spelled there). Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line, each logged. |
 
 The parts that need no Windows header are host-tested: translations (keys, pad buttons and axes, the events a pad reading adds, letterbox) in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H), and the event queue in [`QUEUE.H`](../../LIB386/PLATFORM/UWP/QUEUE.H), which never drops a quit: after `Closed` the window is not pumped again, so a lost quit would leave the game running. `test_platform_uwp_translate` checks them on every host against documented set-1 scan codes and virtual keys and the `GamepadButtons` values, and, when SDL3 is in the build, every key name and unshifted key code against SDL3's. Shifted codes are checked against the US layout directly: SDL3 without video has no Shift layer.
@@ -187,8 +188,7 @@ On the console:
 
 ## Also needed
 
-- Audio: the AIL output transport on WASAPI (see above).
+- Audio: nothing recovers after the output device is lost (XAudio2's critical error is logged). Chosen over WASAPI, which on the console reports a 7.1 float mix: with it the transport would resample, convert and mix by itself.
 - Lifecycle: the game is not told it is being suspended; a save from the `Suspending` handler would keep progress if the console ends the app.
 - Pointer: no mouse or touch; the backend reports pointer modes as unsupported.
-- Tests: a CI build of the UWP exe with an import check.
 - Packaging: an `AppxManifest.xml`, icons and a signed MSIX. Microsoft's cross-platform `makemsix` may build one without Windows; not tried.

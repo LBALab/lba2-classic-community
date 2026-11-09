@@ -2,7 +2,7 @@
 
 #include "SDK.H"
 
-#ifdef LBA2_USE_SDL2
+#if defined(LBA2_USE_SDL2) || defined(LBA2_AIL_XAUDIO2)
 struct AILAudioStream;
 #else
 typedef SDL_AudioStream AILAudioStream;
