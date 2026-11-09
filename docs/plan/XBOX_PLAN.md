@@ -66,6 +66,21 @@ To run it on a Windows PC in Developer Mode, copy `uwp_spike.exe` next to [`Appx
 
 Run on Windows 11 Home 22H2 (build 22622), 2026-11-09: the app started from the package, activated its window (1200×900), created the swap chain and presented about 105 frames a second, every `Present` returning `S_OK`. The screen was locked, so the picture itself was not seen, and no gamepad was connected, so the gamepad path did not run.
 
+### Packaging without the Windows SDK
+
+[`pack_appx.py`](../../tools/uwp_spike/pack_appx.py) packs a folder into an `.appx`: a ZIP64 file with stored entries, the block map (one SHA-256 per 64 KiB block) and `[Content_Types].xml`. `osslsigncode` (Homebrew) signs it with a self-signed certificate whose subject matches the manifest's `Publisher`:
+
+```sh
+openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365 -subj "/CN=lba2cc-dev" \
+  -addext extendedKeyUsage=codeSigning -addext keyUsage=digitalSignature -addext basicConstraints=critical,CA:FALSE
+python3 tools/uwp_spike/pack_appx.py FOLDER uwp_spike-unsigned.appx
+osslsigncode sign -certs cert.pem -key key.pem -in uwp_spike-unsigned.appx -out uwp_spike.appx
+```
+
+- `osslsigncode` 2.15 rewrites `[Content_Types].xml` compressed but keeps a stored entry's method, which corrupts it; the packer writes that entry deflated.
+- Windows 11 opens the package and refuses it only because the certificate is not trusted. The Xbox in Developer Mode installs it through the Device Portal as it is.
+- The manifest has a `uap:SplashScreen`, which the schema requires; desktop registration from a folder did not insist.
+
 ### What SDL2 does
 
 SDL2 2.32.10's UWP code was read for its shape (`src/core/winrt`, `src/video/winrt`, `src/render/direct3d11`, `src/joystick/windows/SDL_windows_gaming_input.c`, `src/audio/wasapi`, `src/filesystem/winrt`). About 5,000 lines are UWP-specific, but most cover XAML hosting, phones, rotation, pointers and OpenGL ES, which lba2cc does not need. Its gamepad code is plain C over the same WinRT COM interfaces, so the C++/CX is a convenience in SDL, not a requirement.
