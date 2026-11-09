@@ -1,6 +1,6 @@
 # Xbox (UWP Dev Mode): first build probe
 
-Status: experiment. The spike runs on Windows 11 and on an Xbox Series S in Developer Mode.
+Status: experiment. The game runs on an Xbox Series S in Developer Mode through its own UWP platform backend, silent, with the gamepad.
 
 The target is a UWP app sideloaded onto an Xbox in Developer Mode, the same homebrew posture as the [Switch port](../SWITCH.md). The licensed GDK route needs an NDA and publisher rights, so it is out of scope for this repository.
 
@@ -145,8 +145,48 @@ Audio is separate. The engine's SDL audio module reaches SDL only through its ou
 - CI build: the UWP executable built with llvm-mingw in Linux Docker, with an import check that fails on any DLL outside the API sets, `d3d11`, `dxgi` and `xaudio2_9`. This catches desktop-only calls without Windows.
 - Run: a sideloaded package on a Windows PC runs the same code as an Xbox, without a console. The console is the last check.
 
+## The backend
+
+`PLATFORM_BACKEND=uwp` ([`LIB386/PLATFORM/UWP`](../../LIB386/PLATFORM/UWP)) runs the game on an Xbox Series S, 2026-11-09: it starts a new game, A answers the dialogue, the left stick walks, B no longer closes the app. Silent (`SOUND_BACKEND=null`) and without video (`MVIDEO_BACKEND=null`).
+
+```sh
+export LLVM_MINGW_ROOT=/path/to/llvm-mingw-<version>-ucrt-macos-universal
+cmake -S . -B out/build/uwp -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw-x86_64-uwp.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=null -DMVIDEO_BACKEND=null
+tools/uwp/xbox-run.sh 20                                   # build, run, screenshot, fetch LocalState
+tools/uwp/xbox-push-data.sh /path/to/LBA2/Common VIDEO     # once, after the first run
+```
+
+The exe imports only API sets, `d3d11.dll` and `d2d1.dll`; libc++ is linked in.
+
+| Part | How |
+|---|---|
+| Base | The null backend's table (`NULL/BACKEND.CPP` built with `LBA2_NULL_AS_BASE`): clocks, CPU and memory probes, the install folder, removal. The UWP files replace the rest. |
+| Entry | `wWinMain` runs `CoreApplication::Run`; the view's `Run` calls `Lba2Main` on the window's thread. `Suspending` takes a deferral and trims the device. |
+| Events | CoreWindow key, character, activation, visibility, close and size events go into a queue that `poll` drains. `pump` calls `ProcessEvents`, blocking while the window is hidden and never after `Closed`. |
+| Present | A swap chain the window's size (`DXGI_SCALING_NONE`); Direct2D draws the frame into a letterbox with nearest or linear filtering, so no shader is compiled. Pixelart is refused. A lost device is recreated. |
+| Pads | `Windows.Gaming.Input` is listed and read on every pump; arrivals, departures, presses and stick moves become events. The `GamepadAdded` subscription is made at startup. |
+| Keys | Scan codes (E0 prefix included) to physical key IDs, with virtual keys as fallback; the Xbox's gamepad and navigation keys are dropped, since the pad is read directly. |
+| Back | `SystemNavigationManager.BackRequested` is marked handled; unhandled, B closes the app. The interfaces are declared by hand in `NAVIGATION.H`, their IDs from the Windows metadata as the `windows` crate prints them; the handler's ID is computed by the WinRT rule, checked by reproducing the headers' `EventHandler<Gamepad>` ID. |
+| Paths | Saves, config and log in `LocalState`. Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line. |
+
+Translations that need no Windows header (keys, pad buttons and axes, letterbox) are in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H), for host tests.
+
+On the console:
+
+- Registering a loose folder again wipes the app's `LocalState`, game data and saves included. `xbox-run.sh` replaces only `lba2cc.exe` in the registered folder, and registers only on the first run or with `--register`.
+- After registering, `LocalState` does not exist until the app first runs, and the portal answers 200 to uploads into it while dropping them. `xbox-push-data.sh` checks first.
+- An app cannot look at the folders above its own (`Q:\Users` reads as not found), so creating a directory walks up to the deepest folder that exists instead of down from the drive.
+- `VIDEO.HQR` is required even without a video backend; voices and music are optional.
+- The pad is listed a moment after start, as a hot-plug; the first boot logs "Joystick not detected", then "Gamepad connected".
+- As a sideloaded "App", the game sees 1 GB of RAM, which is enough.
+
 ## Also needed
 
-- Game data: copied to `LocalState` through the Dev Mode Device Portal.
-- Lifecycle: UWP suspends and resumes apps instead of letting them exit.
+- Audio: the AIL output transport on WASAPI (see above).
+- Lifecycle: the game is not told it is being suspended; a save from the `Suspending` handler would keep progress if the console ends the app.
+- Pointer: no mouse or touch; the backend reports pointer modes as unsupported.
+- Tests: host tests for `TRANSLATE.H`; a CI build with an import check.
 - Packaging: an `AppxManifest.xml`, icons and a signed MSIX. Microsoft's cross-platform `makemsix` may build one without Windows; not tried.

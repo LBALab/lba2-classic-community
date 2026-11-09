@@ -1,7 +1,7 @@
 set(PLATFORM_BACKEND "sdl3" CACHE STRING "Platform implementation")
-set_property(CACHE PLATFORM_BACKEND PROPERTY STRINGS sdl3 sdl2 null)
-if(NOT PLATFORM_BACKEND MATCHES "^(sdl3|sdl2|null)$")
-    message(FATAL_ERROR "Unsupported PLATFORM_BACKEND '${PLATFORM_BACKEND}'. Available backends: sdl3, sdl2, null")
+set_property(CACHE PLATFORM_BACKEND PROPERTY STRINGS sdl3 sdl2 null uwp)
+if(NOT PLATFORM_BACKEND MATCHES "^(sdl3|sdl2|null|uwp)$")
+    message(FATAL_ERROR "Unsupported PLATFORM_BACKEND '${PLATFORM_BACKEND}'. Available backends: sdl3, sdl2, null, uwp")
 endif()
 
 # The on-device automation executable has no Java Activity. SDL3 on Android
@@ -56,6 +56,28 @@ if(PLATFORM_BACKEND STREQUAL "sdl2")
         target_link_libraries(lba2_platform PRIVATE debugnet SceNet_stub SceNetCtl_stub SceSysmodule_stub)
     endif()
     set(LBA2_SDL_TARGET lba2_sdl2_sdk PARENT_SCOPE)
+    return()
+endif()
+
+# Experimental: a UWP app for an Xbox in Developer Mode, built with llvm-mingw's
+# UWP compilers (cmake/llvm-mingw-x86_64-uwp.cmake). See docs/plan/XBOX_PLAN.md.
+if(PLATFORM_BACKEND STREQUAL "uwp")
+    if(NOT LBA2_WINDOWS_APP)
+        message(FATAL_ERROR "PLATFORM_BACKEND=uwp needs a UWP toolchain: -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw-x86_64-uwp.cmake")
+    endif()
+    if(NOT SOUND_BACKEND STREQUAL "null")
+        message(FATAL_ERROR "PLATFORM_BACKEND=uwp requires SOUND_BACKEND=null for now.")
+    endif()
+    # The null backend's OS calls are the base the UWP table starts from.
+    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP NULL/BACKEND.CPP NULL/ANDROID.CPP
+        UWP/BACKEND.CPP UWP/EVENTS.CPP UWP/INPUT.CPP UWP/WINDOW.CPP)
+    target_compile_definitions(lba2_platform PRIVATE LBA2_NULL_AS_BASE=1)
+    target_include_directories(lba2_platform PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(lba2_platform PRIVATE d2d1 d3d11 dxgi runtimeobject)
+    # wWinMain, and no console window.
+    target_link_options(lba2_platform INTERFACE -municode -mwindows)
+    add_library(lba2_platform_entry OBJECT UWP/ENTRY.CPP)
+    target_include_directories(lba2_platform_entry PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     return()
 endif()
 

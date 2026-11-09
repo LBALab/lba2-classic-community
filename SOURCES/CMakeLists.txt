@@ -154,6 +154,9 @@ if (WIN32 AND NOT LBA2_WINDOWS_APP)
         target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE
             -static-libstdc++ -static-libgcc -static)
     endif()
+elseif (LBA2_WINDOWS_APP)
+    # libc++ and libunwind go into the .exe, so the app folder needs no DLLs.
+    target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE -static)
 endif ()
 
 # Optional: polygon recording support for ASM-vs-CPP testing

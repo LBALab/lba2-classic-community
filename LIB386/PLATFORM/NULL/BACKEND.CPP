@@ -528,7 +528,14 @@ PlatformInterface Interface() {
 }
 } // namespace
 
+/* The UWP backend starts from this table: clocks, paths and directories are
+   plain OS calls that a UWP app may make too. It then supplies g_platform. */
+#ifdef LBA2_NULL_AS_BASE
+extern "C" PlatformInterface NullPlatform_Interface(void) { return Interface(); }
+extern "C" bool NullPlatform_Fail(const char *message) { return Fail(message); }
+#else
 extern "C" const PlatformInterface g_platform = Interface();
+#endif
 
 #ifdef LBA2_NULL_TESTS
 extern "C" const uint32_t *NullPlatform_Frame(uint32_t *width, uint32_t *height) {
