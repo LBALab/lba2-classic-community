@@ -10,6 +10,7 @@
    Also here: InitAIL, and the host services SDK.H declares for this build. */
 
 #include "AUDIO_DEVICE.H"
+#include "WAV_DECODE.H"
 
 #include <AIL/COMMON.H>
 #include <PLATFORM/PLATFORM.H>
@@ -423,55 +424,10 @@ bool AILAudio_Pause(AILAudioStream *stream) {
 
 /* ── WAV ───────────────────────────────────────────────────────────────── */
 
-/* PCM only, 8 or 16 bits: SDL's loader also decodes float, A-law, mu-law and
-   ADPCM, which nothing the game ships uses (its music is Ogg). */
+/* PCM and IMA ADPCM (WAV_DECODE.CPP): SDL's loader also decodes float, A-law,
+   mu-law and MS ADPCM, which no release of the game uses for music. */
 bool AILAudio_LoadWAVMemory(const void *data, int bytes, AILAudioSpec *spec, U8 **pcm, U32 *pcmBytes) {
-    const U8 *p = (const U8 *)data;
-    *pcm = NULL;
-    *pcmBytes = 0;
-    if (!p || bytes < 12 || memcmp(p, "RIFF", 4) || memcmp(p + 8, "WAVE", 4))
-        return AIL_SetError("Not a WAV file");
-    const U8 *format = NULL;
-    const U8 *samples = NULL;
-    U32 formatBytes = 0, sampleBytes = 0;
-    U32 at = 12;
-    while (at + 8 <= (U32)bytes) {
-        U32 length = (U32)p[at + 4] | (U32)p[at + 5] << 8 | (U32)p[at + 6] << 16 | (U32)p[at + 7] << 24;
-        const U32 start = at + 8;
-        if (length > (U32)bytes - start)
-            length = (U32)bytes - start; // a truncated chunk keeps what is there
-        if (!memcmp(p + at, "fmt ", 4) && !format) {
-            format = p + start;
-            formatBytes = length;
-        } else if (!memcmp(p + at, "data", 4) && !samples) {
-            samples = p + start;
-            sampleBytes = length;
-        }
-        at = start + length + (length & 1);
-    }
-    if (!format || formatBytes < 16 || !samples)
-        return AIL_SetError("WAV is missing format or data");
-    U32 code = (U32)format[0] | (U32)format[1] << 8;
-    if (code == 0xFFFE && formatBytes >= 40)
-        code = (U32)format[24] | (U32)format[25] << 8;
-    const int channels = format[2] | format[3] << 8;
-    const int rate = (int)((U32)format[4] | (U32)format[5] << 8 | (U32)format[6] << 16 | (U32)format[7] << 24);
-    const int bits = format[14] | format[15] << 8;
-    if (code != 1)
-        return AIL_SetError("WAV encoding %u is not supported on this build (PCM only)", (unsigned)code);
-    if ((bits != 8 && bits != 16) || channels < 1 || rate <= 0)
-        return AIL_SetError("WAV with %d bits and %d channels is not supported on this build", bits, channels);
-    const U32 frameBytes = (U32)(bits / 8 * channels);
-    sampleBytes -= sampleBytes % frameBytes;
-    *pcm = (U8 *)malloc(sampleBytes ? sampleBytes : 1);
-    if (!*pcm)
-        return AIL_SetError("Unable to allocate %u WAV bytes", (unsigned)sampleBytes);
-    memcpy(*pcm, samples, sampleBytes);
-    *pcmBytes = sampleBytes;
-    spec->format = bits == 8 ? AIL_AUDIO_U8 : AIL_AUDIO_S16;
-    spec->channels = channels;
-    spec->freq = rate;
-    return true;
+    return AILWav_DecodeMemory(data, bytes, spec, pcm, pcmBytes);
 }
 
 bool AILAudio_LoadWAV(const char *path, AILAudioSpec *spec, U8 **data, U32 *bytes) {

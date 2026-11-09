@@ -173,6 +173,19 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
     add_test(NAME test_music_wav COMMAND test_music_wav)
     register_host_test(test_music_wav)
 
+    # The XAudio2 build's WAV decoder against SDL's loader.
+    add_executable(test_wav_decode test_wav_decode.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/WAV_DECODE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP)
+    target_include_directories(test_wav_decode PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_wav_decode PRIVATE ${LBA2_SDL_TARGET})
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_wav_decode PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_wav_decode PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_wav_decode COMMAND test_wav_decode)
+    register_host_test(test_wav_decode)
+
     add_executable(test_sdl_audio_playback test_sdl_audio_playback.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP
