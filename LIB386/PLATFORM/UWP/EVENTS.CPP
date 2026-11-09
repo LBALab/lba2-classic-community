@@ -123,70 +123,99 @@ void OnCharacter(UINT32 unit) {
     Push(&event, text);
 }
 
-#define UWP_WINDOW_HANDLER(Name, Args)                                                                 \
-    class Name : public UwpDelegate<__FITypedEventHandler_2_Windows__CUI__CCore__CCoreWindow_##Args> { \
-      public:                                                                                          \
-        HRESULT STDMETHODCALLTYPE Invoke(ICoreWindow *, Args##_Type *args);                            \
-    };
+/* One struct per CoreWindow event: the event's argument class, the
+   interface its handler receives, and what to do with it. */
+struct KeyDown {
+    typedef KeyEventArgs Args;
+    typedef IKeyEventArgs Abi;
+    static void Handle(Abi *args) { OnKey(args, true); }
+};
 
-typedef IKeyEventArgs Windows__CUI__CCore__CKeyEventArgs_Type;
-typedef ICharacterReceivedEventArgs Windows__CUI__CCore__CCharacterReceivedEventArgs_Type;
-typedef IWindowActivatedEventArgs Windows__CUI__CCore__CWindowActivatedEventArgs_Type;
-typedef IVisibilityChangedEventArgs Windows__CUI__CCore__CVisibilityChangedEventArgs_Type;
-typedef ICoreWindowEventArgs Windows__CUI__CCore__CCoreWindowEventArgs_Type;
-typedef IWindowSizeChangedEventArgs Windows__CUI__CCore__CWindowSizeChangedEventArgs_Type;
+struct KeyUp {
+    typedef KeyEventArgs Args;
+    typedef IKeyEventArgs Abi;
+    static void Handle(Abi *args) { OnKey(args, false); }
+};
 
-UWP_WINDOW_HANDLER(OnKeyDown, Windows__CUI__CCore__CKeyEventArgs)
-UWP_WINDOW_HANDLER(OnKeyUp, Windows__CUI__CCore__CKeyEventArgs)
-UWP_WINDOW_HANDLER(OnCharacterReceived, Windows__CUI__CCore__CCharacterReceivedEventArgs)
-UWP_WINDOW_HANDLER(OnActivated, Windows__CUI__CCore__CWindowActivatedEventArgs)
-UWP_WINDOW_HANDLER(OnVisibility, Windows__CUI__CCore__CVisibilityChangedEventArgs)
-UWP_WINDOW_HANDLER(OnClosed, Windows__CUI__CCore__CCoreWindowEventArgs)
-UWP_WINDOW_HANDLER(OnSizeChanged, Windows__CUI__CCore__CWindowSizeChangedEventArgs)
-
-HRESULT OnKeyDown::Invoke(ICoreWindow *, IKeyEventArgs *args) {
-    OnKey(args, true);
-    return S_OK;
-}
-HRESULT OnKeyUp::Invoke(ICoreWindow *, IKeyEventArgs *args) {
-    OnKey(args, false);
-    return S_OK;
-}
-HRESULT OnCharacterReceived::Invoke(ICoreWindow *, ICharacterReceivedEventArgs *args) {
-    UINT32 unit = 0;
-    if (SUCCEEDED(args->get_KeyCode(&unit)))
-        OnCharacter(unit);
-    return S_OK;
-}
-HRESULT OnActivated::Invoke(ICoreWindow *, IWindowActivatedEventArgs *args) {
-    CoreWindowActivationState state = CoreWindowActivationState_CodeActivated;
-    args->get_WindowActivationState(&state);
-    if (state == CoreWindowActivationState_Deactivated) {
-        ReleaseAllKeys();
-        PushType(PLATFORM_EVENT_WINDOW_FOCUS_LOST);
-    } else {
-        PushType(PLATFORM_EVENT_WINDOW_FOCUS_GAINED);
+struct CharacterReceived {
+    typedef CharacterReceivedEventArgs Args;
+    typedef ICharacterReceivedEventArgs Abi;
+    static void Handle(Abi *args) {
+        UINT32 unit = 0;
+        if (SUCCEEDED(args->get_KeyCode(&unit)))
+            OnCharacter(unit);
     }
-    return S_OK;
-}
-HRESULT OnVisibility::Invoke(ICoreWindow *, IVisibilityChangedEventArgs *args) {
-    boolean visible = TRUE;
-    args->get_Visible(&visible);
-    s_visible = visible != 0;
-    return S_OK;
-}
-HRESULT OnClosed::Invoke(ICoreWindow *, ICoreWindowEventArgs *) {
-    /* After Closed the dispatcher must not be pumped again; the engine is
-       told to leave and does so at its next poll. */
-    s_closed = true;
-    PushType(PLATFORM_EVENT_QUIT);
-    return S_OK;
-}
-HRESULT OnSizeChanged::Invoke(ICoreWindow *, IWindowSizeChangedEventArgs *) {
-    Uwp_WindowSizeChanged();
-    PushType(PLATFORM_EVENT_WINDOW_RESIZED);
-    return S_OK;
-}
+};
+
+struct Activated {
+    typedef WindowActivatedEventArgs Args;
+    typedef IWindowActivatedEventArgs Abi;
+    static void Handle(Abi *args) {
+        CoreWindowActivationState state = CoreWindowActivationState_CodeActivated;
+        args->get_WindowActivationState(&state);
+        if (state == CoreWindowActivationState_Deactivated) {
+            ReleaseAllKeys();
+            PushType(PLATFORM_EVENT_WINDOW_FOCUS_LOST);
+        } else {
+            PushType(PLATFORM_EVENT_WINDOW_FOCUS_GAINED);
+        }
+    }
+};
+
+struct VisibilityChanged {
+    typedef VisibilityChangedEventArgs Args;
+    typedef IVisibilityChangedEventArgs Abi;
+    static void Handle(Abi *args) {
+        boolean visible = TRUE;
+        args->get_Visible(&visible);
+        s_visible = visible != 0;
+    }
+};
+
+/* After Closed the dispatcher must not be pumped again; the engine is told
+   to leave and does so at its next poll. */
+struct Closed {
+    typedef CoreWindowEventArgs Args;
+    typedef ICoreWindowEventArgs Abi;
+    static void Handle(Abi *) {
+        s_closed = true;
+        PushType(PLATFORM_EVENT_QUIT);
+    }
+};
+
+struct SizeChanged {
+    typedef WindowSizeChangedEventArgs Args;
+    typedef IWindowSizeChangedEventArgs Abi;
+    static void Handle(Abi *) {
+        Uwp_WindowSizeChanged();
+        PushType(PLATFORM_EVENT_WINDOW_RESIZED);
+    }
+};
+
+/* The delegate for one of them: TypedEventHandler<CoreWindow, Args>. The
+   typedefs keep two closing angle brackets apart, which C++98 needs and
+   clang-format would otherwise join. */
+template <class Event>
+struct WindowDelegate {
+    typedef ABI::Windows::Foundation::ITypedEventHandler<CoreWindow *, typename Event::Args *> Interface;
+};
+
+template <class Event>
+class WindowHandler : public UwpDelegate<typename WindowDelegate<Event>::Interface> {
+  public:
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWindow *, typename Event::Abi *args) {
+        Event::Handle(args);
+        return S_OK;
+    }
+};
+
+typedef WindowHandler<KeyDown> OnKeyDown;
+typedef WindowHandler<KeyUp> OnKeyUp;
+typedef WindowHandler<CharacterReceived> OnCharacterReceived;
+typedef WindowHandler<Activated> OnActivated;
+typedef WindowHandler<VisibilityChanged> OnVisibilityChanged;
+typedef WindowHandler<Closed> OnClosed;
+typedef WindowHandler<SizeChanged> OnSizeChanged;
 
 /* B on an Xbox, Back elsewhere. Unhandled, it closes the app. The pad's B
    still reaches the game as a button, so this only claims the request. */
@@ -231,7 +260,7 @@ void Uwp_AttachWindow(ICoreWindow *window) {
     Subscribe<OnKeyUp>(&ICoreWindow::add_KeyUp, &s_tokens[1]);
     Subscribe<OnCharacterReceived>(&ICoreWindow::add_CharacterReceived, &s_tokens[2]);
     Subscribe<OnActivated>(&ICoreWindow::add_Activated, &s_tokens[3]);
-    Subscribe<OnVisibility>(&ICoreWindow::add_VisibilityChanged, &s_tokens[4]);
+    Subscribe<OnVisibilityChanged>(&ICoreWindow::add_VisibilityChanged, &s_tokens[4]);
     Subscribe<OnClosed>(&ICoreWindow::add_Closed, &s_tokens[5]);
     Subscribe<OnSizeChanged>(&ICoreWindow::add_SizeChanged, &s_tokens[6]);
     WatchBack();
