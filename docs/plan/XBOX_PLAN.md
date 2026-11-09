@@ -1,6 +1,6 @@
 # Xbox (UWP Dev Mode): first build probe
 
-Status: experiment. Nothing here has run on Windows or a console yet.
+Status: experiment. The spike has run on Windows 11; nothing has run on a console.
 
 The target is a UWP app sideloaded onto an Xbox in Developer Mode, the same homebrew posture as the [Switch port](../SWITCH.md). The licensed GDK route needs an NDA and publisher rights, so it is out of scope for this repository.
 
@@ -60,7 +60,11 @@ x86_64-w64-mingw32uwp-clang++ -std=gnu++98 -Wall -Wextra -O2 -municode -mwindows
   tools/uwp_spike/uwp_spike.cpp -o uwp_spike.exe -ld3d11 -ldxgi -lruntimeobject -static
 ```
 
-It builds with no warnings and imports only API sets and `d3d11.dll`. It has not run: that needs an app package and a Windows PC or an Xbox in Developer Mode.
+It builds with no warnings and imports only API sets and `d3d11.dll`.
+
+To run it on a Windows PC in Developer Mode, copy `uwp_spike.exe` next to [`AppxManifest.xml`](../../tools/uwp_spike/AppxManifest.xml), `Assets` and [`run.ps1`](../../tools/uwp_spike/run.ps1), and run the script. It registers the folder as an app without signing, starts it, and prints the log the app writes to `LocalState`.
+
+Run on Windows 11 Home 22H2 (build 22622), 2026-11-09: the app started from the package, activated its window (1200×900), created the swap chain and presented about 105 frames a second, every `Present` returning `S_OK`. The screen was locked, so the picture itself was not seen, and no gamepad was connected, so the gamepad path did not run.
 
 ### What SDL2 does
 

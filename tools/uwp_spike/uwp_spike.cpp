@@ -18,6 +18,7 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -32,9 +33,13 @@ enum { FRAME_W = 640,
 static FILE *g_log = NULL;
 static UINT32 g_frame[FRAME_W * FRAME_H];
 
-static void Log(const char *msg) {
+static void Log(const char *format, ...) {
     if (g_log) {
-        fprintf(g_log, "%s\n", msg);
+        va_list args;
+        va_start(args, format);
+        vfprintf(g_log, format, args);
+        va_end(args);
+        fputc('\n', g_log);
         fflush(g_log);
     }
 }
@@ -120,13 +125,22 @@ static bool CreateSwapChain(ICoreWindow *window) {
     return ok;
 }
 
+/* Logs the first results and every change, so a run can be judged from the
+   log alone: DXGI_STATUS_OCCLUDED (0x087A0001) means nothing is visible. */
 static void Present(void) {
+    static int frames = 0;
+    static HRESULT last = 1;
     ID3D11Texture2D *back = NULL;
     if (SUCCEEDED(g_swap->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&back))) {
         g_context->UpdateSubresource(back, 0, NULL, g_frame, FRAME_W * 4, 0);
         SafeRelease(back);
     }
-    g_swap->Present(1, 0);
+    HRESULT hr = g_swap->Present(1, 0);
+    ++frames;
+    if (hr != last || frames <= 3 || frames % 120 == 0) {
+        Log("present %d hr 0x%08lx", frames, (unsigned long)hr);
+        last = hr;
+    }
 }
 
 /* --- Gamepad ------------------------------------------------------------ */
@@ -292,6 +306,11 @@ class View : public Inspectable<IFrameworkView> {
         if (!CreateSwapChain(m_window)) {
             Log("swap chain failed");
             return E_FAIL;
+        }
+        {
+            ABI::Windows::Foundation::Rect bounds;
+            m_window->get_Bounds(&bounds);
+            Log("swap chain ok, window %.0fx%.0f dips", bounds.Width, bounds.Height);
         }
         ICoreDispatcher *dispatcher = NULL;
         m_window->get_Dispatcher(&dispatcher);
