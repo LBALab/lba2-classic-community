@@ -16,7 +16,7 @@ shift
 [ -d "$src" ] || { echo "no folder $src" >&2; exit 1; }
 src="$(cd "$src" && pwd)"
 xbox="${XBOX_SH:-$HOME/code/homelab/ops/xbox.sh}"
-full="LBA2CC_0.0.1.0_x64__bzkng0es5r9z8"
+full="$(python3 -I "$(dirname "$0")/package-name.py")" # from AppxManifest.xml
 
 urlenc() { python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"; }
 q="knownfolderid=LocalAppData&packagefullname=$(urlenc "$full")"

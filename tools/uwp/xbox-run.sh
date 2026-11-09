@@ -30,7 +30,7 @@ seconds="${1:-15}"
 out="${2:-${TMPDIR:-/tmp}/lba2cc-uwp-run}"
 build="${LBA2_UWP_BUILD:-$root/out/build/uwp}"
 xbox="${XBOX_SH:-$HOME/code/homelab/ops/xbox.sh}"
-full="LBA2CC_0.0.1.0_x64__bzkng0es5r9z8"
+full="$(python3 -I "$here/package-name.py")" # from AppxManifest.xml
 
 urlenc() { python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"; }
 b64() { urlenc "$(printf '%s' "$1" | base64 | tr -d '\n')"; }
