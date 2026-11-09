@@ -211,6 +211,9 @@ static inline uint32_t UwpKeycode(int32_t scancode, uint16_t mods) {
         return (uint32_t)(unsigned char)(shift ? kShift : kPlain)[scancode - PLATFORM_SCANCODE_1];
     if (scancode == PLATFORM_SCANCODE_DELETE)
         return PLATFORM_KEYCODE_DELETE;
+    /* The key beside left Shift on ISO keyboards has no US character. */
+    if (scancode == PLATFORM_SCANCODE_NONUSBACKSLASH)
+        return 0;
     if (scancode <= PLATFORM_SCANCODE_UNKNOWN || scancode >= PLATFORM_SCANCODE_COUNT)
         return 0;
     return PLATFORM_SCANCODE_TO_KEYCODE(scancode);
@@ -229,7 +232,7 @@ static inline const char *UwpScancodeName(int32_t scancode) {
                                        "Keypad /", "Keypad *", "Keypad -", "Keypad +", "Keypad Enter",
                                        "Keypad 1", "Keypad 2", "Keypad 3", "Keypad 4", "Keypad 5",
                                        "Keypad 6", "Keypad 7", "Keypad 8", "Keypad 9", "Keypad 0", "Keypad .",
-                                       "", "Application"};
+                                       "NonUSBackslash", "Application"};
     static const char *const kMods[] = {"Left Ctrl", "Left Shift", "Left Alt", "Left GUI",
                                         "Right Ctrl", "Right Shift", "Right Alt", "Right GUI"};
     if (scancode >= PLATFORM_SCANCODE_A && scancode <= PLATFORM_SCANCODE_Z)

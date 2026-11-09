@@ -75,6 +75,18 @@ foreach(target test_platform_contract test_platform_vita_deadzone)
 endforeach()
 target_compile_definitions(test_platform_vita_deadzone PRIVATE LBA2_GAMEPAD_DEADZONE_DEFAULT=13107)
 
+# The UWP backend's Windows-free translations, on every host. With SDL3 in the
+# build, key names and codes are also checked against SDL's.
+add_executable(test_platform_uwp_translate test_platform_uwp_translate.cpp)
+target_include_directories(test_platform_uwp_translate PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+set_target_properties(test_platform_uwp_translate PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON)
+if(LBA2_SDL3_TARGET)
+    target_compile_definitions(test_platform_uwp_translate PRIVATE UWP_TEST_WITH_SDL3=1)
+    target_link_libraries(test_platform_uwp_translate PRIVATE ${LBA2_SDL3_TARGET})
+endif()
+add_test(NAME test_platform_uwp_translate COMMAND test_platform_uwp_translate)
+register_host_test(test_platform_uwp_translate)
+
 if(PLATFORM_BACKEND STREQUAL "null")
     add_executable(test_platform_null test_platform_null.cpp)
     target_include_directories(test_platform_null PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)

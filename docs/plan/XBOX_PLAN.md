@@ -172,7 +172,7 @@ The exe imports only API sets, `d3d11.dll` and `d2d1.dll`; libc++ is linked in.
 | Back | `SystemNavigationManager.BackRequested` is marked handled; unhandled, B closes the app. The interfaces are declared by hand in `NAVIGATION.H`, their IDs from the Windows metadata as the `windows` crate prints them; the handler's ID is computed by the WinRT rule, checked by reproducing the headers' `EventHandler<Gamepad>` ID. |
 | Paths | Saves, config and log in `LocalState`. Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line. |
 
-Translations that need no Windows header (keys, pad buttons and axes, letterbox) are in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H), for host tests.
+Translations that need no Windows header (keys, pad buttons and axes, letterbox) are in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H). `test_platform_uwp_translate` checks them on every host against documented set-1 scan codes and virtual keys and the `GamepadButtons` values, and, when SDL3 is in the build, every key name and unshifted key code against SDL3's. Shifted codes are checked against the US layout directly: SDL3 without video has no Shift layer.
 
 On the console:
 
@@ -188,5 +188,5 @@ On the console:
 - Audio: the AIL output transport on WASAPI (see above).
 - Lifecycle: the game is not told it is being suspended; a save from the `Suspending` handler would keep progress if the console ends the app.
 - Pointer: no mouse or touch; the backend reports pointer modes as unsupported.
-- Tests: host tests for `TRANSLATE.H`; a CI build with an import check.
+- Tests: a CI build of the UWP exe with an import check.
 - Packaging: an `AppxManifest.xml`, icons and a signed MSIX. Microsoft's cross-platform `makemsix` may build one without Windows; not tried.
