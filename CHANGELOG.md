@@ -221,6 +221,14 @@ that comes from the three 64-bit Android entries under Display & render.
   limit on length, for this and for any other long capture
   ([#828](https://github.com/LBALab/lba2-classic-community/pull/828)).
 
+- Experimental: `-DPLATFORM_BACKEND=uwp` builds the game as a UWP app for an
+  Xbox in Developer Mode, with llvm-mingw on macOS or Linux, no Visual Studio
+  needed. On a Series S it plays with a pad, with sound and cinematics, and
+  keeps its settings when the console ends it while suspended.
+  `tools/uwp/xbox-lba2cc.py` runs `tests/automation` on the console. Setup and
+  what is missing: [docs/plan/XBOX_PLAN.md](docs/plan/XBOX_PLAN.md)
+  ([#861](https://github.com/LBALab/lba2-classic-community/pull/861)).
+
 ### Contributors
 
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a

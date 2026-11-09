@@ -147,14 +147,14 @@ Audio is separate. The engine's SDL audio module reaches SDL only through its ou
 
 ## The backend
 
-`PLATFORM_BACKEND=uwp` ([`LIB386/PLATFORM/UWP`](../../LIB386/PLATFORM/UWP)) runs the game on an Xbox Series S, 2026-11-09: it starts a new game, A answers the dialogue, the left stick walks, B no longer closes the app. Sound through XAudio2 (`SOUND_BACKEND=xaudio2`): effects, voices and music, confirmed on the TV the same day. No video yet (`MVIDEO_BACKEND=null`).
+`PLATFORM_BACKEND=uwp` ([`LIB386/PLATFORM/UWP`](../../LIB386/PLATFORM/UWP)) runs the game on an Xbox Series S, 2026-11-09: it starts a new game, A answers the dialogue, the left stick walks, B no longer closes the app. Sound through XAudio2 (`SOUND_BACKEND=xaudio2`): effects, voices and music, confirmed on the TV the same day. Cinematics play with their sound (`MVIDEO_BACKEND=smacker`), confirmed on the TV 2026-11-10.
 
 ```sh
 export LLVM_MINGW_ROOT=/path/to/llvm-mingw-<version>-ucrt-macos-universal
 cmake -S . -B out/build/uwp -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw-x86_64-uwp.cmake \
   -DCMAKE_BUILD_TYPE=Release \
-  -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=xaudio2 -DMVIDEO_BACKEND=null
+  -DPLATFORM_BACKEND=uwp -DSOUND_BACKEND=xaudio2 -DMVIDEO_BACKEND=smacker
 tools/uwp/xbox-run.sh 20                                   # build, run, screenshot, fetch LocalState
 tools/uwp/xbox-push-data.sh /path/to/LBA2/Common VIDEO VOX Music   # once, after the first run
 ```

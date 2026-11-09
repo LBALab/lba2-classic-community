@@ -372,8 +372,6 @@ ui_compare() {
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
-    local log
-    log="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.log")"
     # The verb takes the capture path as its last arg, and opens it itself, so it
     # has to be named the way the engine can open it: MSYS2 rewrites a standalone
     # path argument on its way to a native binary but not one buried in a longer
@@ -381,26 +379,17 @@ ui_compare() {
     if [ -n "${LBA2_TEST_SAVE:-}" ]; then
         ctl_headless --load "$LBA2_TEST_SAVE" \
             --exec "ui $args $(engine_path "$out")" \
-            --fixed-dt 16 --tick 200 --exit >"$log" 2>&1 || rc=$?
+            --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
     else
         ctl_headless \
             --exec "ui $args $(engine_path "$out")" \
-            --fixed-dt 16 --tick 200 --exit >"$log" 2>&1 || rc=$?
+            --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
     fi
-    [ "$rc" = 0 ] || { rm -f "$out" "$log"; fail "verb 'ui $args' returned non-zero ($rc)"; }
+    [ "$rc" = 0 ] || { rm -f "$out"; fail "verb 'ui $args' returned non-zero ($rc)"; }
     # Empty, not merely present: mktemp has already created the file, so -f is
     # true whether or not the engine wrote a capture into it, and the compare
     # below would go on to hash nothing and report it as a golden mismatch.
-    # A build without a video backend (MVIDEO_BACKEND=null, the UWP build's)
-    # says so and has no frame to give.
-    if [ ! -s "$out" ]; then
-        local why=""
-        grep -q 'video backend is null' "$log" && why="built without a video backend"
-        rm -f "$out" "$log"
-        [ -n "$why" ] && skip "$why"
-        fail "no capture written for 'ui $args'"
-    fi
-    rm -f "$log"
+    [ -s "$out" ] || fail "no capture written for 'ui $args'"
     if [ "${LBA2_UI_REGEN:-}" = "1" ]; then
         mkdir -p "$(dirname "$golden")"
         cp "$out" "$golden"
