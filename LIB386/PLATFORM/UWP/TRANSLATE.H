@@ -4,9 +4,10 @@
    Windows headers so host tests on any OS can check them. Numbers that come
    from Windows (virtual keys, GamepadButtons bits) are spelled out here. */
 
-#include <PLATFORM/INPUT.H>
+#include <PLATFORM/PLATFORM.H>
 
 #include <stdint.h>
+#include <string.h>
 
 /* --- Keyboard ------------------------------------------------------------ */
 
@@ -285,6 +286,36 @@ static inline int16_t UwpPadUnit(double value, bool negate) {
     if (value <= -1.0)
         return -32768;
     return (int16_t)(value * (value < 0 ? 32768.0 : 32767.0));
+}
+
+enum { UWP_PAD_EVENTS_MAX = PLATFORM_GAMEPAD_BUTTON_COUNT + PLATFORM_GAMEPAD_AXIS_COUNT };
+
+/* The events one reading adds to the last: a press for each button newly
+   down (the contract has no release event; the engine samples the state),
+   and a motion for each axis that changed. Returns how many were written to
+   out, which holds UWP_PAD_EVENTS_MAX. */
+static inline int UwpPadEvents(uint32_t id, uint32_t oldButtons, const int16_t *oldAxes, uint32_t buttons,
+                               const int16_t *axes, PlatformEvent *out) {
+    int n = 0;
+    for (int b = 0; b < PLATFORM_GAMEPAD_BUTTON_COUNT; ++b) {
+        if (!UwpPadButton(buttons, (PlatformGamepadButton)b) || UwpPadButton(oldButtons, (PlatformGamepadButton)b))
+            continue;
+        memset(&out[n], 0, sizeof out[n]);
+        out[n].type = PLATFORM_EVENT_GAMEPAD_BUTTON_DOWN;
+        out[n].gdevice.which = id;
+        ++n;
+    }
+    for (int a = 0; a < PLATFORM_GAMEPAD_AXIS_COUNT; ++a) {
+        if (axes[a] == oldAxes[a])
+            continue;
+        memset(&out[n], 0, sizeof out[n]);
+        out[n].type = PLATFORM_EVENT_GAMEPAD_AXIS_MOTION;
+        out[n].gaxis.which = id;
+        out[n].gaxis.axis = (PlatformGamepadAxis)a;
+        out[n].gaxis.value = axes[a];
+        ++n;
+    }
+    return n;
 }
 
 /* --- Presentation -------------------------------------------------------- */

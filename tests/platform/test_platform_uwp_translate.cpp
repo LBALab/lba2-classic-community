@@ -1,10 +1,11 @@
-/* The UWP backend's Windows-free translations (LIB386/PLATFORM/UWP/TRANSLATE.H),
-   checked on any host. Expected values come from outside the header: PC set-1
+/* The UWP backend's Windows-free parts (LIB386/PLATFORM/UWP/TRANSLATE.H and
+   QUEUE.H), checked on any host. Expected values come from outside the header: PC set-1
    scan codes and Windows virtual keys as documented, the Windows.Gaming.Input
    GamepadButtons values, and, when SDL3 is in the build, SDL's own key names
    and US-layout key codes, which the other backends report. */
 
 #include "../test_harness.h"
+#include "../../LIB386/PLATFORM/UWP/QUEUE.H"
 #include "../../LIB386/PLATFORM/UWP/TRANSLATE.H"
 
 #include <string.h>
@@ -232,6 +233,103 @@ static void test_pad_axes() {
     }
 }
 
+static void test_pad_events() {
+    const int16_t rest[PLATFORM_GAMEPAD_AXIS_COUNT] = {0, 0, 0, 0, 0, 0};
+    PlatformEvent out[UWP_PAD_EVENTS_MAX];
+    /* Nothing changed: nothing to say. */
+    ASSERT_EQ_INT(0, UwpPadEvents(7, 0x0004, rest, 0x0004, rest, out));
+    /* A newly down; B already held; X released (no event: the contract has none). */
+    ASSERT_EQ_INT(1, UwpPadEvents(7, 0x0008 | 0x0010, rest, 0x0004 | 0x0008, rest, out));
+    ASSERT_EQ_INT(PLATFORM_EVENT_GAMEPAD_BUTTON_DOWN, out[0].type);
+    ASSERT_EQ_UINT(7, out[0].gdevice.which);
+    /* Two axes moved, in axis order, with their new values. */
+    int16_t moved[PLATFORM_GAMEPAD_AXIS_COUNT] = {0, 0, 0, 0, 0, 0};
+    moved[PLATFORM_GAMEPAD_AXIS_LEFTY] = -32768;
+    moved[PLATFORM_GAMEPAD_AXIS_RIGHT_TRIGGER] = 100;
+    ASSERT_EQ_INT(2, UwpPadEvents(3, 0, rest, 0, moved, out));
+    ASSERT_EQ_INT(PLATFORM_EVENT_GAMEPAD_AXIS_MOTION, out[0].type);
+    ASSERT_EQ_UINT(3, out[0].gaxis.which);
+    ASSERT_EQ_INT(PLATFORM_GAMEPAD_AXIS_LEFTY, out[0].gaxis.axis);
+    ASSERT_EQ_INT(-32768, out[0].gaxis.value);
+    ASSERT_EQ_INT(PLATFORM_GAMEPAD_AXIS_RIGHT_TRIGGER, out[1].gaxis.axis);
+    ASSERT_EQ_INT(100, out[1].gaxis.value);
+    /* Everything at once fits the buffer: every mapped button and every axis. */
+    int16_t all[PLATFORM_GAMEPAD_AXIS_COUNT] = {1, 1, 1, 1, 1, 1};
+    int mapped = 0;
+    for (int b = 0; b < PLATFORM_GAMEPAD_BUTTON_COUNT; ++b)
+        mapped += UwpPadButton(0xFFFF, (PlatformGamepadButton)b);
+    ASSERT_EQ_INT(mapped + PLATFORM_GAMEPAD_AXIS_COUNT, UwpPadEvents(1, 0, rest, 0xFFFF, all, out));
+}
+
+static UwpQueue s_queue;
+
+static PlatformEvent Event(PlatformEventType type, int32_t scancode) {
+    PlatformEvent event;
+    memset(&event, 0, sizeof event);
+    event.type = type;
+    event.key.scancode = scancode;
+    return event;
+}
+
+static void test_queue_order_and_text() {
+    UwpQueueClear(&s_queue);
+    PlatformEvent event = Event(PLATFORM_EVENT_KEY_DOWN, 4);
+    ASSERT_TRUE(UwpQueuePush(&s_queue, &event, NULL));
+    event = Event(PLATFORM_EVENT_TEXT_INPUT, 0);
+    ASSERT_TRUE(UwpQueuePush(&s_queue, &event, "\xC3\xA9"));
+    event = Event(PLATFORM_EVENT_TEXT_INPUT, 0);
+    ASSERT_TRUE(UwpQueuePush(&s_queue, &event, "longer than the slot"));
+    PlatformEvent out;
+    ASSERT_TRUE(UwpQueuePoll(&s_queue, &out));
+    ASSERT_EQ_INT(PLATFORM_EVENT_KEY_DOWN, out.type);
+    ASSERT_EQ_INT(4, out.key.scancode);
+    ASSERT_TRUE(UwpQueuePoll(&s_queue, &out));
+    ASSERT_EQ_INT(PLATFORM_EVENT_TEXT_INPUT, out.type);
+    ASSERT_TRUE(strcmp(out.text.text, "\xC3\xA9") == 0);
+    ASSERT_TRUE(UwpQueuePoll(&s_queue, &out));
+    ASSERT_EQ_INT(UWP_TEXT_SIZE - 1, (int)strlen(out.text.text));
+    ASSERT_TRUE(!UwpQueuePoll(&s_queue, &out));
+    /* The ring wraps. */
+    for (int round = 0; round < 3 * UWP_QUEUE_SIZE; ++round) {
+        event = Event(PLATFORM_EVENT_KEY_UP, round);
+        ASSERT_TRUE(UwpQueuePush(&s_queue, &event, NULL));
+        ASSERT_TRUE(UwpQueuePoll(&s_queue, &out));
+        ASSERT_EQ_INT(round, out.key.scancode);
+    }
+}
+
+static void test_queue_full_keeps_quit() {
+    UwpQueueClear(&s_queue);
+    PlatformEvent event;
+    for (int i = 0; i < UWP_QUEUE_SIZE; ++i) {
+        event = Event(PLATFORM_EVENT_GAMEPAD_AXIS_MOTION, i);
+        ASSERT_TRUE(UwpQueuePush(&s_queue, &event, NULL));
+    }
+    /* Full: an ordinary event is dropped, the quit is kept. */
+    event = Event(PLATFORM_EVENT_KEY_DOWN, 1);
+    ASSERT_TRUE(!UwpQueuePush(&s_queue, &event, NULL));
+    event = Event(PLATFORM_EVENT_QUIT, 0);
+    ASSERT_TRUE(UwpQueuePush(&s_queue, &event, NULL));
+    PlatformEvent out;
+    int quits = 0, others = 0;
+    while (UwpQueuePoll(&s_queue, &out)) {
+        if (out.type == PLATFORM_EVENT_QUIT)
+            ++quits;
+        else
+            ++others;
+        ASSERT_TRUE(quits == 0 || others == UWP_QUEUE_SIZE); /* the quit comes last */
+    }
+    ASSERT_EQ_INT(1, quits);
+    ASSERT_EQ_INT(UWP_QUEUE_SIZE, others);
+    /* Delivered once; a cleared queue holds no pending quit. */
+    ASSERT_TRUE(!UwpQueuePoll(&s_queue, &out));
+    for (int i = 0; i < UWP_QUEUE_SIZE; ++i)
+        UwpQueuePush(&s_queue, &event, NULL);
+    UwpQueuePush(&s_queue, &event, NULL);
+    UwpQueueClear(&s_queue);
+    ASSERT_TRUE(!UwpQueuePoll(&s_queue, &out));
+}
+
 static void test_letterbox() {
     /* The game's auto mode on a 1080p TV: bars at the sides. */
     UwpRect r = UwpLetterbox(1920, 1080, 848, 480);
@@ -299,6 +397,9 @@ int main() {
 #endif
     RUN_TEST(test_pad_buttons);
     RUN_TEST(test_pad_axes);
+    RUN_TEST(test_pad_events);
+    RUN_TEST(test_queue_order_and_text);
+    RUN_TEST(test_queue_full_keeps_quit);
     RUN_TEST(test_letterbox);
     RUN_TEST(test_window_to_frame);
     TEST_SUMMARY();

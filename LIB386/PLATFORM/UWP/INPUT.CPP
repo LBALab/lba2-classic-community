@@ -67,26 +67,10 @@ void Read(PlatformGamepad *slot, bool report) {
     axes[PLATFORM_GAMEPAD_AXIS_LEFT_TRIGGER] = UwpPadUnit(reading.LeftTrigger, false);
     axes[PLATFORM_GAMEPAD_AXIS_RIGHT_TRIGGER] = UwpPadUnit(reading.RightTrigger, false);
     if (report) {
-        PlatformEvent event;
-        for (int b = 0; b < PLATFORM_GAMEPAD_BUTTON_COUNT; ++b) {
-            if (UwpPadButton(buttons, (PlatformGamepadButton)b) &&
-                !UwpPadButton(slot->buttons, (PlatformGamepadButton)b)) {
-                memset(&event, 0, sizeof event);
-                event.type = PLATFORM_EVENT_GAMEPAD_BUTTON_DOWN;
-                event.gdevice.which = slot->id;
-                Uwp_PushEvent(&event);
-            }
-        }
-        for (int a = 0; a < PLATFORM_GAMEPAD_AXIS_COUNT; ++a) {
-            if (axes[a] == slot->axes[a])
-                continue;
-            memset(&event, 0, sizeof event);
-            event.type = PLATFORM_EVENT_GAMEPAD_AXIS_MOTION;
-            event.gaxis.which = slot->id;
-            event.gaxis.axis = (PlatformGamepadAxis)a;
-            event.gaxis.value = axes[a];
-            Uwp_PushEvent(&event);
-        }
+        PlatformEvent events[UWP_PAD_EVENTS_MAX];
+        const int n = UwpPadEvents(slot->id, slot->buttons, slot->axes, buttons, axes, events);
+        for (int e = 0; e < n; ++e)
+            Uwp_PushEvent(&events[e]);
     }
     slot->buttons = buttons;
     memcpy(slot->axes, axes, sizeof axes);

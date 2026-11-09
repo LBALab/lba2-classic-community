@@ -1,5 +1,6 @@
 #include "PRIVATE.H"
 #include "NAVIGATION.H"
+#include "QUEUE.H"
 #include "TRANSLATE.H"
 
 #include <string.h>
@@ -11,14 +12,8 @@ using namespace ABI::Windows::UI::Core;
    no locks. */
 
 namespace {
-enum { QUEUE_SIZE = 256,
-       TEXT_SIZE = 8 };
-
-PlatformEvent s_queue[QUEUE_SIZE];
-char s_queueText[QUEUE_SIZE][TEXT_SIZE];
-unsigned s_head = 0, s_count = 0;
+UwpQueue s_queue;
 bool s_overflowLogged = false;
-char s_textOut[TEXT_SIZE];
 
 ICoreWindow *s_window = NULL;
 ICoreDispatcher *s_dispatcher = NULL;
@@ -34,21 +29,10 @@ bool s_textInput = false;
 WCHAR s_highSurrogate = 0;
 
 void Push(const PlatformEvent *event, const char *text) {
-    if (s_count == QUEUE_SIZE) {
-        if (!s_overflowLogged) {
-            Platform_Log(PLATFORM_LOG_WARN, "UWP event queue full; dropping events");
-            s_overflowLogged = true;
-        }
-        return;
+    if (!UwpQueuePush(&s_queue, event, text) && !s_overflowLogged) {
+        Platform_Log(PLATFORM_LOG_WARN, "UWP event queue full; dropping events");
+        s_overflowLogged = true;
     }
-    const unsigned slot = (s_head + s_count) % QUEUE_SIZE;
-    s_queue[slot] = *event;
-    s_queueText[slot][0] = '\0';
-    if (text) {
-        strncpy(s_queueText[slot], text, TEXT_SIZE - 1);
-        s_queueText[slot][TEXT_SIZE - 1] = '\0';
-    }
-    ++s_count;
 }
 
 void PushType(PlatformEventType type) {
@@ -117,7 +101,7 @@ void OnCharacter(UINT32 unit) {
     s_highSurrogate = 0;
     if (!s_textInput || cp < 0x20 || cp == 0x7F)
         return;
-    char text[TEXT_SIZE] = {0};
+    char text[UWP_TEXT_SIZE] = {0};
     if (cp < 0x80) {
         text[0] = (char)cp;
     } else if (cp < 0x800) {
@@ -280,9 +264,7 @@ bool Uwp_EventsInit(void) {
     return true;
 }
 
-void Uwp_EventsShutdown(void) {
-    s_head = s_count = 0;
-}
+void Uwp_EventsShutdown(void) { UwpQueueClear(&s_queue); }
 
 void Uwp_Pump(void) {
     if (s_dispatcher && !s_closed) {
@@ -298,16 +280,7 @@ void Uwp_Pump(void) {
 bool Uwp_Poll(PlatformEvent *event) {
     if (!event)
         return Uwp_Fail("UWP event output is missing");
-    if (s_count == 0)
-        return false;
-    *event = s_queue[s_head];
-    if (event->type == PLATFORM_EVENT_TEXT_INPUT) {
-        memcpy(s_textOut, s_queueText[s_head], TEXT_SIZE);
-        event->text.text = s_textOut;
-    }
-    s_head = (s_head + 1) % QUEUE_SIZE;
-    --s_count;
-    return true;
+    return UwpQueuePoll(&s_queue, event);
 }
 
 const uint8_t *Uwp_KeyboardState(void) { return s_keys; }
