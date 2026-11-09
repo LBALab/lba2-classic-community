@@ -1,6 +1,6 @@
 # Xbox (UWP Dev Mode): first build probe
 
-Status: experiment. Nothing here runs on a console yet.
+Status: experiment. Nothing here has run on Windows or a console yet.
 
 The target is a UWP app sideloaded onto an Xbox in Developer Mode, the same homebrew posture as the [Switch port](../SWITCH.md). The licensed GDK route needs an NDA and publisher rights, so it is out of scope for this repository.
 
@@ -31,25 +31,60 @@ With the null backends, the engine compiles and links for UWP after three small 
 
 The desktop control build still imports the crash handler and console APIs; the UWP build imports neither.
 
-Linking proves less than it seems: the UWP import libraries still resolve some desktop-only functions. The UWP executable imports these from `KERNEL32.dll`:
+CMake must not link the desktop libraries. `SOURCES/CMakeLists.txt` adds `gdi32 user32 ddraw winmm kernel32` to every Windows build, and those bind the imports to desktop DLL names ahead of the toolchain's `windowsapp` library. The toolchain file sets `LBA2_WINDOWS_APP`, which skips that line and CMake's default Windows library list. With both gone, every engine import goes through an `api-ms-win-*` API set, as UWP expects:
 
-- From our code: `GlobalMemoryStatusEx` (`PLATFORM/NULL/BACKEND.CPP`), `MoveFileExA` (`SYSTEM/FILES.CPP`).
+- From our code: `GlobalMemoryStatusEx` (`PLATFORM/NULL/BACKEND.CPP`), `MoveFileExA` (`SYSTEM/FILES.CPP`, from `api-ms-win-core-kernel32-legacy`).
 - From the mingw-w64 runtime: `GetFileAttributesA` (`dirent`, `access`), `VirtualProtect` and `VirtualQuery` (pseudo-relocations), `SetUnhandledExceptionFilter` (startup), `GetModuleFileNameA`.
 
-Whether each is allowed has to be checked with the Windows App Certification Kit or on a console. `MoveFileExA` and `VirtualProtect` are the likely problems; UWP has `MoveFileFromApp` and `VirtualProtectFromApp`.
+`windowsapp` lists the APIs a UWP app may call, so these should be allowed. The Windows App Certification Kit or a console has the final word; `MoveFileExA` is the one to watch, since UWP also has `MoveFileFromApp`. `libc++.dll` and `libunwind.dll` would ship in the package, or link statically.
 
-## The blocker: SDL
+## SDL cannot be used
 
 SDL2's UWP backend (`src/core/winrt`, `src/video/winrt`) is written in C++/CX (`ref class`, `^` handles, built with `-ZW`). Only MSVC compiles C++/CX, so llvm-mingw cannot build SDL2 for UWP. SDL3 dropped UWP and supports only the GDK.
 
-Options, roughly cheapest first:
+## Our own UWP backend
 
-1. Build SDL2 for UWP with MSVC as a DLL and link the llvm-mingw engine against it. SDL's API is plain C and both sides use the UCRT, so this can work, but it needs a Windows machine with Visual Studio and the UWP workload.
-2. Build the whole tree with MSVC or clang-cl. MSVC is not supported today (see [TOOLING.md](../TOOLING.md)).
-3. Write a small UWP platform backend in C++/WinRT, which clang can compile. This means a new presentation, input and audio layer.
+The other route is a `PLATFORM_BACKEND=uwp` of our own. llvm-mingw ships the WinRT interface headers (`windows.applicationmodel.core.h`, `windows.ui.core.h`, `windows.gaming.input.h`, `windows.storage.h`), Direct3D 11, DXGI, XAudio2 and WASAPI, with their import libraries. The WinRT headers compile as C++98 and as C11, so a backend can call WinRT as plain COM interfaces, with no C++/CX and no C++/WinRT.
 
-## Also needed, whichever option
+### Spike
 
-- Folders: a UWP app sees only its package (read-only) and its `LocalState` folder. `SDL2_GetHomeDirectory` reads `USERPROFILE`, which a UWP app does not have, and the current directory is the package. On UWP, SDL2 offers `SDL_WinRTGetFSPathUTF8` and `SDL_GetPrefPath`. Game data would be copied to `LocalState` through the Dev Mode Device Portal.
+[`tools/uwp_spike/uwp_spike.cpp`](../../tools/uwp_spike/uwp_spike.cpp) tries the parts a backend needs, in C++98:
+
+- the app entry: hand-written `IFrameworkViewSource` and `IFrameworkView` objects passed to `CoreApplication::Run`, a loop in `Run` that pumps the window's dispatcher,
+- presentation: a D3D11 swap chain on the CoreWindow whose back buffer is the game's size, written with `UpdateSubresource` and scaled by DXGI with `DXGI_SCALING_ASPECT_RATIO_STRETCH`, so no shader is needed,
+- input: the first `Windows.Gaming.Input` gamepad's reading,
+- paths: the `LocalState` folder from `ApplicationData`.
+
+```sh
+x86_64-w64-mingw32uwp-clang++ -std=gnu++98 -Wall -Wextra -O2 -municode -mwindows \
+  tools/uwp_spike/uwp_spike.cpp -o uwp_spike.exe -ld3d11 -ldxgi -lruntimeobject -static
+```
+
+It builds with no warnings and imports only API sets and `d3d11.dll`. It has not run: that needs an app package and a Windows PC or an Xbox in Developer Mode.
+
+### Shape of the backend
+
+The contract has 63 callbacks. The null backend already does clocks, threads, CPU and memory probes, paths and directories with OS calls, and it builds for UWP unchanged, so the UWP backend can start from it:
+
+| Group | UWP |
+|---|---|
+| `system` | As the null backend |
+| `events` | `pump` calls `CoreDispatcher::ProcessEvents`; key, focus, size and suspend events come from CoreWindow handlers |
+| `window` | The spike's swap chain; fullscreen only, as on Switch |
+| `input` | `Windows.Gaming.Input.Gamepad` for pads; CoreWindow key events, mapped to the engine's physical key IDs, for a keyboard |
+| `host` | Paths under `LocalState`; message boxes, folder dialogs and clipboard report unsupported, as the null backend does |
+| entry | `wWinMain` runs `CoreApplication::Run`; the view's `Run` calls `Lba2Main`. The engine's blocking loop fits, because the event poll pumps the dispatcher |
+
+Audio is separate. The SDL audio module reaches SDL only through its output transport (`LIB386/AIL/SDL/AUDIO_DEVICE.H`), but that header uses `SDL_AudioSpec` and SDL's WAV loader. A UWP build needs that transport on XAudio2 or WASAPI and those two types replaced with neutral ones.
+
+### Testing
+
+- Host tests, on any OS: keep the translations SDK-free, as `DIRECTORY_PATH.H` is for SDL2: virtual key to physical key ID, gamepad reading to engine buttons and axes, letterbox coordinate mapping, path building. Plus the contract fixture for every callback that does not need WinRT.
+- CI build: the UWP executable built with llvm-mingw in Linux Docker, with an import check that fails on any DLL outside the API sets, `d3d11`, `dxgi` and `xaudio2_9`. This catches desktop-only calls without Windows.
+- Run: a sideloaded package on a Windows PC runs the same code as an Xbox, without a console. The console is the last check.
+
+## Also needed
+
+- Game data: copied to `LocalState` through the Dev Mode Device Portal.
 - Lifecycle: UWP suspends and resumes apps instead of letting them exit.
-- Packaging: an `AppxManifest.xml`, icons, and a signed MSIX. CI can build a package; only a console can run it.
+- Packaging: an `AppxManifest.xml`, icons and a signed MSIX. Microsoft's cross-platform `makemsix` may build one without Windows; not tried.

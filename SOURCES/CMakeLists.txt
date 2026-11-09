@@ -137,7 +137,9 @@ target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURC
 # Explicit order matters for GNU static linking: poly references RoundType/ROUND in libsys (UTILS.CPP);
 # sys must follow poly. (Transitive deps from 3dext alone order sys before poly and break -m32 links.)
 target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE 3dext 3D ail ani fio obj poly svg sys lba2_platform)
-if (WIN32)
+# A UWP build (LBA2_WINDOWS_APP, set by cmake/llvm-mingw-x86_64-uwp.cmake) takes its
+# imports from the toolchain's windowsapp library instead of the desktop DLLs.
+if (WIN32 AND NOT LBA2_WINDOWS_APP)
     target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gdi32 user32 ddraw winmm kernel32)
     if (LBA2_CONTROL_SERVER)
         # Winsock, for --listen. Only linked when the socket is compiled in, so a

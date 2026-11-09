@@ -19,3 +19,12 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+# CMake's default Windows libraries (-lkernel32 -luser32 ...) bind imports to
+# desktop DLL names ahead of the wrapper's windowsapp library, which maps them
+# to the API sets a UWP app may use. Keep only what the wrapper adds.
+if(LLVM_MINGW_TRIPLE MATCHES "uwp$")
+    set(LBA2_WINDOWS_APP ON)
+    set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
+    set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
+endif()
