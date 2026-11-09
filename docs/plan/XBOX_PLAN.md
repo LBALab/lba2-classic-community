@@ -48,29 +48,11 @@ The other route is a `PLATFORM_BACKEND=uwp` of our own. llvm-mingw ships the Win
 
 ### Spike
 
-[`tools/uwp_spike/uwp_spike.cpp`](../../tools/uwp_spike/uwp_spike.cpp) tries the parts a backend needs, in C++98:
-
-- the app entry: hand-written `IFrameworkViewSource` and `IFrameworkView` objects passed to `CoreApplication::Run`, a loop in `Run` that pumps the window's dispatcher, and two hand-written event delegates (`Activated`, `GamepadAdded`),
-- presentation: a D3D11 swap chain on the CoreWindow whose back buffer is the game's size, written with `UpdateSubresource` and scaled by DXGI with `DXGI_SCALING_ASPECT_RATIO_STRETCH`, so no shader is needed,
-- input: the first `Windows.Gaming.Input` gamepad's reading,
-- paths: the `LocalState` folder from `ApplicationData`.
-
-```sh
-x86_64-w64-mingw32uwp-clang++ -std=gnu++98 -Wall -Wextra -O2 -municode -mwindows \
-  tools/uwp_spike/uwp_spike.cpp -o uwp_spike.exe -ld3d11 -ldxgi -lruntimeobject -static
-```
-
-It builds with no warnings and imports only API sets and `d3d11.dll`.
-
-To run it on a Windows PC in Developer Mode, copy `uwp_spike.exe` next to [`AppxManifest.xml`](../../tools/uwp_spike/AppxManifest.xml), `Assets` and [`run.ps1`](../../tools/uwp_spike/run.ps1), and run the script. It registers the folder as an app without signing, starts it, and prints the log the app writes to `LocalState`.
-
-Run on Windows 11 Home 22H2 (build 22622), 2026-11-09: the app started from the package, activated its window (1200×900), created the swap chain and presented about 105 frames a second, every `Present` returning `S_OK`. The screen was locked, so the picture itself was not seen, and no gamepad was connected, so the gamepad path did not run.
+A spike in C++98 tried the parts a backend needs before the backend was written: hand-written `IFrameworkViewSource` and `IFrameworkView` objects passed to `CoreApplication::Run`; a D3D11 swap chain on the CoreWindow whose back buffer is the game's size, written with `UpdateSubresource` and scaled by DXGI with `DXGI_SCALING_ASPECT_RATIO_STRETCH`, so no shader is needed; the first `Windows.Gaming.Input` gamepad's reading; the `LocalState` folder from `ApplicationData`. It built with no warnings, imported only API sets and `d3d11.dll`, and ran on Windows 11 (build 22622) and on an Xbox Series S in Developer Mode (OS 26100), 2026-11-09. `LIB386/PLATFORM/UWP` grew from it; the spike itself was removed once the backend ran, and is in the commits of [#861](https://github.com/LBALab/lba2-classic-community/pull/861) (`tools/uwp_spike`).
 
 ### On the Xbox
 
-The spike runs on an Xbox Series S in Developer Mode (OS 26100), 2026-11-09: the square draws on the 4:3 frame with black bars left and right, the left stick moves it, B quits. Its log shows a 1920×1080 window and the gamepad reading.
-
-[`xbox-run.sh`](../../tools/uwp_spike/xbox-run.sh) is the loop, about 17 seconds end to end: build with llvm-mingw, stop the running copy, deploy the folder as a loose app (no packaging, no signing), launch, wait, save a screenshot of the TV picture and the app's `LocalState`, stop it. It drives the console through a Device Portal helper script (`XBOX_SH`) that keeps the login and pins the portal's certificate.
+[`tools/uwp/xbox-run.sh`](../../tools/uwp/xbox-run.sh) deploys a build as a loose app (no packaging, no signing), launches it, saves a screenshot of the TV picture and the app's `LocalState`, and stops it. It drives the console through a Device Portal helper script (`XBOX_SH`) that keeps the login and pins the portal's certificate.
 
 - The console needs a signed-in user. Without one, a launch fails with `0x8004090A` and a sign-in prompt waits on the TV.
 - A deploy over a running copy fails with HTTP 500, since the app holds its `.exe` open; the loop stops it first.
@@ -78,14 +60,16 @@ The spike runs on an Xbox Series S in Developer Mode (OS 26100), 2026-11-09: the
 
 ### Packaging without the Windows SDK
 
-[`pack_appx.py`](../../tools/uwp_spike/pack_appx.py) packs a folder into an `.appx`: a ZIP64 file with stored entries, the block map (one SHA-256 per 64 KiB block) and `[Content_Types].xml`. `osslsigncode` (Homebrew) signs it with a self-signed certificate whose subject matches the manifest's `Publisher`:
+[`tools/uwp/pack_appx.py`](../../tools/uwp/pack_appx.py) packs a folder into an `.appx`: a ZIP64 file with stored entries, the block map (one SHA-256 per 64 KiB block) and `[Content_Types].xml`. `osslsigncode` (Homebrew) signs it with a self-signed certificate whose subject matches the manifest's `Publisher`:
 
 ```sh
 openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365 -subj "/CN=lba2cc-dev" \
   -addext extendedKeyUsage=codeSigning -addext keyUsage=digitalSignature -addext basicConstraints=critical,CA:FALSE
-python3 tools/uwp_spike/pack_appx.py FOLDER uwp_spike-unsigned.appx
-osslsigncode sign -certs cert.pem -key key.pem -in uwp_spike-unsigned.appx -out uwp_spike.appx
+python3 tools/uwp/pack_appx.py FOLDER lba2cc-unsigned.appx
+osslsigncode sign -certs cert.pem -key key.pem -in lba2cc-unsigned.appx -out lba2cc.appx
 ```
+
+Tried with the spike's package, 2026-11-09, not yet with the game's:
 
 - `osslsigncode` 2.15 rewrites `[Content_Types].xml` compressed but keeps a stored entry's method, which corrupts it; the packer writes that entry deflated.
 - Windows 11 opens the package and refuses it only because the certificate is not trusted. The Xbox in Developer Mode installs it through the Device Portal as it is.
