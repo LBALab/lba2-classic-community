@@ -163,14 +163,14 @@ The exe imports only API sets, `d3d11.dll` and `d2d1.dll`; libc++ is linked in.
 
 | Part | How |
 |---|---|
-| Base | The null backend's table (`NULL/BACKEND.CPP` built with `LBA2_NULL_AS_BASE`): clocks, CPU and memory probes, the install folder, removal. The UWP files replace the rest. |
+| Base | Clocks, CPU and memory probes, the error slot, the install folder, directory creation and removal come from `HOST_OS.CPP`, which the null backend uses too. The UWP table is its own, by named fields. |
 | Entry | `wWinMain` runs `CoreApplication::Run`; the view's `Run` calls `Lba2Main` on the window's thread. `Suspending` takes a deferral and trims the device. |
 | Events | CoreWindow key, character, activation, visibility, close and size events go into a queue that `poll` drains. `pump` calls `ProcessEvents`, blocking while the window is hidden and never after `Closed`. |
 | Present | A swap chain the window's size (`DXGI_SCALING_NONE`); Direct2D draws the frame into a letterbox with nearest or linear filtering, so no shader is compiled. Pixelart is refused. A lost device is recreated. |
 | Pads | `Windows.Gaming.Input` is listed and read on every pump; arrivals, departures, presses and stick moves become events. The `GamepadAdded` subscription is made at startup. |
 | Keys | Scan codes (E0 prefix included) to physical key IDs, with virtual keys as fallback; the Xbox's gamepad and navigation keys are dropped, since the pad is read directly. |
 | Back | `SystemNavigationManager.BackRequested` is marked handled; unhandled, B closes the app. The interfaces are declared by hand in `NAVIGATION.H`, their IDs from the Windows metadata as the `windows` crate prints them; the handler's ID is computed by the WinRT rule, checked by reproducing the headers' `EventHandler<Gamepad>` ID. |
-| Paths | Saves, config and log in `LocalState`. Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line. |
+| Paths | Saves, config and log in `LocalState`, whose path is converted to the ANSI code page the engine's file calls read (refused if it cannot be spelled there). Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line, each logged. |
 
 Translations that need no Windows header (keys, pad buttons and axes, letterbox) are in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H). `test_platform_uwp_translate` checks them on every host against documented set-1 scan codes and virtual keys and the `GamepadButtons` values, and, when SDL3 is in the build, every key name and unshifted key code against SDL3's. Shifted codes are checked against the US layout directly: SDL3 without video has no Shift layer.
 

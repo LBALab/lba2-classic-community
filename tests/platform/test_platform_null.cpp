@@ -162,6 +162,26 @@ static void test_host_services_and_clock() {
     char child[160];
     snprintf(child, sizeof(child), "%s/child", folder);
     ASSERT_TRUE(g_platform.host.create_directory(child));
+    /* Several missing levels at once, and a file where a folder should be. */
+    char deep[200];
+    snprintf(deep, sizeof(deep), "%s/a/b/", child);
+    ASSERT_TRUE(g_platform.host.create_directory(deep));
+    char file[200];
+    snprintf(file, sizeof(file), "%s/file", child);
+    FILE *blocker = fopen(file, "w");
+    ASSERT_TRUE(blocker != NULL);
+    fclose(blocker);
+    g_platform.system.clear_error();
+    ASSERT_TRUE(!g_platform.host.create_directory(file));
+    ASSERT_TRUE(g_platform.system.get_error()[0] != '\0');
+    char under[220];
+    snprintf(under, sizeof(under), "%s/below", file);
+    ASSERT_TRUE(!g_platform.host.create_directory(under));
+    ASSERT_TRUE(g_platform.host.remove_path(file));
+    snprintf(deep, sizeof(deep), "%s/a/b", child);
+    ASSERT_TRUE(g_platform.host.remove_path(deep));
+    snprintf(deep, sizeof(deep), "%s/a", child);
+    ASSERT_TRUE(g_platform.host.remove_path(deep));
     ASSERT_TRUE(!g_platform.host.remove_path(folder));
     ASSERT_TRUE(g_platform.host.remove_path(child));
     ASSERT_TRUE(g_platform.host.remove_path(folder));

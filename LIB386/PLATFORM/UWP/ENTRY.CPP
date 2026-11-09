@@ -61,10 +61,9 @@ class OnSuspending : public UwpDelegate<__FIEventHandler_1_Windows__CApplication
    line, for runs set up from a computer through the Device Portal. */
 int BuildArguments(char storage[MAX_ARGS][ARG_SIZE], char *argv[MAX_ARGS]) {
     int argc = 0;
-    WCHAR exe[MAX_PATH];
-    const DWORD n = GetModuleFileNameW(NULL, exe, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH ||
-        !WideCharToMultiByte(CP_UTF8, 0, exe, -1, storage[argc], ARG_SIZE, NULL, NULL))
+    /* The narrow name, as base_path reads it too. */
+    const DWORD n = GetModuleFileNameA(NULL, storage[argc], ARG_SIZE);
+    if (n == 0 || n >= ARG_SIZE)
         strcpy(storage[argc], "lba2cc.exe");
     argv[argc] = storage[argc];
     ++argc;
@@ -94,6 +93,8 @@ int BuildArguments(char storage[MAX_ARGS][ARG_SIZE], char *argv[MAX_ARGS]) {
             storage[argc][--len] = '\0';
         if (len == 0)
             continue;
+        /* Said once per run, so a file left behind is not a silent surprise. */
+        Platform_Log(PLATFORM_LOG_INFO, "UWP: argument from args.txt: %s", storage[argc]);
         argv[argc] = storage[argc];
         ++argc;
     }

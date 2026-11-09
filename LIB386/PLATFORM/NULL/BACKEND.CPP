@@ -1,150 +1,23 @@
 #include "PRIVATE.H"
+#include "../HOST_OS.H"
 
-#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#include <direct.h>
-#else
-#include <pthread.h>
-#include <time.h>
-#include <unistd.h>
-#ifdef __APPLE__
-#include <mach-o/dyld.h>
-#include <sys/sysctl.h>
-#else
-#include <sys/sysinfo.h>
-#endif
-#endif
 
 namespace {
-#ifdef _MSC_VER
-__declspec(thread) char s_error[1024];
-#else
-__thread char s_error[1024];
-#endif
 bool s_initialized = false;
 bool s_fullscreen = false;
 uint32_t s_width = 0, s_height = 0;
 uint32_t *s_pixels = NULL;
 uint8_t s_keyboard[PLATFORM_SCANCODE_COUNT] = {};
-char s_basePath[4096] = "";
 
-bool Fail(const char *message) {
-    snprintf(s_error, sizeof(s_error), "%s", message);
-    Platform_Log(PLATFORM_LOG_ERROR, "%s", s_error);
-    return false;
-}
-bool HostError(const char *operation) {
-    char message[1024];
-    snprintf(message, sizeof(message), "%s: %s", operation, strerror(errno));
-    return Fail(message);
-}
-const char *Error() { return s_error; }
-void ClearError() { s_error[0] = '\0'; }
+bool Fail(const char *message) { return HostOs_Fail("%s", message); }
 bool Ready() { return true; }
 void Noop() {}
 void LogOutput(PlatformLogFn, void *) {}
 
-uint64_t Counter() {
-#ifdef _WIN32
-    LARGE_INTEGER value;
-    if (!QueryPerformanceCounter(&value)) {
-        Fail("Unable to read host performance counter");
-        return 0;
-    }
-    return (uint64_t)value.QuadPart;
-#else
-    struct timespec value;
-    if (clock_gettime(CLOCK_MONOTONIC, &value) != 0) {
-        HostError("clock_gettime");
-        return 0;
-    }
-    return (uint64_t)value.tv_sec * 1000000000 + (uint64_t)value.tv_nsec;
-#endif
-}
-uint64_t Frequency() {
-#ifdef _WIN32
-    LARGE_INTEGER value;
-    if (!QueryPerformanceFrequency(&value)) {
-        Fail("Unable to read host performance frequency");
-        return 0;
-    }
-    return (uint64_t)value.QuadPart;
-#else
-    return 1000000000;
-#endif
-}
-uint64_t Ticks() {
-    const uint64_t frequency = Frequency();
-    const uint64_t counter = Counter();
-    return frequency ? (counter / frequency) * 1000 + (counter % frequency) * 1000 / frequency : 0;
-}
-void Delay(uint32_t ms) {
-#ifdef _WIN32
-    Sleep(ms);
-#else
-    struct timespec remaining = {(time_t)(ms / 1000), (long)(ms % 1000) * 1000000};
-    while (nanosleep(&remaining, &remaining) != 0)
-        if (errno != EINTR) {
-            HostError("nanosleep");
-            break;
-        }
-#endif
-}
-uint64_t ThreadID() {
-#ifdef _WIN32
-    return GetCurrentThreadId();
-#else
-    return (uint64_t)(uintptr_t)pthread_self();
-#endif
-}
-int32_t CPUCount() {
-#ifdef _WIN32
-    SYSTEM_INFO info;
-    GetSystemInfo(&info);
-    return (int32_t)info.dwNumberOfProcessors;
-#else
-    long count = sysconf(_SC_NPROCESSORS_ONLN);
-    if (count < 1) {
-        HostError("sysconf CPU count");
-        return 0;
-    }
-    return (int32_t)count;
-#endif
-}
-int32_t RAM() {
-    uint64_t bytes;
-#ifdef _WIN32
-    MEMORYSTATUSEX info = {};
-    info.dwLength = sizeof(info);
-    if (!GlobalMemoryStatusEx(&info)) {
-        Fail("Unable to read host memory size");
-        return 0;
-    }
-    bytes = info.ullTotalPhys;
-#elif defined(__APPLE__)
-    size_t size = sizeof(bytes);
-    if (sysctlbyname("hw.memsize", &bytes, &size, NULL, 0) != 0) {
-        HostError("sysctl memory size");
-        return 0;
-    }
-#else
-    struct sysinfo info;
-    if (sysinfo(&info) != 0) {
-        HostError("sysinfo");
-        return 0;
-    }
-    bytes = (uint64_t)info.totalram * info.mem_unit;
-#endif
-    const uint64_t mb = bytes / (1024 * 1024);
-    return mb > INT_MAX ? INT_MAX : (int32_t)mb;
-}
 const char *PlatformName() {
 #ifdef _WIN32
     return "Windows";
@@ -283,68 +156,6 @@ int16_t PadAxis(PlatformGamepad *, PlatformGamepadAxis) {
     Fail("Null platform has no gamepads");
     return 0;
 }
-char *Copy(const char *text) {
-    char *copy = (char *)malloc(strlen(text) + 1);
-    if (!copy) {
-        Fail("Unable to allocate host path");
-        return NULL;
-    }
-    strcpy(copy, text);
-    return copy;
-}
-char *CurrentDirectory() {
-    char path[4096];
-#ifdef _WIN32
-    if (!_getcwd(path, sizeof(path))) {
-#else
-    if (!getcwd(path, sizeof(path))) {
-#endif
-        HostError("getcwd");
-        return NULL;
-    }
-    return Copy(path);
-}
-const char *BasePath() {
-    if (s_basePath[0])
-        return s_basePath;
-#ifdef _WIN32
-    DWORD length = GetModuleFileNameA(NULL, s_basePath, sizeof(s_basePath));
-    if (!length || length >= sizeof(s_basePath)) {
-        s_basePath[0] = '\0';
-        Fail("Unable to locate null platform executable");
-        return NULL;
-    }
-#elif defined(__APPLE__)
-    char path[4096];
-    uint32_t size = sizeof(path);
-    if (_NSGetExecutablePath(path, &size) != 0 || !realpath(path, s_basePath)) {
-        s_basePath[0] = '\0';
-        HostError("executable path");
-        return NULL;
-    }
-#else
-    ssize_t length = readlink("/proc/self/exe", s_basePath, sizeof(s_basePath) - 1);
-    if (length < 0 || (size_t)length >= sizeof(s_basePath) - 1) {
-        s_basePath[0] = '\0';
-        HostError("executable path");
-        return NULL;
-    }
-    s_basePath[length] = '\0';
-#endif
-    char *last = strrchr(s_basePath, '/');
-#ifdef _WIN32
-    char *backslash = strrchr(s_basePath, '\\');
-    if (!last || (backslash && backslash > last))
-        last = backslash;
-#endif
-    if (!last) {
-        s_basePath[0] = '\0';
-        Fail("Executable path has no parent directory");
-        return NULL;
-    }
-    last[1] = '\0';
-    return s_basePath;
-}
 const char *Home() {
 #ifdef _WIN32
     const char *path = getenv("USERPROFILE");
@@ -356,42 +167,6 @@ const char *Home() {
         return NULL;
     }
     return path;
-}
-bool Separator(char ch) {
-#ifdef _WIN32
-    return ch == '/' || ch == '\\';
-#else
-    return ch == '/';
-#endif
-}
-bool MakeDirectory(const char *path) {
-    if (!path || !*path)
-        return Fail("Host directory path is empty");
-    char *copy = Copy(path);
-    if (!copy)
-        return false;
-    bool ok = true;
-    for (size_t i = 1; ok; ++i) {
-        if (copy[i] != '\0' && !Separator(copy[i]))
-            continue;
-        const char saved = copy[i];
-        copy[i] = '\0';
-#ifdef _WIN32
-        int result = (i == 2 && copy[1] == ':') ? 0 : _mkdir(copy);
-#else
-        int result = mkdir(copy, 0770);
-#endif
-        if (result != 0) {
-            struct stat info;
-            if (errno != EEXIST || stat(copy, &info) != 0 || !S_ISDIR(info.st_mode))
-                ok = HostError("mkdir");
-        }
-        copy[i] = saved;
-        if (!saved)
-            break;
-    }
-    free(copy);
-    return ok;
 }
 char *Preferences(const char *org, const char *app) {
     if (!org || !app || !*app || strchr(org, '/') || strchr(org, '\\') ||
@@ -424,18 +199,11 @@ char *Preferences(const char *org, const char *app) {
         return NULL;
     }
     snprintf(path, length, "%s%s/%s%s%s/", root, suffix, org, *org ? "/" : "", app);
-    if (!MakeDirectory(path)) {
+    if (!HostOs_MakeDirectory(path)) {
         free(path);
         return NULL;
     }
     return path;
-}
-bool Remove(const char *path) {
-    if (!path || !*path)
-        return Fail("Host removal path is empty");
-    if (remove(path) == 0 || errno == ENOENT)
-        return true;
-    return HostError("remove");
 }
 bool Message(PlatformMessageKind, const char *, const char *) {
     return Fail("Null platform has no message-box service");
@@ -464,15 +232,15 @@ PlatformInterface Interface() {
     api.system.init = Ready;
     api.system.shutdown = WindowEnd;
     api.system.set_headless = Ready;
-    api.system.get_error = Error;
-    api.system.clear_error = ClearError;
-    api.system.ticks_ms = Ticks;
-    api.system.delay_ms = Delay;
-    api.system.performance_counter = Counter;
-    api.system.performance_frequency = Frequency;
-    api.system.thread_id = ThreadID;
-    api.system.cpu_count = CPUCount;
-    api.system.ram_mb = RAM;
+    api.system.get_error = HostOs_Error;
+    api.system.clear_error = HostOs_ClearError;
+    api.system.ticks_ms = HostOs_Ticks;
+    api.system.delay_ms = HostOs_Delay;
+    api.system.performance_counter = HostOs_Counter;
+    api.system.performance_frequency = HostOs_Frequency;
+    api.system.thread_id = HostOs_ThreadID;
+    api.system.cpu_count = HostOs_CPUCount;
+    api.system.ram_mb = HostOs_RAM;
     api.system.platform_name = PlatformName;
     api.system.set_log_output = LogOutput;
     api.events.init = Ready;
@@ -511,12 +279,12 @@ PlatformInterface Interface() {
     api.input.gamepad_name = PadName;
     api.input.gamepad_button = PadButton;
     api.input.gamepad_axis = PadAxis;
-    api.host.base_path = BasePath;
-    api.host.current_directory = CurrentDirectory;
+    api.host.base_path = HostOs_BasePath;
+    api.host.current_directory = HostOs_CurrentDirectory;
     api.host.pref_path = Preferences;
     api.host.home_path = Home;
-    api.host.create_directory = MakeDirectory;
-    api.host.remove_path = Remove;
+    api.host.create_directory = HostOs_MakeDirectory;
+    api.host.remove_path = HostOs_Remove;
     api.host.message_box = Message;
     api.host.begin_folder_dialog = BeginDialog;
     api.host.poll_folder_dialog = PollDialog;
@@ -528,14 +296,7 @@ PlatformInterface Interface() {
 }
 } // namespace
 
-/* The UWP backend starts from this table: clocks, paths and directories are
-   plain OS calls that a UWP app may make too. It then supplies g_platform. */
-#ifdef LBA2_NULL_AS_BASE
-extern "C" PlatformInterface NullPlatform_Interface(void) { return Interface(); }
-extern "C" bool NullPlatform_Fail(const char *message) { return Fail(message); }
-#else
 extern "C" const PlatformInterface g_platform = Interface();
-#endif
 
 #ifdef LBA2_NULL_TESTS
 extern "C" const uint32_t *NullPlatform_Frame(uint32_t *width, uint32_t *height) {

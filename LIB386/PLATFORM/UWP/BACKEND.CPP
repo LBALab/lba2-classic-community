@@ -1,9 +1,8 @@
 #include "PRIVATE.H"
+#include "../HOST_OS.H"
 
 #include <windows.storage.h>
 
-#include <direct.h>
-#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,13 +12,17 @@ namespace WS = ABI::Windows::Storage;
 
 namespace {
 char s_localState[MAX_PATH * 3] = "";
+bool s_localStateRead = false;
 
 /* LocalState is the one folder a UWP app can write besides temp: settings,
    saves, logs, and on a console the game data copied in through the Device
-   Portal. */
+   Portal. The engine opens files with the narrow CRT calls, which read the
+   ANSI code page, so the path is converted to that; a path it cannot spell
+   is refused rather than handed over mangled. */
 const char *LocalState() {
-    if (s_localState[0])
+    if (s_localStateRead)
         return s_localState;
+    s_localStateRead = true;
     WS::IApplicationDataStatics *statics = NULL;
     WS::IApplicationData *data = NULL;
     WS::IStorageFolder *folder = NULL;
@@ -30,12 +33,15 @@ const char *LocalState() {
         SUCCEEDED(statics->get_Current(&data)) && SUCCEEDED(data->get_LocalFolder(&folder)) &&
         SUCCEEDED(folder->QueryInterface(__uuidof(WS::IStorageItem), (void **)&item)) &&
         SUCCEEDED(item->get_Path(&path))) {
-        const int n = WideCharToMultiByte(CP_UTF8, 0, WindowsGetStringRawBuffer(path, NULL), -1, s_localState,
-                                          (int)sizeof(s_localState) - 1, NULL, NULL);
-        if (n > 1)
+        BOOL lossy = FALSE;
+        const int n = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, WindowsGetStringRawBuffer(path, NULL), -1,
+                                          s_localState, (int)sizeof(s_localState) - 1, NULL, &lossy);
+        if (n > 1 && !lossy) {
             strcat(s_localState, "\\");
-        else
+        } else {
             s_localState[0] = '\0';
+            Platform_Log(PLATFORM_LOG_ERROR, "UWP: the LocalState path cannot be spelled in the ANSI code page");
+        }
     }
     if (path)
         WindowsDeleteString(path);
@@ -46,14 +52,8 @@ const char *LocalState() {
     return s_localState;
 }
 
-char *Copy(const char *text) {
-    char *copy = (char *)malloc(strlen(text) + 1);
-    if (copy)
-        strcpy(copy, text);
-    else
-        Uwp_Fail("Unable to allocate a host path");
-    return copy;
-}
+bool Ready() { return true; }
+void LogOutput(PlatformLogFn, void *) {}
 
 /* Every app has its own LocalState, so the org and app names add nothing. */
 char *Preferences(const char *org, const char *app) {
@@ -66,7 +66,7 @@ char *Preferences(const char *org, const char *app) {
         Uwp_Fail("UWP: the app's LocalState folder is unavailable");
         return NULL;
     }
-    return Copy(path);
+    return HostOs_Copy(path);
 }
 
 const char *Home() {
@@ -76,59 +76,6 @@ const char *Home() {
         return NULL;
     }
     return path;
-}
-
-bool IsSeparator(char ch) { return ch == '\\' || ch == '/'; }
-
-bool IsDirectory(const char *path) {
-    const DWORD attributes = GetFileAttributesA(path);
-    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
-}
-
-/* An app cannot look at the folders above its own (Q:\Users answers "not
-   found"), so creating every parent from the drive down fails. Find the
-   deepest folder that exists and create only what is missing below it. */
-bool MakeDirectory(const char *path) {
-    if (!path || !*path)
-        return Uwp_Fail("Host directory path is empty");
-    char *copy = Copy(path);
-    if (!copy)
-        return false;
-    size_t len = strlen(copy);
-    while (len > 1 && IsSeparator(copy[len - 1]))
-        copy[--len] = '\0';
-    /* Cut the path back one level at a time until what is left exists. */
-    enum { MAX_DEPTH = 64 };
-    size_t cuts[MAX_DEPTH];
-    char separators[MAX_DEPTH];
-    int depth = 0;
-    bool ok = true;
-    while (!IsDirectory(copy)) {
-        char *cut = NULL;
-        for (char *p = copy + 1; *p; ++p)
-            if (IsSeparator(*p))
-                cut = p;
-        if (!cut)
-            break; /* nothing above exists: the remaining top is created too */
-        if (depth == MAX_DEPTH) {
-            ok = Uwp_Fail("Directory path is too deep: %s", path);
-            break;
-        }
-        cuts[depth] = (size_t)(cut - copy);
-        separators[depth++] = *cut;
-        *cut = '\0';
-    }
-    /* Then create each missing level on the way back down. */
-    if (ok && !IsDirectory(copy) && _mkdir(copy) != 0 && errno != EEXIST)
-        ok = Uwp_Fail("mkdir %s: %s", copy, strerror(errno));
-    while (ok && depth > 0) {
-        --depth;
-        copy[cuts[depth]] = separators[depth];
-        if (_mkdir(copy) != 0 && errno != EEXIST)
-            ok = Uwp_Fail("mkdir %s: %s", copy, strerror(errno));
-    }
-    free(copy);
-    return ok;
 }
 
 bool NoHeadless() { return Uwp_Fail("UWP has no headless mode"); }
@@ -144,24 +91,51 @@ bool AlwaysFullscreen() { return true; }
 
 const char *PlatformName() { return "UWP"; }
 
-void Shutdown() {
-    Uwp_WindowShutdown();
+void Shutdown() { Uwp_WindowShutdown(); }
+
+bool Message(PlatformMessageKind, const char *, const char *) {
+    return Uwp_Fail("UWP has no message-box service");
+}
+PlatformFolderDialog *BeginDialog(const char *) {
+    Uwp_Fail("UWP has no folder-dialog service");
+    return NULL;
+}
+PlatformDialogResult PollDialog(PlatformFolderDialog *, const char **) {
+    Uwp_Fail("UWP has no folder-dialog service");
+    return PLATFORM_DIALOG_ERROR;
+}
+void EndDialog(PlatformFolderDialog *dialog) {
+    if (dialog)
+        Uwp_Fail("UWP cannot release a foreign folder dialog");
+}
+bool SetClipboard(const char *) { return Uwp_Fail("UWP has no clipboard"); }
+char *GetClipboard() {
+    Uwp_Fail("UWP has no clipboard");
+    return NULL;
 }
 
 PlatformInterface Interface() {
-    /* Clocks, CPU and memory probes, the working directory, the install
-       folder, directory creation and removal: the null backend's OS calls,
-       which a UWP app may make too. Dialogs, message boxes and the
-       clipboard stay unsupported, as there. */
-    PlatformInterface api = NullPlatform_Interface();
+    PlatformInterface api;
+    memset(&api, 0, sizeof api);
     api.name = "uwp";
     api.capabilities.windowed = false;
     api.capabilities.transient_window_loss = false;
     api.capabilities.touch_overlay = false;
     api.capabilities.touch_recenter = false;
+    api.system.init = Ready;
     api.system.shutdown = Shutdown;
     api.system.set_headless = NoHeadless;
+    api.system.get_error = HostOs_Error;
+    api.system.clear_error = HostOs_ClearError;
+    api.system.ticks_ms = HostOs_Ticks;
+    api.system.delay_ms = HostOs_Delay;
+    api.system.performance_counter = HostOs_Counter;
+    api.system.performance_frequency = HostOs_Frequency;
+    api.system.thread_id = HostOs_ThreadID;
+    api.system.cpu_count = HostOs_CPUCount;
+    api.system.ram_mb = HostOs_RAM;
     api.system.platform_name = PlatformName;
+    api.system.set_log_output = LogOutput;
     api.events.init = Uwp_EventsInit;
     api.events.shutdown = Uwp_EventsShutdown;
     api.events.pump = Uwp_Pump;
@@ -198,9 +172,19 @@ PlatformInterface Interface() {
     api.input.gamepad_name = Uwp_GamepadName;
     api.input.gamepad_button = Uwp_GamepadButton;
     api.input.gamepad_axis = Uwp_GamepadAxis;
+    api.host.base_path = HostOs_BasePath;
+    api.host.current_directory = HostOs_CurrentDirectory;
     api.host.pref_path = Preferences;
     api.host.home_path = Home;
-    api.host.create_directory = MakeDirectory;
+    api.host.create_directory = HostOs_MakeDirectory;
+    api.host.remove_path = HostOs_Remove;
+    api.host.message_box = Message;
+    api.host.begin_folder_dialog = BeginDialog;
+    api.host.poll_folder_dialog = PollDialog;
+    api.host.end_folder_dialog = EndDialog;
+    api.host.set_clipboard = SetClipboard;
+    api.host.get_clipboard = GetClipboard;
+    api.host.free_memory = free;
     return api;
 }
 } // namespace
@@ -211,7 +195,7 @@ bool Uwp_Fail(const char *format, ...) {
     va_start(args, format);
     vsnprintf(message, sizeof message, format, args);
     va_end(args);
-    return NullPlatform_Fail(message);
+    return HostOs_Fail("%s", message);
 }
 
 HRESULT Uwp_Factory(const WCHAR *className, REFIID iid, void **out) {

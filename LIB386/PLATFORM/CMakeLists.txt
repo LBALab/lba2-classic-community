@@ -68,10 +68,9 @@ if(PLATFORM_BACKEND STREQUAL "uwp")
     if(NOT SOUND_BACKEND STREQUAL "null")
         message(FATAL_ERROR "PLATFORM_BACKEND=uwp requires SOUND_BACKEND=null for now.")
     endif()
-    # The null backend's OS calls are the base the UWP table starts from.
-    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP NULL/BACKEND.CPP NULL/ANDROID.CPP
+    # NULL/ANDROID.CPP: the engine's Android hooks, answered "not Android".
+    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP HOST_OS.CPP NULL/ANDROID.CPP
         UWP/BACKEND.CPP UWP/EVENTS.CPP UWP/INPUT.CPP UWP/WINDOW.CPP)
-    target_compile_definitions(lba2_platform PRIVATE LBA2_NULL_AS_BASE=1)
     target_include_directories(lba2_platform PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(lba2_platform PRIVATE d2d1 d3d11 dxgi runtimeobject)
     # wWinMain, and no console window.
@@ -92,7 +91,7 @@ if(PLATFORM_BACKEND STREQUAL "null")
         message(FATAL_ERROR "PLATFORM_BACKEND=null builds a desktop executable, not an Android Activity library.")
     endif()
     find_package(Threads REQUIRED)
-    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP
+    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP HOST_OS.CPP
         NULL/BACKEND.CPP NULL/ANDROID.CPP)
     target_include_directories(lba2_platform PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(lba2_platform PRIVATE Threads::Threads)
