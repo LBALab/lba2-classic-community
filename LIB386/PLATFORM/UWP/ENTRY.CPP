@@ -20,6 +20,7 @@ enum { MAX_ARGS = 32,
        ARG_SIZE = 1024 };
 
 int s_exitCode = 0;
+DWORD s_gameThread = 0;
 
 /* The window is shown from the view's Activated event. */
 class OnViewActivated
@@ -37,7 +38,9 @@ class OnViewActivated
 
 /* Suspension waits on the deferral; the driver's spare memory goes back
    first, as every suspended app is asked to. The game is not told: its loop
-   simply stops inside the event pump until the app resumes. */
+   simply stops inside the event pump until the app resumes. Everything here
+   assumes the event arrives on the game's thread, inside its pump; the log
+   says if it ever does not. */
 class OnSuspending : public UwpDelegate<__FIEventHandler_1_Windows__CApplicationModel__CSuspendingEventArgs> {
   public:
     HRESULT STDMETHODCALLTYPE Invoke(IInspectable *, AM::ISuspendingEventArgs *args) {
@@ -45,7 +48,12 @@ class OnSuspending : public UwpDelegate<__FIEventHandler_1_Windows__CApplication
         AM::ISuspendingDeferral *deferral = NULL;
         if (SUCCEEDED(args->get_SuspendingOperation(&operation)))
             operation->GetDeferral(&deferral);
-        Platform_Log(PLATFORM_LOG_INFO, "UWP: suspending");
+        const DWORD thread = GetCurrentThreadId();
+        if (thread == s_gameThread)
+            Platform_Log(PLATFORM_LOG_INFO, "UWP: suspending");
+        else
+            Platform_Log(PLATFORM_LOG_WARN, "UWP: suspending on thread %lu, not the game's %lu",
+                         (unsigned long)thread, (unsigned long)s_gameThread);
         Uwp_WindowTrim();
         if (deferral)
             deferral->Complete();
@@ -131,6 +139,7 @@ class View : public UwpInspectable<IFrameworkView> {
         char *argv[MAX_ARGS + 1];
         const int argc = BuildArguments(storage, argv);
         argv[argc] = NULL;
+        s_gameThread = GetCurrentThreadId();
         s_exitCode = Lba2Main(argc, argv);
         return S_OK;
     }
