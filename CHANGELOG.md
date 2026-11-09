@@ -46,6 +46,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to switch to Citadel's, and Twinsen drowns in open sea
   ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
 
+- The console's `resolution --all` lists 1360x768 where it listed 1366x768,
+  a size the engine cannot run at (widths are multiples of 8): choosing it
+  started the game at 640x480.
+
 ### Stability & fixes
 
 - Reading an entry a game data file does not hold now fails cleanly instead of
