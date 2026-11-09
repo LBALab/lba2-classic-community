@@ -1,6 +1,6 @@
 # Xbox (UWP Dev Mode): first build probe
 
-Status: experiment. The spike has run on Windows 11; nothing has run on a console.
+Status: experiment. The spike runs on Windows 11 and on an Xbox Series S in Developer Mode.
 
 The target is a UWP app sideloaded onto an Xbox in Developer Mode, the same homebrew posture as the [Switch port](../SWITCH.md). The licensed GDK route needs an NDA and publisher rights, so it is out of scope for this repository.
 
@@ -65,6 +65,16 @@ It builds with no warnings and imports only API sets and `d3d11.dll`.
 To run it on a Windows PC in Developer Mode, copy `uwp_spike.exe` next to [`AppxManifest.xml`](../../tools/uwp_spike/AppxManifest.xml), `Assets` and [`run.ps1`](../../tools/uwp_spike/run.ps1), and run the script. It registers the folder as an app without signing, starts it, and prints the log the app writes to `LocalState`.
 
 Run on Windows 11 Home 22H2 (build 22622), 2026-11-09: the app started from the package, activated its window (1200×900), created the swap chain and presented about 105 frames a second, every `Present` returning `S_OK`. The screen was locked, so the picture itself was not seen, and no gamepad was connected, so the gamepad path did not run.
+
+### On the Xbox
+
+The spike runs on an Xbox Series S in Developer Mode (OS 26100), 2026-11-09: the square draws on the 4:3 frame with black bars left and right, the left stick moves it, B quits. Its log shows a 1920×1080 window and the gamepad reading.
+
+[`xbox-run.sh`](../../tools/uwp_spike/xbox-run.sh) is the loop, about 17 seconds end to end: build with llvm-mingw, stop the running copy, deploy the folder as a loose app (no packaging, no signing), launch, wait, save a screenshot of the TV picture and the app's `LocalState`, stop it. It drives the console through a Device Portal helper script (`XBOX_SH`) that keeps the login and pins the portal's certificate.
+
+- The console needs a signed-in user. Without one, a launch fails with `0x8004090A` and a sign-in prompt waits on the TV.
+- A deploy over a running copy fails with HTTP 500, since the app holds its `.exe` open; the loop stops it first.
+- A POST without a body needs `Content-Length: 0`, or the portal answers HTTP 411.
 
 ### Packaging without the Windows SDK
 
