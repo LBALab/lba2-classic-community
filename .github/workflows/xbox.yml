@@ -1,0 +1,51 @@
+name: Xbox (UWP, experimental)
+
+# Builds the UWP exe with a pinned llvm-mingw and checks what no host test can
+# run: that every function the exe imports is one a UWP app may call, and that
+# the backend's callback table is complete. Running it needs a console or a
+# Windows PC in Developer Mode (docs/plan/XBOX_PLAN.md).
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-uwp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      # The script downloads the release it pins and checks its digest; the
+      # cache only saves the download. Key it on the script, which holds the pin.
+      - name: Cache llvm-mingw
+        uses: actions/cache@v6
+        with:
+          path: out/toolchains
+          key: llvm-mingw-${{ runner.os }}-${{ hashFiles('scripts/dev/build-uwp.sh') }}
+      # No CMake/ninja install step: the runner image ships both (see linux.yml).
+      - name: Build and check
+        run: bash scripts/dev/build-uwp.sh
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: lba2cc-uwp-x64
+          path: out/build/uwp-ci/SOURCES/lba2cc.exe
+          if-no-files-found: error

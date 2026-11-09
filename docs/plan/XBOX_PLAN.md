@@ -161,6 +161,8 @@ tools/uwp/xbox-push-data.sh /path/to/LBA2/Common VIDEO     # once, after the fir
 
 The exe imports only API sets, `d3d11.dll` and `d2d1.dll`; libc++ is linked in.
 
+[`scripts/dev/build-uwp.sh`](../../scripts/dev/build-uwp.sh) builds it with a pinned llvm-mingw (downloaded and checked against its published digest, or `LLVM_MINGW_ROOT`), and the `Xbox (UWP, experimental)` workflow runs it on every push. [`check-uwp-build.py`](../../scripts/ci/check-uwp-build.py) then checks what no host can run: every imported function is one `libwindowsapp.a` or `libucrtapp.a` offers (plus `D2D1CreateFactory`, allowed but missing there), and the backend's table assigns every callback in `PLATFORM.H`. Its selftest builds a `MessageBoxA` probe and drops a callback, and both must be rejected.
+
 | Part | How |
 |---|---|
 | Base | Clocks, CPU and memory probes, the error slot, the install folder, directory creation and removal come from `HOST_OS.CPP`, which the null backend uses too. The UWP table is its own, by named fields. |
