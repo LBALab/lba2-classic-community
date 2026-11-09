@@ -103,11 +103,19 @@ static S32 ForcedPresentFilter(void) {
 
 /* The setting keeps what was asked for, so a preference survives a build that
    cannot do it; that build presents on nearest and the log says why. */
+static S32 PresentFilterInUse = PLATFORM_FILTER_NEAREST;
+
 static void ApplyPresentFilter(S32 mode) {
+    PresentFilterInUse = mode;
     if (Window_SetPresentFilter(mode))
         return;
     Log_Warn("Present filter %d is not available: %s. Using nearest.", (int)mode, g_platform.system.get_error());
     Window_SetPresentFilter(PLATFORM_FILTER_NEAREST);
+    PresentFilterInUse = PLATFORM_FILTER_NEAREST;
+}
+
+S32 ConfigFile_PresentFilterInUse(void) {
+    return PresentFilterInUse;
 }
 
 /* MainLoop derives Shadow, RainEnable and the sea and horizon from DetailLevel on

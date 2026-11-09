@@ -72,20 +72,20 @@ Available:
   4: 1280x720  (16:9, recommended)
   5: 1920x1080 (16:9, recommended)
   6: native    (matches display: 1920x1080)
-Advanced (--all): list 30+ additional W%8==0 sizes.
+Advanced (--all): adds a curated list of common W%8==0 sizes.
 
 Usage:
   resolution <n>           pick from the list above
   resolution <WxH>          arbitrary, e.g. resolution 800x480
   resolution native         match the player's display
-  resolution --all          show every supported width
+  resolution --all          add the advanced modes
 ```
 
 - `resolution` with no args: print the numbered list + current selection.
 - `resolution <n>`: switch to entry `<n>`.
 - `resolution WxH`: arbitrary explicit. Goes through the same validator as `--resolution`.
 - `resolution native`: SDL_GetCurrentDisplayMode → snap to nearest `W % 8 == 0` ≤ display.
-- `resolution --all`: print the advanced list (all multiples of 8 from 320 to 1920, all heights from 200 to 1024, filtered to `≤ display`).
+- `resolution --all`: print the list with the advanced modes added: a curated table of common sizes (320×200 … 1680×1024), filtered to `≤ display`. Every width is a multiple of 8, so a 1366×768 panel gets 1360×768.
 - Switch applies immediately; opens the preview / revert dialog.
 
 ### Menu — Display options (Phase 2)

@@ -47,6 +47,10 @@ extern void ConfigFile_RegisterCvars(void);
  * the table cannot keep in step. */
 extern const T_SETTING *ConfigFile_Setting(const char *key);
 
+/* The filter the window presents with: the PresentFilter setting's value, or
+   nearest while the backend refuses it. */
+extern S32 ConfigFile_PresentFilterInUse(void);
+
 /* Every settings table the engine has, the ones other modules own included, by
  * index from 0; NULL past the last. For whatever has to walk all of them, so it
  * cannot miss a table added later. */

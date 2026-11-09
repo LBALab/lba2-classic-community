@@ -23,7 +23,9 @@ static const ResModeEntry kRecommended[] = {
 #define kRecommendedCount ((int)(sizeof(kRecommended) / sizeof(kRecommended[0])))
 
 /* Curated "advanced" list (console --all only). Reasonable common modes; a
-   full multiples-of-8 enumeration would emit hundreds of entries. */
+   full multiples-of-8 enumeration would emit hundreds of entries. Every width
+   is a multiple of 8, as Res_ValidateDimensions requires: 1366x768 panels get
+   1360x768, as 854x480 gets 856x480. */
 static const ResModeEntry kAdvanced[] = {
     {320, 200, "advanced"},
     {320, 240, "advanced"},
@@ -38,7 +40,7 @@ static const ResModeEntry kAdvanced[] = {
     {1280, 800, "advanced"},
     {1280, 960, "advanced"},
     {1280, 1024, "advanced"},
-    {1366, 768, "advanced"},
+    {1360, 768, "advanced"},
     {1440, 900, "advanced"},
     {1600, 900, "advanced"},
     {1600, 1024, "advanced"},
