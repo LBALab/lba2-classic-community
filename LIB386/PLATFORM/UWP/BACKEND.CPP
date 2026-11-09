@@ -78,7 +78,25 @@ const char *Home() {
     return path;
 }
 
-bool NoHeadless() { return Uwp_Fail("UWP has no headless mode"); }
+/* An app always has its window, which stays a present-capable target, so a
+   headless run (tests/automation through tools/uwp/xbox-lba2cc.py) runs as
+   usual and shows on the TV. The engine skips the audio device itself. */
+bool s_headless = false;
+
+bool Headless() {
+    s_headless = true;
+    Platform_Log(PLATFORM_LOG_INFO, "UWP: --headless keeps the window; an app always has one");
+    return true;
+}
+
+/* Headless, the display is not measured, as with SDL's dummy driver and the
+   null backend, so what a run does never depends on the screen it ran on
+   (the boot resolution's auto-detect falls through to the default). */
+bool PrimaryDisplaySize(uint32_t *width, uint32_t *height) {
+    if (s_headless)
+        return Uwp_Fail("UWP: a headless run does not measure the display");
+    return Uwp_DisplaySize(width, height);
+}
 
 /* No mouse on a console, and no pointer support yet anywhere. */
 void PointerMode(bool enabled) {
@@ -124,7 +142,7 @@ PlatformInterface Interface() {
     api.capabilities.touch_recenter = false;
     api.system.init = Ready;
     api.system.shutdown = Shutdown;
-    api.system.set_headless = NoHeadless;
+    api.system.set_headless = Headless;
     api.system.get_error = HostOs_Error;
     api.system.clear_error = HostOs_ClearError;
     api.system.ticks_ms = HostOs_Ticks;
@@ -148,7 +166,7 @@ PlatformInterface Interface() {
     api.window.resize = Uwp_WindowResize;
     api.window.size = Uwp_WindowSize;
     api.window.display_size = Uwp_DisplaySize;
-    api.window.primary_display_size = Uwp_DisplaySize;
+    api.window.primary_display_size = PrimaryDisplaySize;
     api.window.surface_coords = Uwp_SurfaceCoords;
     api.window.set_fullscreen = Fullscreen;
     api.window.get_fullscreen = AlwaysFullscreen;
