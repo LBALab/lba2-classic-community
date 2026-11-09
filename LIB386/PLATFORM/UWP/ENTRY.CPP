@@ -8,6 +8,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int Lba2Main(int argc, char *argv[]);
@@ -193,11 +194,22 @@ void StartScriptedRun(void) {
        Unbuffered: the C runtime takes _IOLBF as full buffering, and a crash
        would lose the lines that say where it happened. */
     snprintf(path, sizeof path, "%sstdout.txt", local);
-    if (freopen(path, "wb", stdout))
-        setvbuf(stdout, NULL, _IONBF, 0);
-    snprintf(path, sizeof path, "%sstderr.txt", local);
-    if (freopen(path, "wb", stderr))
-        setvbuf(stderr, NULL, _IONBF, 0);
+    /* The caller sent both streams to one file: both append to stdout.txt,
+       so their lines stay in the order they were written. */
+    const char *one = getenv("LBA2_UWP_ONE_STREAM");
+    if (one && strcmp(one, "1") == 0) {
+        remove(path);
+        if (freopen(path, "ab", stdout))
+            setvbuf(stdout, NULL, _IONBF, 0);
+        if (freopen(path, "ab", stderr))
+            setvbuf(stderr, NULL, _IONBF, 0);
+    } else {
+        if (freopen(path, "wb", stdout))
+            setvbuf(stdout, NULL, _IONBF, 0);
+        snprintf(path, sizeof path, "%sstderr.txt", local);
+        if (freopen(path, "wb", stderr))
+            setvbuf(stderr, NULL, _IONBF, 0);
+    }
     Uwp_Note("UWP: scripted run (env.txt)");
 }
 

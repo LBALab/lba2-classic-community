@@ -11,7 +11,8 @@ scripts/dev/android-lba2cc.sh does for a phone:
 Each call is one run of the app. The arguments go to LocalState\\args.txt and
 the environment to LocalState\\env.txt, whose presence makes the app run
 scripted (ENTRY.CPP): stdout, stderr and the exit code come back from
-stdout.txt, stderr.txt and exit.txt. Runs are one at a time: the console runs
+stdout.txt, stderr.txt and exit.txt (stdout.txt alone, in order, when both
+streams go to one file here). Runs are one at a time: the console runs
 one copy of an app.
 
 Paths. Fixtures pass host paths and read results back from them, so every
@@ -411,6 +412,14 @@ def cache_key(args, exe_hash):
     return None
 
 
+def same_file(a, b):
+    try:
+        x, y = os.fstat(a), os.fstat(b)
+    except OSError:
+        return False
+    return (x.st_dev, x.st_ino) == (y.st_dev, y.st_ino)
+
+
 def main():
     args = sys.argv[1:]
     # One run at a time: the console runs one copy of the app, and a fixture
@@ -447,6 +456,11 @@ def main():
     # of its own gets one.
     if "LBA2_USER_DIR" not in env and not any(a == "--user-dir" or a.startswith("--user-dir=") for a in args):
         env["LBA2_USER_DIR"] = local + "t\\home"
+    # `cmd > log 2>&1`: one file, so the console writes one, keeping the order
+    # of lines across the two streams that fixtures read.
+    one_stream = same_file(1, 2)
+    if one_stream:
+        env["LBA2_UWP_ONE_STREAM"] = "1"
     if len(dev_args) > MAX_ARGS or any(len(a) > ARG_SIZE or "\n" in a for a in dev_args):
         die("arguments do not fit args.txt (%d, longest %d)" % (len(dev_args), max([len(a) for a in dev_args] or [0])))
 
@@ -532,6 +546,7 @@ def main():
         rc = 128 + (stopped["by"] or signal.SIGINT)
 
     out = (download("\\LocalState", "stdout.txt") or b"").decode(errors="replace")
+    # An exe from before LBA2_UWP_ONE_STREAM still writes stderr.txt.
     err = (download("\\LocalState", "stderr.txt") or b"").decode(errors="replace")
     sys.stdout.write(tr.back(out))
     sys.stdout.flush()
