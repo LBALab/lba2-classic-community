@@ -73,8 +73,9 @@ if(PLATFORM_BACKEND STREQUAL "uwp")
         UWP/BACKEND.CPP UWP/EVENTS.CPP UWP/INPUT.CPP UWP/WINDOW.CPP)
     target_include_directories(lba2_platform PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(lba2_platform PRIVATE d2d1 d3d11 dxgi runtimeobject)
-    # wWinMain, and no console window.
-    target_link_options(lba2_platform INTERFACE -municode -mwindows)
+    # wWinMain, and no console window. --wrap=exit: ENTRY.CPP records a
+    # scripted run's exit code (tools/uwp/xbox-lba2cc.py).
+    target_link_options(lba2_platform INTERFACE -municode -mwindows -Wl,--wrap=exit)
     add_library(lba2_platform_entry OBJECT UWP/ENTRY.CPP)
     target_include_directories(lba2_platform_entry PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     return()

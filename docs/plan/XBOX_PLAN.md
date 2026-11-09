@@ -174,6 +174,7 @@ The exe imports only API sets, `d3d11.dll`, `d2d1.dll` and `xaudio2_9.dll`; libc
 | Back | `SystemNavigationManager.BackRequested` is marked handled; unhandled, B closes the app. The interfaces are declared by hand in `NAVIGATION.H`, their IDs from the Windows metadata as the `windows` crate prints them; the handler's ID is computed by the WinRT rule, checked by reproducing the headers' `EventHandler<Gamepad>` ID. |
 | Sound | The SDL sound backend's rules (samples, music, CD audio, WAV) over an XAudio2 transport, [`AUDIO_DEVICE_XAUDIO2.CPP`](../../LIB386/AIL/SDL/AUDIO_DEVICE_XAUDIO2.CPP): one source voice per stream, which XAudio2 resamples, mixes and sets the volume of. A stream's bytes are handed to its voice one buffer per processing pass, just ahead of need; the effects mixer is asked for more there, as SDL3 asks it. The rules reach the host through [`SDK.H`](../../LIB386/AIL/SDL/SDK.H). WAV music may be PCM or IMA ADPCM, the CD releases' encoding ([`WAV_DECODE.CPP`](../../LIB386/AIL/SDL/WAV_DECODE.CPP), checked against SDL's loader by `test_wav_decode`). |
 | Paths | Saves, config and log in `LocalState`, whose path is converted to the ANSI code page the engine's file calls read (refused if it cannot be spelled there). Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line, each logged. |
+| Scripted runs | When `LocalState\env.txt` exists, its `NAME=VALUE` lines are the environment, `--game-dir` is not added, stdout and stderr go to `stdout.txt` and `stderr.txt` (binary, unbuffered), and the exit code to `exit.txt`, written when the view's `Run` returns and from `exit()` (linked with `--wrap=exit`), since the system may end the process without calling `exit()`. `--headless` keeps the window and stops the display being measured, as SDL's dummy driver does. |
 
 The parts that need no Windows header are host-tested: translations (keys, pad buttons and axes, the events a pad reading adds, letterbox) in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H), and the event queue in [`QUEUE.H`](../../LIB386/PLATFORM/UWP/QUEUE.H), which never drops a quit: after `Closed` the window is not pumped again, so a lost quit would leave the game running. `test_platform_uwp_translate` checks them on every host against documented set-1 scan codes and virtual keys and the `GamepadButtons` values, and, when SDL3 is in the build, every key name and unshifted key code against SDL3's. Shifted codes are checked against the US layout directly: SDL3 without video has no Shift layer.
 
@@ -185,6 +186,21 @@ On the console:
 - `VIDEO.HQR` is required even without a video backend; voices and music are optional.
 - The pad is listed a moment after start, as a hot-plug; the first boot logs "Joystick not detected", then "Gamepad connected".
 - As a sideloaded "App", the game sees 1 GB of RAM, which is enough.
+
+### The automation suite on the console
+
+[`tools/uwp/xbox-lba2cc.py`](../../tools/uwp/xbox-lba2cc.py) runs the engine on the console as if it were the local binary, as `scripts/dev/android-lba2cc.sh` does on a phone, so `tests/automation` runs there unchanged:
+
+```sh
+export LBA2_BIN=$PWD/tools/uwp/xbox-lba2cc.py      # runs out/build/uwp-snd's lba2cc.exe (LBA2_XBOX_EXE)
+export LBA2_GAME_DIR=/path/to/a/link/to/Common      # the data the console holds in LocalState\Game
+export LBA2_TEST_SAVE=/path/to/a/folder/with/one.LBA RING_JOBS=1 LBA2_TEST_TIMEOUT=180
+tests/automation/run.sh --fast --no-record
+```
+
+Each call is one run of the app: the exe goes over when it changed, the arguments and environment go to `args.txt` and `env.txt`, host paths become `LocalState\t\…` paths (temp folders, the save's folder, the repository; the game data is not copied, so `LBA2_GAME_DIR` must hold what the console holds, checked by `LBA2.HQR`'s size), named files go up, their folders come back while the app runs and after it, and the paths it prints are mapped back. Runs wait for each other, since the console runs one copy of an app, and a run with no user folder of its own gets one, so the player's `lba2.cfg` and saves are never touched. `SDL_VIDEODRIVER=dummy` becomes `--headless`. About 5 to 10 seconds a run.
+
+Not reachable that way: a path the engine writes into a file keeps its console spelling (`profile_bind`), a fixture that builds an install of links to the game data would need it copied (`console_config_write`), and `LBA2_GAME_DIR` named `Common` makes `cli_contract` pass the install root, which the console's layout does not have (a link with another name skips that case).
 
 ## Also needed
 
