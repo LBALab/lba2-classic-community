@@ -9,14 +9,14 @@ S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit) {
     StopVideoAudio();
     if (!AILAudio_Initialized())
         return 0;
-    SDL_AudioSpec spec;
-    SDL_zero(spec);
+    AILAudioSpec spec;
+    AIL_Zero(spec);
     spec.freq = freq;
     spec.format = is16bit ? AIL_AUDIO_S16 : AIL_AUDIO_U8;
-    spec.channels = (Uint8)(channels >= 2 ? 2 : 1);
+    spec.channels = (U8)(channels >= 2 ? 2 : 1);
     videoStream = AILAudio_Open(&spec, NULL, NULL);
     if (!videoStream) {
-        SDL_Log("SDL AIL: Could not open video audio stream: %s", SDL_GetError());
+        AIL_Log("SDL AIL: Could not open video audio stream: %s", AIL_GetError());
         return 0;
     }
     /* Leave paused until ResumeVideoAudio() after pre-fill (avoids stutter like lba2-classic-ida's SoLoud buffer) */

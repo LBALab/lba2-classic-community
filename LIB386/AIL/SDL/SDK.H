@@ -1,5 +1,13 @@
 #pragma once
 
+/* What the AIL sound rules (samples, music, CD, video audio, WAV) need from the
+   host, under AIL_ names: the output transport's spec, log and error, a thread,
+   a semaphore, an atomic, the clock and the WAV hints. The rules files reach the
+   host only through this header and AUDIO_DEVICE.H, so another transport can
+   take SDL's place. */
+
+#include <SYSTEM/ADELINE_TYPES.H>
+
 #ifdef LBA2_USE_SDL2
 #include <SDL.h>
 typedef SDL_atomic_t AILAtomicInt;
@@ -26,6 +34,36 @@ typedef SDL_Semaphore AILSemaphore;
 #define AIL_AUDIO_DRIVER_HINT SDL_HINT_AUDIO_DRIVER
 #endif
 
+/* Format, channels and rate of one stream; the rules set those three only. */
+typedef SDL_AudioSpec AILAudioSpec;
+#define AILCALL SDLCALL
+
+#define AIL_Log SDL_Log
+#define AIL_SetError SDL_SetError
+#define AIL_GetError SDL_GetError
+/* Frees PCM the transport's WAV loader returned. */
+#define AIL_Free SDL_free
+#define AIL_Zero SDL_zero
+
+/* The WAV hints the music reader honours, as SDL's own loader does. */
+#define AIL_HINT_WAVE_RIFF_CHUNK_SIZE SDL_HINT_WAVE_RIFF_CHUNK_SIZE
+#define AIL_HINT_WAVE_TRUNCATION SDL_HINT_WAVE_TRUNCATION
+#define AIL_HINT_WAVE_FACT_CHUNK SDL_HINT_WAVE_FACT_CHUNK
+#define AIL_GetHint SDL_GetHint
+
+typedef SDL_Thread AILThread;
+typedef int(AILCALL *AILThreadFunction)(void *data);
+
+inline AILThread *AIL_CreateThread(AILThreadFunction fn, const char *name, void *data) {
+    return SDL_CreateThread(fn, name, data);
+}
+
+inline void AIL_WaitThread(AILThread *thread) { SDL_WaitThread(thread, NULL); }
+
+inline AILSemaphore *AIL_CreateSemaphore(U32 initial) { return SDL_CreateSemaphore(initial); }
+
+inline void AIL_DestroySemaphore(AILSemaphore *semaphore) { SDL_DestroySemaphore(semaphore); }
+
 /* Zero means signaled, positive means timeout, negative means SDL2 error. */
 inline int AIL_WaitSemaphoreTimeout(AILSemaphore *semaphore, int timeoutMs) {
 #ifdef LBA2_USE_SDL2
@@ -44,7 +82,7 @@ inline bool AIL_SignalSemaphore(AILSemaphore *semaphore) {
 #endif
 }
 
-inline Uint64 AIL_Ticks() {
+inline U64 AIL_Ticks() {
 #ifdef LBA2_USE_SDL2
     return SDL_GetTicks64();
 #else
