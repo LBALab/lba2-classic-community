@@ -82,11 +82,13 @@ class OnSuspending : public UwpDelegate<__FIEventHandler_1_Windows__CApplication
             Platform_Log(PLATFORM_LOG_INFO, "UWP: suspending");
             /* The game is stopped inside its pump, so its code may run here. */
             Platform_NotifySuspend();
+            /* Direct3D's context is the game thread's alone, as the save is. */
+            Uwp_WindowTrim();
         } else {
-            Platform_Log(PLATFORM_LOG_WARN, "UWP: suspending on thread %lu, not the game's %lu; nothing saved",
+            Platform_Log(PLATFORM_LOG_WARN,
+                         "UWP: suspending on thread %lu, not the game's %lu; nothing saved, nothing trimmed",
                          (unsigned long)thread, (unsigned long)s_gameThread);
         }
-        Uwp_WindowTrim();
         if (deferral)
             deferral->Complete();
         Uwp_Release(deferral);
