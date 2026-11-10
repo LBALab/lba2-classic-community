@@ -3,6 +3,7 @@
    event poll, so nothing else has to run. The app ends by returning from Run. */
 
 #include "PRIVATE.H"
+#include "../HOST_OS.H"
 
 #include <windows.applicationmodel.h>
 
@@ -151,9 +152,8 @@ int BuildArguments(char storage[MAX_ARGS][ARG_SIZE], char *argv[MAX_ARGS]) {
         return argc;
     char path[ARG_SIZE];
     snprintf(path, sizeof path, "%sGame", local);
-    const DWORD attributes = GetFileAttributesA(path);
     /* A scripted run passes every argument itself, the game data's included. */
-    if (!s_scripted && attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+    if (!s_scripted && HostOs_IsDirectory(path)) {
         strcpy(storage[argc], "--game-dir");
         argv[argc] = storage[argc];
         ++argc;
