@@ -107,6 +107,32 @@ class OnResuming : public UwpDelegate<__FIEventHandler_1_IInspectable> {
     }
 };
 
+/* One line of a LocalState text file, without its line end; false at the end
+   of the file. A line that does not fit is skipped whole, and the log says so,
+   rather than being read as two. */
+bool ReadLine(FILE *file, const char *name, char *line, int size) {
+    while (fgets(line, size, file)) {
+        size_t len = strlen(line);
+        bool whole = len > 0 && line[len - 1] == '\n';
+        if (!whole) {
+            int c = fgetc(file);
+            if (c == '\r')
+                c = fgetc(file);
+            whole = c == EOF || c == '\n';
+            while (c != EOF && c != '\n')
+                c = fgetc(file);
+        }
+        if (!whole) {
+            Uwp_Note("UWP: a line of %s is longer than %d bytes; ignored", name, size - 1);
+            continue;
+        }
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+            line[--len] = '\0';
+        return true;
+    }
+    return false;
+}
+
 /* The arguments the game gets: the game data in LocalState\Game when that
    folder exists (otherwise the game's own search, which starts in the app's
    install folder), and any lines of LocalState\args.txt, one argument per
@@ -140,11 +166,8 @@ int BuildArguments(char storage[MAX_ARGS][ARG_SIZE], char *argv[MAX_ARGS]) {
     FILE *file = fopen(path, "r");
     if (!file)
         return argc;
-    while (argc < MAX_ARGS && fgets(storage[argc], ARG_SIZE, file)) {
-        size_t len = strlen(storage[argc]);
-        while (len > 0 && (storage[argc][len - 1] == '\n' || storage[argc][len - 1] == '\r'))
-            storage[argc][--len] = '\0';
-        if (len == 0)
+    while (argc < MAX_ARGS && ReadLine(file, "args.txt", storage[argc], ARG_SIZE)) {
+        if (!storage[argc][0])
             continue;
         /* Said once per run, so a file left behind is not a silent surprise. */
         Uwp_Note("UWP: argument from args.txt: %s", storage[argc]);
@@ -175,10 +198,7 @@ void StartScriptedRun(void) {
         return;
     s_scripted = true;
     char line[ARG_SIZE];
-    while (fgets(line, sizeof line, file)) {
-        size_t len = strlen(line);
-        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
-            line[--len] = '\0';
+    while (ReadLine(file, "env.txt", line, (int)sizeof line)) {
         char *equals = strchr(line, '=');
         if (!equals || equals == line)
             continue;

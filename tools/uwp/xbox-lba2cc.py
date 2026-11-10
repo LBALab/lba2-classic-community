@@ -509,8 +509,14 @@ def main():
     one_stream = same_file(1, 2)
     if one_stream:
         env["LBA2_UWP_ONE_STREAM"] = "1"
-    if len(dev_args) > MAX_ARGS or any(len(a) > ARG_SIZE or "\n" in a for a in dev_args):
-        die("arguments do not fit args.txt (%d, longest %d)" % (len(dev_args), max([len(a) for a in dev_args] or [0])))
+    # The app reads each line into ARG_SIZE bytes and skips one that is longer.
+    lines = {"args.txt": dev_args, "env.txt": ["%s=%s" % kv for kv in env.items()]}
+    for name, items in lines.items():
+        longest = max([len(a.encode()) for a in items] or [0])
+        if longest > ARG_SIZE or any("\n" in a or "\r" in a for a in items):
+            die("%s: a line does not fit (longest %d bytes, the app reads %d)" % (name, longest, ARG_SIZE))
+    if len(dev_args) > MAX_ARGS:
+        die("args.txt: %d arguments, the app reads %d" % (len(dev_args), MAX_ARGS))
 
     stop_app()
     remove_tree("\\LocalState\\t\\run")
