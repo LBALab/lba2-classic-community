@@ -2,6 +2,8 @@
 
 Status: experiment. The game runs on an Xbox Series S in Developer Mode through its own UWP platform backend, with sound and the gamepad.
 
+Players: the install guide is [XBOX.md](../XBOX.md).
+
 The target is a UWP app sideloaded onto an Xbox in Developer Mode, the same homebrew posture as the [Switch port](../SWITCH.md). The licensed GDK route needs an NDA and publisher rights, so it is out of scope for this repository.
 
 ## What was tried

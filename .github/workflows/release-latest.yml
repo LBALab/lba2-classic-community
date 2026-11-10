@@ -127,7 +127,7 @@ jobs:
           - Commit: [\`${SHA_SHORT}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
           - Built: ${TIMESTAMP}
 
-            Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64), Android APK (arm64-v8a, armeabi-v7a) — plus Nintendo Switch homebrew SD-card ZIP, PlayStation Vita VPK and an experimental Xbox package for Developer Mode (no retail game data). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release where available.
+            Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64), Android APK (arm64-v8a, armeabi-v7a) — plus Nintendo Switch homebrew SD-card ZIP, PlayStation Vita VPK and an experimental Xbox package for Developer Mode ([install guide](https://github.com/${{ github.repository }}/blob/main/docs/XBOX.md)) (no retail game data). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release where available.
 
           If a particular platform's artifact is missing below, that platform's build leg failed for this commit; the other platforms still updated. Earlier rolling builds remain accessible via the [commit history](https://github.com/${{ github.repository }}/commits/main).
           EOF
