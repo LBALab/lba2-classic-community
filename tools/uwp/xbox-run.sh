@@ -14,8 +14,8 @@
 # one argument per line, adds arguments to every run. Files the game writes to LocalState
 # are copied back, the game data excepted.
 #
-# Talks to the console through the homelab's Device Portal helper (XBOX_SH, default
-# ~/code/homelab/ops/xbox.sh), which holds the login and the pinned certificate. The
+# Talks to the console through the Device Portal helper (XBOX_SH, default
+# tools/uwp/xbox-portal.sh, which reads XBOX_HOST and the login; see its header). The
 # console needs a signed-in user, or the launch waits on a sign-in prompt on the TV.
 set -euo pipefail
 
@@ -29,7 +29,7 @@ root="$(cd "$here/../.." && pwd)"
 seconds="${1:-15}"
 out="${2:-${TMPDIR:-/tmp}/lba2cc-uwp-run}"
 build="${LBA2_UWP_BUILD:-$root/out/build/uwp}"
-xbox="${XBOX_SH:-$HOME/code/homelab/ops/xbox.sh}"
+xbox="${XBOX_SH:-$here/xbox-portal.sh}"
 full="$(python3 -I "$here/package-name.py")" # from AppxManifest.xml
 
 urlenc() { python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"; }

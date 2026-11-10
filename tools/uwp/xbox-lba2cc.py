@@ -34,7 +34,8 @@ Not supported: stdin, arguments with newlines, more than 127 arguments of up to 
 Env:
   LBA2_XBOX_EXE   the lba2cc.exe to run (default out/build/uwp); it replaces
                   the console's copy when it differs from the last one sent
-  XBOX_SH         the homelab Device Portal helper (default ~/code/homelab/ops/xbox.sh)
+  XBOX_SH         the Device Portal helper (default tools/uwp/xbox-portal.sh,
+                  which reads XBOX_HOST and the login; see its header)
   LBA2_XBOX_STATE state shared between calls (default /tmp/lba2cc-xbox-state)
 """
 
@@ -50,7 +51,7 @@ import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-XBOX = os.environ.get("XBOX_SH", os.path.expanduser("~/code/homelab/ops/xbox.sh"))
+XBOX = os.environ.get("XBOX_SH", os.path.join(HERE, "xbox-portal.sh"))
 EXE = os.environ.get("LBA2_XBOX_EXE", os.path.join(REPO, "out/build/uwp/SOURCES/lba2cc.exe"))
 STATE = os.environ.get("LBA2_XBOX_STATE", "/tmp/lba2cc-xbox-state")
 MAX_ARGS, ARG_SIZE = 127, 1023
@@ -167,7 +168,7 @@ def upload(dev_dir, files):
 
 
 def download(dev_dir, name):
-    # Through a file: `xbox.sh api` prints a newline after the body.
+    # Through a file: `api` prints a newline after the body.
     os.makedirs(STATE, exist_ok=True)
     tmp = os.path.join(STATE, "download.part")
     r = subprocess.run([XBOX, "api", "GET", "/api/filesystem/apps/file?%s&path=%s&filename=%s" % (LOCAL_Q, q(dev_dir), q(name)),

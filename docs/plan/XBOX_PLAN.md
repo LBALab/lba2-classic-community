@@ -52,9 +52,7 @@ A spike in C++98 tried the parts a backend needs before the backend was written:
 
 ### On the Xbox
 
-[`tools/uwp/xbox-run.sh`](../../tools/uwp/xbox-run.sh) deploys a build as a loose app (no packaging, no signing), launches it, saves a screenshot of the TV picture and the app's `LocalState`, and stops it. It drives the console through a Device Portal helper script (`XBOX_SH`) that keeps the login and pins the portal's certificate.
-
-The helper is not in this repository; any script that answers these commands works with `xbox-run.sh`, `xbox-push-data.sh` and `xbox-lba2cc.py`:
+[`tools/uwp/xbox-run.sh`](../../tools/uwp/xbox-run.sh) deploys a build as a loose app (no packaging, no signing), launches it, saves a screenshot of the TV picture and the app's `LocalState`, and stops it. It drives the console through [`tools/uwp/xbox-portal.sh`](../../tools/uwp/xbox-portal.sh), which takes the console's address and the portal login from `XBOX_HOST`, `XBOX_PORTAL_USER` and `XBOX_PORTAL_PASSWORD` (or a netrc file) and pins the portal's certificate (`xbox-portal.sh trust` once). Any other script that answers these commands works too, named by `XBOX_SH`:
 
 | Command | Does |
 |---------|------|
