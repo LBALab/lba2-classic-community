@@ -307,11 +307,24 @@ def local_state():
     die("cannot learn the LocalState path: run the app once (tools/uwp/xbox-run.sh)")
 
 
+def deployed_exe_size():
+    r = subprocess.run([XBOX, "api", "GET", "/api/filesystem/apps/files?knownfolderid=DevelopmentFiles&path=" +
+                        q("\\LooseApps\\lba2cc")], capture_output=True)
+    if r.returncode != 0:
+        return None
+    for i in json.loads(r.stdout or b"{}").get("Items", []):
+        if i["Name"].lower() == "lba2cc.exe":
+            return i.get("FileSize")
+    return None
+
+
 def deploy_exe():
     if not os.path.isfile(EXE):
         die("no exe: %s (build it, or set LBA2_XBOX_EXE)" % EXE)
     h = file_hash(EXE)
-    if state_get("exe") == h:
+    # The record alone is not enough: xbox-run.sh deploys its own build, and
+    # the size of the console's copy says when that happened.
+    if state_get("exe") == h and deployed_exe_size() == os.path.getsize(EXE):
         return h
     stop_app()
     api("POST", "/api/filesystem/apps/file?knownfolderid=DevelopmentFiles&path=" + q("\\LooseApps\\lba2cc"),
@@ -544,7 +557,9 @@ def main():
         d = os.path.dirname(save)
         h = hashlib.sha256("".join(sorted(file_hash(os.path.join(d, f)) for f in os.listdir(d)
                                           if os.path.isfile(os.path.join(d, f)))).encode()).hexdigest()
-        if state_get("save") != h:
+        # Registering the app again wipes LocalState, so the record alone
+        # is not enough.
+        if state_get("save") != h or ls("\\LocalState\\t\\save") is None:
             remove_tree("\\LocalState\\t\\save")
             upload_tree(d, "\\LocalState\\t\\save")
             state_put("save", h)

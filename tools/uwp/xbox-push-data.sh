@@ -14,7 +14,7 @@ set -euo pipefail
 src="${1:?usage: tools/uwp/xbox-push-data.sh GAME_DIR [SUBFOLDER...]}"
 shift
 [ -d "$src" ] || { echo "no folder $src" >&2; exit 1; }
-src="$(cd "$src" && pwd)"
+src="$(cd "$src" && pwd -P)" # a link to the data: find does not follow one it starts from
 xbox="${XBOX_SH:-$HOME/code/homelab/ops/xbox.sh}"
 full="$(python3 -I "$(dirname "$0")/package-name.py")" # from AppxManifest.xml
 
