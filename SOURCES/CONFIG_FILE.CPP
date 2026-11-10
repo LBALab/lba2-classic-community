@@ -433,8 +433,9 @@ S32 WriteConfigValue(const char *ident, S32 value) {
     return ok;
 }
 
-/*──────────────────────────────────────────────────────────────────────────*/
-void WriteConfigFile(void) {
+/* The owned file alone, left open on its own: the first two of the three
+   steps. */
+static void WriteOwnedConfig(void) {
     OpenOwnedConfig();
 
     // Batch the whole save into one fsync + atomic rename. Without this, each of
@@ -483,7 +484,11 @@ void WriteConfigFile(void) {
     if (batched) {
         DefFileBufferEndBatch();
     }
+}
 
+/*──────────────────────────────────────────────────────────────────────────*/
+void WriteConfigFile(void) {
+    WriteOwnedConfig();
     /* Reads after this point see what the boot assembled, which matters because
        this is also called mid-run: the options menu and a resolution switch. */
     RestackDataConfig();
@@ -496,7 +501,9 @@ S32 WriteConfigFileAside(void) {
     T_DEFFILE_STATE saved;
     DefFileBufferSaveState(&saved);
     OwnedConfigBuffer = buffer;
-    WriteConfigFile();
+    /* No restack: the state put back below is the one the boot assembled, so
+       stacking the game data's config into this buffer would be thrown away. */
+    WriteOwnedConfig();
     OwnedConfigBuffer = NULL;
     DefFileBufferRestoreState(&saved);
     free(buffer);
