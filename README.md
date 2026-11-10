@@ -87,6 +87,10 @@ Copy your retail HQR files, including `LBA2.HQR`, directly into `sdmc:/lba2/`, p
 
 Saves, settings and logs live under `sdmc:/switch/lba2cc/user/`; back up this directory before upgrading. See [docs/SWITCH.md](docs/SWITCH.md) for the SD-card layout, network launching and the hardware checklist.
 
+### Xbox
+
+Experimental build for an Xbox One or Series X|S in Developer Mode: download `lba2cc-<version>-xbox-x64.appx` from the [rolling pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest), install it from a web browser through the console's Device Portal, and upload your game files the same way. No game assets are included. [docs/XBOX.md](docs/XBOX.md) walks through it, from Developer Mode on.
+
 ## Building from source quick start
 
 ### Prerequisites

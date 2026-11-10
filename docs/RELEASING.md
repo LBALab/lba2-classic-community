@@ -796,6 +796,8 @@ The rolling release also includes Nintendo Switch homebrew as `lba2cc-switch.zip
 
 PlayStation Vita homebrew follows the same rolling-only policy as `lba2cc-vita.vpk`, without retail data. [The Vita workflow](../.github/workflows/vita.yml) supplies the `latest-vita` package artifact; matching debug ELF, executable-deployment files and logs remain separate from release assets. [VITA.md](VITA.md) covers VPK installation, FTP/companion deployment and the hardware checks still required.
 
+The experimental Xbox build ships the same way, rolling only, as `lba2cc-<version>-xbox-x64.appx` for a console in Developer Mode, installed through the Device Portal. [The Xbox workflow](../.github/workflows/xbox.yml) supplies the `latest-xbox` artifact. The package version is the build's version with the run number as its fourth part (`0.13.3.412` for `0.13.3-dev`), so each build installs over the last. It signs with the `UWP_SIGN_CERT` and `UWP_SIGN_KEY` repository secrets (PEM text, subject `CN=lba2cc-dev`), so every rolling build has the same publisher; without them it signs with a throwaway certificate. [XBOX.md](XBOX.md) is the install guide, with a web browser only; the release text links it. [XBOX_PLAN.md](plan/XBOX_PLAN.md) covers the packaging.
+
 **Read the name, not the timestamp.** A release's `published_at` is stamped
 once, when it is first published; updating a release in place never advances
 it. The rolling release's date on the Releases page therefore reads as the
