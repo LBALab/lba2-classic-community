@@ -98,11 +98,9 @@ bool PrimaryDisplaySize(uint32_t *width, uint32_t *height) {
     return Uwp_DisplaySize(width, height);
 }
 
-/* No mouse on a console, and no pointer support yet anywhere. */
-void PointerMode(bool enabled) {
-    if (enabled)
-        Uwp_Fail("UWP has no pointer support yet");
-}
+/* No mouse on a console, and no pointer support yet anywhere. The engine asks
+   for a grab at every boot, so this is not logged as an error. */
+void PointerMode(bool) {}
 
 void Fullscreen(bool) {}
 bool AlwaysFullscreen() { return true; }
