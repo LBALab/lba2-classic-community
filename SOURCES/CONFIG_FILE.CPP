@@ -411,8 +411,13 @@ void ReadConfigFile(void) {
    WriteConfigValue below; reaching for DefFileBufferWrite* directly gets a
    refusal, and callers that do not check for one report success while storing
    nothing. */
+#define OWNED_CONFIG_SIZE (640 * 480 + RECOVER_AREA)
+
+/* NULL: ScreenAux, as the 1997 game did; set only by WriteConfigFileAside. */
+static void *OwnedConfigBuffer = NULL;
+
 static void OpenOwnedConfig(void) {
-    DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA));
+    DefFileBufferInit(PathConfigFile, OwnedConfigBuffer ? OwnedConfigBuffer : (void *)ScreenAux, OWNED_CONFIG_SIZE);
 }
 
 static void RestackDataConfig(void) {
@@ -428,8 +433,9 @@ S32 WriteConfigValue(const char *ident, S32 value) {
     return ok;
 }
 
-/*──────────────────────────────────────────────────────────────────────────*/
-void WriteConfigFile(void) {
+/* The owned file alone, left open on its own: the first two of the three
+   steps. */
+static void WriteOwnedConfig(void) {
     OpenOwnedConfig();
 
     // Batch the whole save into one fsync + atomic rename. Without this, each of
@@ -478,8 +484,28 @@ void WriteConfigFile(void) {
     if (batched) {
         DefFileBufferEndBatch();
     }
+}
 
+/*──────────────────────────────────────────────────────────────────────────*/
+void WriteConfigFile(void) {
+    WriteOwnedConfig();
     /* Reads after this point see what the boot assembled, which matters because
        this is also called mid-run: the options menu and a resolution switch. */
     RestackDataConfig();
+}
+
+S32 WriteConfigFileAside(void) {
+    void *buffer = malloc(OWNED_CONFIG_SIZE);
+    if (!buffer)
+        return FALSE;
+    T_DEFFILE_STATE saved;
+    DefFileBufferSaveState(&saved);
+    OwnedConfigBuffer = buffer;
+    /* No restack: the state put back below is the one the boot assembled, so
+       stacking the game data's config into this buffer would be thrown away. */
+    WriteOwnedConfig();
+    OwnedConfigBuffer = NULL;
+    DefFileBufferRestoreState(&saved);
+    free(buffer);
+    return TRUE;
 }

@@ -18,9 +18,9 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 ## Lifecycle
 
 - **Read**: `ReadConfigFile()` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP), invoked from `InitProgram()`
-- **Write**: `WriteConfigFile()` in the same file, called from `TheEndInfo()`
+- **Write**: `WriteConfigFile()` in the same file, called from `TheEndInfo()` (registered with `atexit`, so closing the window saves too). A backend whose app the system may end while suspended (UWP on the Xbox) also saves on suspend: it calls `Platform_NotifySuspend`, and the handler the engine registered at boot runs `WriteConfigFileAside()`, the same write in a buffer of its own rather than `ScreenAux`, which may hold the scene's background mid-run. A process that is killed writes nothing.
 - Not to be confused with [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP), which is the in-game key-binding menu
-- Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
+- Options menu changes globals only; config is written at exit (and on suspend where a backend suspends). No intermediate saves when changing options.
 - **A setting forced for one run is not written back.** The write serialises globals, so without this a
   flag whose own help says "this run only" would leave its value in the player's config for every later
   launch. `--fixed-timestep`, `--language`, `--vsync`, `LBA2_TEXFILTER` and `LBA2_PRESENT_FILTER` go through

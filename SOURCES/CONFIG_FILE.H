@@ -22,6 +22,12 @@ extern void ReadConfigFile(void);
  * override is currently forcing are written back at their stored preference. */
 extern void WriteConfigFile(void);
 
+/* WriteConfigFile from outside the game's own flow, the app being suspended:
+ * it works in a buffer of its own rather than ScreenAux, which may hold the
+ * scene's background, and leaves the config reader as it found it. Returns
+ * FALSE if it could not run. */
+extern S32 WriteConfigFileAside(void);
+
 /* Persist one key without rewriting the rest. */
 extern S32 WriteConfigValue(const char *ident, S32 value);
 

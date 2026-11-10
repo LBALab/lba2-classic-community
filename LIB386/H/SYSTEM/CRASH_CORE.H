@@ -14,9 +14,18 @@
  * tables below own or the state fields were registered with. */
 
 /* The backend that catches crashes here. Elsewhere Crash_Install does nothing. */
+/* A UWP app (Xbox Dev Mode) cannot use the debugging APIs the Windows backend
+   needs, so it takes the null backend. */
+#if defined(_WIN32)
+#include <winapifamily.h>
+#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+#define LBA_WINDOWS_APP 1
+#endif
+#endif
+
 #if defined(__APPLE__) || defined(__linux__)
 #define CRASH_BACKEND_POSIX 1
-#elif defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64))
+#elif defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64)) && !defined(LBA_WINDOWS_APP)
 #define CRASH_BACKEND_WINDOWS 1
 #endif
 

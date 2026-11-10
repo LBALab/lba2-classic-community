@@ -43,7 +43,7 @@ set(SOUND_BACKEND "sdl" CACHE STRING "Sound backend to be used")
 set(MVIDEO_BACKEND "smacker" CACHE STRING "Motion Video backend to be used")
 # Compilation options sanitization
 ## Sound backend
-set(SOUND_BACKEND_OPTIONS null miles sdl)
+set(SOUND_BACKEND_OPTIONS null miles sdl xaudio2)
 set_property(CACHE SOUND_BACKEND PROPERTY STRINGS ${SOUND_BACKEND_OPTIONS})
 if (NOT SOUND_BACKEND IN_LIST SOUND_BACKEND_OPTIONS)
     message(SEND_ERROR "SOUND_BACKEND set with invalid option '${SOUND_BACKEND}'. Valid options are: ${SOUND_BACKEND_OPTIONS}")

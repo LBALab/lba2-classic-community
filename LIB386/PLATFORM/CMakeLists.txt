@@ -1,7 +1,7 @@
 set(PLATFORM_BACKEND "sdl3" CACHE STRING "Platform implementation")
-set_property(CACHE PLATFORM_BACKEND PROPERTY STRINGS sdl3 sdl2 null)
-if(NOT PLATFORM_BACKEND MATCHES "^(sdl3|sdl2|null)$")
-    message(FATAL_ERROR "Unsupported PLATFORM_BACKEND '${PLATFORM_BACKEND}'. Available backends: sdl3, sdl2, null")
+set_property(CACHE PLATFORM_BACKEND PROPERTY STRINGS sdl3 sdl2 null uwp)
+if(NOT PLATFORM_BACKEND MATCHES "^(sdl3|sdl2|null|uwp)$")
+    message(FATAL_ERROR "Unsupported PLATFORM_BACKEND '${PLATFORM_BACKEND}'. Available backends: sdl3, sdl2, null, uwp")
 endif()
 
 # The on-device automation executable has no Java Activity. SDL3 on Android
@@ -59,6 +59,27 @@ if(PLATFORM_BACKEND STREQUAL "sdl2")
     return()
 endif()
 
+# Experimental: a UWP app for an Xbox in Developer Mode, built with llvm-mingw's
+# UWP compilers (cmake/llvm-mingw-x86_64-uwp.cmake). See docs/plan/XBOX_PLAN.md.
+if(PLATFORM_BACKEND STREQUAL "uwp")
+    if(NOT LBA2_WINDOWS_APP)
+        message(FATAL_ERROR "PLATFORM_BACKEND=uwp needs a UWP toolchain: -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw-x86_64-uwp.cmake")
+    endif()
+    if(NOT SOUND_BACKEND MATCHES "^(null|xaudio2)$")
+        message(FATAL_ERROR "PLATFORM_BACKEND=uwp requires SOUND_BACKEND=xaudio2 or null.")
+    endif()
+    # NULL/ANDROID.CPP: the engine's Android hooks, answered "not Android".
+    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP HOST_OS.CPP NULL/ANDROID.CPP
+        UWP/BACKEND.CPP UWP/EVENTS.CPP UWP/INPUT.CPP UWP/WINDOW.CPP)
+    target_include_directories(lba2_platform PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(lba2_platform PRIVATE d2d1 d3d11 dxgi runtimeobject)
+    # Its wWinMain and __wrap_exit need link options only the game executable
+    # takes: SOURCES/CMakeLists.txt.
+    add_library(lba2_platform_entry OBJECT UWP/ENTRY.CPP)
+    target_include_directories(lba2_platform_entry PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    return()
+endif()
+
 if(PLATFORM_BACKEND STREQUAL "null")
     if(NOT SOUND_BACKEND STREQUAL "null")
         message(FATAL_ERROR "PLATFORM_BACKEND=null requires SOUND_BACKEND=null; SDL audio requires an SDL2/SDL3 platform SDK.")
@@ -70,7 +91,7 @@ if(PLATFORM_BACKEND STREQUAL "null")
         message(FATAL_ERROR "PLATFORM_BACKEND=null builds a desktop executable, not an Android Activity library.")
     endif()
     find_package(Threads REQUIRED)
-    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP
+    add_library(lba2_platform STATIC PLATFORM.CPP STAGING_BUFFER.CPP HOST_OS.CPP
         NULL/BACKEND.CPP NULL/ANDROID.CPP)
     target_include_directories(lba2_platform PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(lba2_platform PRIVATE Threads::Threads)

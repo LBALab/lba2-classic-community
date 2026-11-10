@@ -13,24 +13,24 @@ struct AILWavSource {
     iso9660_t *image;
     U32 extent, size, position, bytesRead;
     U32 cacheStart, cacheBytes;
-    Uint8 cache[16384];
-    Uint8 format[4096];
+    U8 cache[16384];
+    U8 format[4096];
     U32 formatBytes, dataStart, dataBytes, consumed, blockBytes, blockFrames;
     U32 skip, decodedFrames, fact;
     bool hasFact, limitFact;
-    Uint8 packet[12 + 8 + 4096 + 12 + 8 + 65536 + 2];
+    U8 packet[12 + 8 + 4096 + 12 + 8 + 65536 + 2];
 };
 
 namespace {
 bool Error(const char *message) {
-    SDL_SetError("%s", message);
+    AIL_SetError("%s", message);
     return false;
 }
 
 bool Read(AILWavSource *s, void *buffer, U32 bytes) {
     if (s->position > s->size || bytes > s->size - s->position)
         return Error("Truncated music WAV");
-    Uint8 *out = (Uint8 *)buffer;
+    U8 *out = (U8 *)buffer;
     while (bytes) {
         if (s->position < s->cacheStart || s->position - s->cacheStart >= s->cacheBytes) {
             U32 count = s->size - s->position;
@@ -41,7 +41,7 @@ bool Read(AILWavSource *s, void *buffer, U32 bytes) {
                 got = iso_pread(s->image, s->extent, s->size, s->position, s->cache, count);
             else {
                 long offset = (long)s->position;
-                if (offset < 0 || (Uint64)offset != (Uint64)s->position || fseek(s->file, offset, SEEK_SET) != 0)
+                if (offset < 0 || (U64)offset != (U64)s->position || fseek(s->file, offset, SEEK_SET) != 0)
                     return Error("Unable to seek music WAV");
                 got = (int)fread(s->cache, 1, count, s->file);
             }
@@ -64,23 +64,23 @@ bool Read(AILWavSource *s, void *buffer, U32 bytes) {
 }
 
 bool Header(AILWavSource *s) {
-    Uint8 header[12];
+    U8 header[12];
     if (!Read(s, header, sizeof(header)))
         return false;
     U32 riff = ReadLE_U32(header + 4);
-    const char *riffHint = SDL_GetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE);
+    const char *riffHint = AIL_GetHint(AIL_HINT_WAVE_RIFF_CHUNK_SIZE);
     bool force = riffHint && !strcmp(riffHint, "force");
     bool ignore = riffHint && (!strcmp(riffHint, "ignore") || !strcmp(riffHint, "maximum"));
-    Uint64 end = (Uint64)riff + 8;
+    U64 end = (U64)riff + 8;
     if (ignore || (!force && riff == 0))
-        end = (Uint64)UINT_MAX + 8;
-    const char *truncation = SDL_GetHint(SDL_HINT_WAVE_TRUNCATION);
+        end = (U64)UINT_MAX + 8;
+    const char *truncation = AIL_GetHint(AIL_HINT_WAVE_TRUNCATION);
     bool strict = truncation && !strcmp(truncation, "verystrict");
     if (strict && end > s->size)
         return Error("Truncated music WAV RIFF chunk");
     if (end > s->size)
         end = s->size;
-    const char *hint = SDL_GetHint(SDL_HINT_WAVE_FACT_CHUNK);
+    const char *hint = AIL_GetHint(AIL_HINT_WAVE_FACT_CHUNK);
     bool findFact = hint && (!strcmp(hint, "truncate") || !strcmp(hint, "strict") ||
                              !strcmp(hint, "ignorezero"));
     bool data = false;
@@ -94,7 +94,7 @@ bool Header(AILWavSource *s) {
             return false;
         U32 length = ReadLE_U32(header + 4), start = s->position;
         /* RIFF bounds the search; payloads are bounded by the physical source. */
-        if (length > s->size - start || (strict && (Uint64)start + length > end))
+        if (length > s->size - start || (strict && (U64)start + length > end))
             return Error("Truncated music WAV chunk");
         if (memcmp(header, "fmt ", 4) == 0 && !s->formatBytes) {
             if (length < 16 || length > sizeof(s->format))
@@ -183,7 +183,7 @@ AILWavSource *AILWav_Open(const char *path, bool image, S32 frame, bool *recogni
         }
         s->size = (U32)size;
     }
-    Uint8 signature[12];
+    U8 signature[12];
     if (s->size < sizeof(signature) || !Read(s, signature, sizeof(signature)) ||
         memcmp(signature, "RIFF", 4) || memcmp(signature + 8, "WAVE", 4)) {
         AILWav_Close(s);
@@ -203,7 +203,7 @@ AILWavSource *AILWav_Open(const char *path, bool image, S32 frame, bool *recogni
     return s;
 }
 
-int AILWav_Read(AILWavSource *s, SDL_AudioSpec *spec, Uint8 **pcm, Uint32 *bytes) {
+int AILWav_Read(AILWavSource *s, AILAudioSpec *spec, U8 **pcm, U32 *bytes) {
     *pcm = NULL;
     *bytes = 0;
     if (s->consumed == s->dataBytes || (s->limitFact && s->decodedFrames >= s->fact))
@@ -218,7 +218,7 @@ int AILWav_Read(AILWavSource *s, SDL_AudioSpec *spec, Uint8 **pcm, Uint32 *bytes
         count = s->dataBytes - s->consumed;
     /* ADPCM predictors restart at block boundaries. Rewrapping complete blocks
        preserves SDL's decoder and its fact/truncation policies. */
-    Uint8 *p = s->packet;
+    U8 *p = s->packet;
     memcpy(p, "RIFF", 4);
     memcpy(p + 8, "WAVEfmt ", 8);
     WriteLE_U32(p + 16, s->formatBytes);
@@ -249,7 +249,7 @@ int AILWav_Read(AILWavSource *s, SDL_AudioSpec *spec, Uint8 **pcm, Uint32 *bytes
         return -1;
     U32 frameBytes = AIL_AUDIO_BITSIZE(spec->format) / 8 * spec->channels;
     if (!frameBytes) {
-        SDL_free(*pcm);
+        AIL_Free(*pcm);
         *pcm = NULL;
         Error("Invalid decoded music WAV geometry");
         return -1;
@@ -270,7 +270,7 @@ void AILWav_Close(AILWavSource *s) {
     if (!s)
         return;
     if (s->file && fclose(s->file) != 0)
-        SDL_Log("SDL AIL: unable to close music WAV: %s", strerror(errno));
+        AIL_Log("SDL AIL: unable to close music WAV: %s", strerror(errno));
     if (s->image)
         iso_close(s->image);
     free(s);

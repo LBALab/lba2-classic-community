@@ -137,7 +137,9 @@ target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURC
 # Explicit order matters for GNU static linking: poly references RoundType/ROUND in libsys (UTILS.CPP);
 # sys must follow poly. (Transitive deps from 3dext alone order sys before poly and break -m32 links.)
 target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE 3dext 3D ail ani fio obj poly svg sys lba2_platform)
-if (WIN32)
+# A UWP build (LBA2_WINDOWS_APP, set by cmake/llvm-mingw-x86_64-uwp.cmake) takes its
+# imports from the toolchain's windowsapp library instead of the desktop DLLs.
+if (WIN32 AND NOT LBA2_WINDOWS_APP)
     target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gdi32 user32 ddraw winmm kernel32)
     if (LBA2_CONTROL_SERVER)
         # Winsock, for --listen. Only linked when the socket is compiled in, so a
@@ -152,6 +154,13 @@ if (WIN32)
         target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE
             -static-libstdc++ -static-libgcc -static)
     endif()
+elseif (LBA2_WINDOWS_APP)
+    # libc++ and libunwind go into the .exe, so the app folder needs no DLLs.
+    # UWP/ENTRY.CPP's wWinMain, and no console window. --wrap=exit: it records
+    # a scripted run's exit code (tools/uwp/xbox-lba2cc.py). Only this
+    # executable has the entry, so tests and tools linking lba2_platform do not
+    # take these.
+    target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE -static -municode -mwindows -Wl,--wrap=exit)
 endif ()
 
 # Optional: polygon recording support for ASM-vs-CPP testing
