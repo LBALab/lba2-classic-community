@@ -11,6 +11,12 @@
 namespace WS = ABI::Windows::Storage;
 
 namespace {
+enum { MAX_NOTES = 40,
+       NOTE_SIZE = 256 };
+char s_notes[MAX_NOTES][NOTE_SIZE];
+int s_noteCount = 0;
+bool s_logReady = false;
+
 char s_localState[MAX_PATH * 3] = "";
 bool s_localStateRead = false;
 
@@ -224,5 +230,27 @@ HRESULT Uwp_Factory(const WCHAR *className, REFIID iid, void **out) {
 }
 
 const char *Uwp_LocalState(void) { return LocalState(); }
+
+void Uwp_Note(const char *format, ...) {
+    char line[NOTE_SIZE];
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(line, sizeof line, format, ap);
+    va_end(ap);
+    if (s_logReady)
+        Platform_Log(PLATFORM_LOG_INFO, "%s", line);
+    else if (s_noteCount < MAX_NOTES)
+        strcpy(s_notes[s_noteCount++], line);
+}
+
+/* The first pump comes after the game has opened its log. */
+void Uwp_FlushNotes(void) {
+    if (s_logReady)
+        return;
+    s_logReady = true;
+    for (int i = 0; i < s_noteCount; ++i)
+        Platform_Log(PLATFORM_LOG_INFO, "%s", s_notes[i]);
+    s_noteCount = 0;
+}
 
 extern "C" const PlatformInterface g_platform = Interface();

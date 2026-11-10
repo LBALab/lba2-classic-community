@@ -156,7 +156,11 @@ if (WIN32 AND NOT LBA2_WINDOWS_APP)
     endif()
 elseif (LBA2_WINDOWS_APP)
     # libc++ and libunwind go into the .exe, so the app folder needs no DLLs.
-    target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE -static)
+    # UWP/ENTRY.CPP's wWinMain, and no console window. --wrap=exit: it records
+    # a scripted run's exit code (tools/uwp/xbox-lba2cc.py). Only this
+    # executable has the entry, so tests and tools linking lba2_platform do not
+    # take these.
+    target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE -static -municode -mwindows -Wl,--wrap=exit)
 endif ()
 
 # Optional: polygon recording support for ASM-vs-CPP testing

@@ -6,7 +6,6 @@
 
 #include <windows.applicationmodel.h>
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,12 +27,6 @@ DWORD s_gameThread = 0;
 /* A scripted run (tools/uwp/xbox-lba2cc.py): LocalState\env.txt exists. */
 bool s_scripted = false;
 char s_exitPath[ARG_SIZE] = "";
-
-enum { MAX_NOTES = 40,
-       NOTE_SIZE = 256 };
-char s_notes[MAX_NOTES][NOTE_SIZE];
-int s_noteCount = 0;
-bool s_logReady = false;
 
 const char *ExecutionStateName(AA::ApplicationExecutionState state) {
     switch (state) {
@@ -285,28 +278,6 @@ class ViewSource : public UwpInspectable<IFrameworkViewSource> {
     }
 };
 } // namespace
-
-void Uwp_Note(const char *format, ...) {
-    char line[NOTE_SIZE];
-    va_list ap;
-    va_start(ap, format);
-    vsnprintf(line, sizeof line, format, ap);
-    va_end(ap);
-    if (s_logReady)
-        Platform_Log(PLATFORM_LOG_INFO, "%s", line);
-    else if (s_noteCount < MAX_NOTES)
-        strcpy(s_notes[s_noteCount++], line);
-}
-
-/* The first pump comes after the game has opened its log. */
-void Uwp_FlushNotes(void) {
-    if (s_logReady)
-        return;
-    s_logReady = true;
-    for (int i = 0; i < s_noteCount; ++i)
-        Platform_Log(PLATFORM_LOG_INFO, "%s", s_notes[i]);
-    s_noteCount = 0;
-}
 
 /* The game's other ways out call exit(), so a scripted run's exit code is
    caught here too. Linked with --wrap=exit. */
