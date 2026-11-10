@@ -4,8 +4,8 @@
          IgnorableNamespaces="uap">
   <Identity Name="LBA2CC" Publisher="CN=lba2cc-dev" Version="0.0.1.0" ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>lba2cc</DisplayName>
-    <PublisherDisplayName>lba2cc</PublisherDisplayName>
+    <DisplayName>LBA2 Classic Community</DisplayName>
+    <PublisherDisplayName>LBALab</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   <Dependencies>
@@ -16,7 +16,7 @@
   </Resources>
   <Applications>
     <Application Id="App" Executable="lba2cc.exe" EntryPoint="Lba2cc.App">
-      <uap:VisualElements DisplayName="lba2cc" Description="Little Big Adventure 2, Classic Community"
+      <uap:VisualElements DisplayName="LBA2 Classic Community" Description="A community source port of Little Big Adventure 2"
                           BackgroundColor="#000000"
                           Square150x150Logo="Assets\Square150x150Logo.png"
                           Square44x44Logo="Assets\Square44x44Logo.png">

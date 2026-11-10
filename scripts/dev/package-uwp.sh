@@ -41,19 +41,33 @@ for part in "${BASH_REMATCH[@]:1:3}"; do
 done
 APPX="$OUT/lba2cc-$VERSION_TEXT-xbox-x64.appx"
 
+# The name and description come from the build, as on the other platforms.
+PRODUCT_NAME=$(awk -F= '/^LBA2_PRODUCT_NAME:[^=]+=/{print $2; exit}' "$BUILD/CMakeCache.txt" 2>/dev/null || true)
+PRODUCT_DESC=$(awk -F= '/^LBA2_PRODUCT_DESCRIPTION:[^=]+=/{print $2; exit}' "$BUILD/CMakeCache.txt" 2>/dev/null || true)
+PRODUCT_NAME="${PRODUCT_NAME:-LBA2 Classic Community}"
+PRODUCT_DESC="${PRODUCT_DESC:-A community source port of Little Big Adventure 2}"
+
 rm -rf "$OUT" && mkdir -p "$STAGE"
 cp "$EXE" "$REPO_DIR/tools/uwp/AppxManifest.xml" "$STAGE/"
 cp -R "$REPO_DIR/tools/uwp/Assets" "$STAGE/"
-python3 -I - "$STAGE/AppxManifest.xml" "$PACKAGE_VERSION" <<'EOF'
+python3 -I - "$STAGE/AppxManifest.xml" "$PACKAGE_VERSION" "$PRODUCT_NAME" "$PRODUCT_DESC" <<'EOF'
 import re, sys
-path, version = sys.argv[1], sys.argv[2]
+from xml.sax.saxutils import escape
+path, version, name, desc = sys.argv[1:5]
+attr = lambda s: escape(s, {'"': "&quot;"})
 text = open(path, encoding="utf-8").read()
-text, n = re.subn(r'(<Identity\b[^>]*\bVersion=")[^"]*(")', r"\g<1>" + version + r"\2", text)
-if n != 1:
-    sys.exit(f"{path}: expected one Identity Version, found {n}")
+for pattern, value in [
+    (r'(<Identity\b[^>]*\bVersion=")[^"]*(")', version),
+    (r'(<DisplayName>)[^<]*(</DisplayName>)', escape(name)),
+    (r'(<uap:VisualElements\b[^>]*\bDisplayName=")[^"]*(")', attr(name)),
+    (r'(<uap:VisualElements\b[^>]*\bDescription=")[^"]*(")', attr(desc)),
+]:
+    text, n = re.subn(pattern, lambda m: m.group(1) + value + m.group(2), text)
+    if n != 1:
+        sys.exit(f"{path}: expected one match for {pattern}, found {n}")
 open(path, "w", encoding="utf-8").write(text)
 EOF
-echo "Package version $PACKAGE_VERSION"
+echo "Package version $PACKAGE_VERSION, name $PRODUCT_NAME"
 
 KEYS="$OUT/keys"
 mkdir -p "$KEYS" && chmod 700 "$KEYS"
