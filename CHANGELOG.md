@@ -227,7 +227,8 @@ that comes from the three 64-bit Android entries under Display & render.
   extracted game files or a disc rip, and keeps its settings when the console
   ends it while suspended.
   `tools/uwp/xbox-lba2cc.py` runs `tests/automation` on the console. The rolling
-  pre-release carries it as a signed `.appx`, installed from a web browser as
+  pre-release carries it as a signed `.appx`, named LBA2 Classic Community like
+  the other packages, and installed from a web browser as
   [docs/XBOX.md](docs/XBOX.md) describes. Setup and
   what is missing: [docs/plan/XBOX_PLAN.md](docs/plan/XBOX_PLAN.md)
   ([#861](https://github.com/LBALab/lba2-classic-community/pull/861)).

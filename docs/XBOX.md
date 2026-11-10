@@ -36,11 +36,11 @@ On the computer, open that address in the browser. The browser warns that the co
 2. In the Device Portal, on **Home**, under **My games & apps**, select **Add**.
 3. Select **Choose File**, pick the `.appx` you downloaded, and select **Next**.
 4. The next page says **Choose any necessary dependencies**. lba2cc needs none: select **Start**.
-5. Wait for **Package Successfully Registered**, then select **Done**. lba2cc is now in the list.
+5. Wait for **Package Successfully Registered**, then select **Done**. lba2cc is now in the list, as **LBA2 Classic Community**.
 
 ## 4. Start it once
 
-In the list, open the **Actions** menu next to lba2cc and choose **Launch/Resume**, or start it from Dev Home on the Xbox. A user must be signed in on the Xbox, or it asks for one on the TV.
+In the list, open the **Actions** menu next to **LBA2 Classic Community** and choose **Launch/Resume**, or start it from Dev Home on the Xbox. A user must be signed in on the Xbox, or it asks for one on the TV.
 
 The game closes again straight away, without a message: it has no game files yet. That is expected. This first start makes the folder the game files go in.
 
@@ -55,7 +55,7 @@ On the computer:
 In the Device Portal:
 
 1. Select **File explorer** in the menu on the left.
-2. Open **LocalAppData**, then **lba2cc**, then **LocalState**.
+2. Open **LocalAppData**, then **LBA2 Classic Community**, then **LocalState**.
 3. Under **Upload a file to this directory**, select **Choose File**, pick `Game.zip`, and select **Upload**.
 4. The browser asks **Extract zip file contents to this directory?** Select **OK**.
 
@@ -73,7 +73,7 @@ Download the newer `.appx` and install it as in step 3. Your game files, setting
 
 ## Backing up saves and settings
 
-In **File explorer**, open **LocalAppData** → **lba2cc** → **LocalState**, then use the save icon in the **Save** column:
+In **File explorer**, open **LocalAppData** → **LBA2 Classic Community** → **LocalState**, then use the save icon in the **Save** column:
 
 - next to `lba2.cfg` for your settings;
 - next to `save` for your saves, which download as `save.zip`.
@@ -82,7 +82,7 @@ To put saves back, open the `save` folder, upload `save.zip`, and select **OK** 
 
 ## Removing
 
-On **Home**, open **Actions** next to lba2cc and choose **Uninstall**. It does not ask first, and it deletes the game files, settings and saves with the app, so back them up before.
+On **Home**, open **Actions** next to **LBA2 Classic Community** and choose **Uninstall**. It does not ask first, and it deletes the game files, settings and saves with the app, so back them up before.
 
 ## Known limits
 
