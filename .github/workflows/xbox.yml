@@ -2,8 +2,9 @@ name: Xbox (UWP, experimental)
 
 # Builds the UWP exe with a pinned llvm-mingw and checks what no host test can
 # run: that every function the exe imports is one a UWP app may call, and that
-# the backend's callback table is complete. Running it needs a console or a
-# Windows PC in Developer Mode (docs/plan/XBOX_PLAN.md).
+# the backend's callback table is complete, then packs a signed .appx. Running
+# it needs a console or a Windows PC in Developer Mode (docs/plan/XBOX_PLAN.md).
+# release-latest.yml calls it for the rolling release.
 on:
   push:
     paths-ignore: &doc-paths
@@ -19,12 +20,25 @@ on:
   pull_request:
     paths-ignore: *doc-paths
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Name of the .appx artifact for the caller to download.
+        type: string
+        required: false
+        default: lba2cc-xbox
+    secrets:
+      UWP_SIGN_CERT:
+        required: false
+      UWP_SIGN_KEY:
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  # Prefixed: when called, github.workflow is the caller's name.
+  group: xbox-${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +47,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history, so cmake/git_version.cmake gives the version that
+          # names the package, as in reusable-build-windows.yml.
+          fetch-depth: 0
       # The script downloads the release it pins and checks its digest; the
       # cache only saves the download. Key it on the script, which holds the pin.
       - name: Cache llvm-mingw
@@ -43,9 +61,25 @@ jobs:
       # No CMake/ninja install step: the runner image ships both (see linux.yml).
       - name: Build and check
         run: bash scripts/dev/build-uwp.sh
+      - name: Install osslsigncode
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osslsigncode
+      # Windows updates a package in place only to a higher version; the run
+      # number, the package version's fourth part, rises with every run of the
+      # calling workflow.
+      - name: Pack and sign
+        env:
+          UWP_SIGN_CERT: ${{ secrets.UWP_SIGN_CERT }}
+          UWP_SIGN_KEY: ${{ secrets.UWP_SIGN_KEY }}
+        run: bash scripts/dev/package-uwp.sh "$GITHUB_RUN_NUMBER"
       - name: Upload exe
         uses: actions/upload-artifact@v4
         with:
           name: lba2cc-uwp-x64
           path: out/build/uwp-ci/SOURCES/lba2cc.exe
+          if-no-files-found: error
+      - name: Upload appx
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name || 'lba2cc-xbox' }}
+          path: out/uwp/lba2cc-*-xbox-x64.appx
           if-no-files-found: error
