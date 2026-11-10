@@ -103,12 +103,20 @@ void AIL_DestroySemaphore(AILSemaphore *semaphore) {
 
 int AIL_WaitSemaphoreTimeout(AILSemaphore *semaphore, int timeoutMs) {
     const DWORD wait = timeoutMs < 0 ? INFINITE : (DWORD)timeoutMs;
-    return WaitForSingleObjectEx((HANDLE)semaphore, wait, FALSE) == WAIT_OBJECT_0 ? 0 : 1;
+    const DWORD result = WaitForSingleObjectEx((HANDLE)semaphore, wait, FALSE);
+    if (result == WAIT_OBJECT_0)
+        return 0;
+    if (result == WAIT_TIMEOUT)
+        return 1;
+    AIL_SetError("WaitForSingleObjectEx failed (%lu)", (unsigned long)GetLastError());
+    return -1;
 }
 
 bool AIL_SignalSemaphore(AILSemaphore *semaphore) { return ReleaseSemaphore((HANDLE)semaphore, 1, NULL) != 0; }
 
-U64 AIL_Ticks() { return GetTickCount64(); }
+/* Milliseconds, as SDL_GetTicks counts them; GetTickCount64 moves in ~16 ms
+   steps, which the fades would show. */
+U64 AIL_Ticks() { return g_platform.system.ticks_ms(); }
 
 /* ── Engine ────────────────────────────────────────────────────────────── */
 
