@@ -275,7 +275,11 @@ bool Uwp_WindowCreate(uint32_t width, uint32_t height, bool) {
         return false;
     s_frameW = width;
     s_frameH = height;
-    return CreateFrameBitmap();
+    if (CreateFrameBitmap())
+        return true;
+    /* Leave no half-made surface, or every later create is refused. */
+    Uwp_WindowDestroy();
+    return false;
 }
 
 void Uwp_WindowDestroy(void) {
