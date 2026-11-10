@@ -54,6 +54,16 @@ A spike in C++98 tried the parts a backend needs before the backend was written:
 
 [`tools/uwp/xbox-run.sh`](../../tools/uwp/xbox-run.sh) deploys a build as a loose app (no packaging, no signing), launches it, saves a screenshot of the TV picture and the app's `LocalState`, and stops it. It drives the console through a Device Portal helper script (`XBOX_SH`) that keeps the login and pins the portal's certificate.
 
+The helper is not in this repository; any script that answers these commands works with `xbox-run.sh`, `xbox-push-data.sh` and `xbox-lba2cc.py`:
+
+| Command | Does |
+|---------|------|
+| `api METHOD PATH [curl args...]` | One authenticated Device Portal request (`https://<console>:11443` + `PATH`). Extra arguments go to curl as they are (`-F`, `-d ''`, `-o FILE`); the body goes to stdout; exits non-zero when the request fails. `XBOX_TIMEOUT` sets curl's `--max-time` in seconds, for long uploads. |
+| `apps` | One line per installed package: full name, a tab, the app id. |
+| `deploy DIR` | Copies an unpacked app folder (one holding `AppxManifest.xml`) to `DevelopmentFiles\LooseApps\<folder name>` and registers it there (`/api/app/packagemanager/register`), waiting for the result. |
+| `launch FULLNAME` | Starts an installed package (`POST /api/taskmanager/app` with the app id and package, base64). |
+| `screenshot OUT` | Saves the TV picture (`/ext/screenshot`) as a PNG. |
+
 - The console needs a signed-in user. Without one, a launch fails with `0x8004090A` and a sign-in prompt waits on the TV.
 - A deploy over a running copy fails with HTTP 500, since the app holds its `.exe` open; the loop stops it first.
 - A POST without a body needs `Content-Length: 0`, or the portal answers HTTP 411.
@@ -143,6 +153,8 @@ tools/uwp/xbox-run.sh 20                                   # build, run, screens
 tools/uwp/xbox-push-data.sh /path/to/LBA2/Common VIDEO VOX Music   # once, after the first run
 ```
 
+A disc rip works as on a desktop: `tools/uwp/xbox-push-data.sh /path/to/rip` copies the folder holding the `.bin` and `.cue` to `LocalState\Game`, and the game mounts the image from there, with the themes from its CD tracks. Checked on a Series S with the US CD rip (`TWINSEN.bin`, 688 MB, 38 seconds to copy): the `disc` command reports the mount, the cue and every theme matched to its track, and the game plays.
+
 The exe imports only API sets, `d3d11.dll`, `d2d1.dll` and `xaudio2_9.dll`; libc++ is linked in.
 
 [`scripts/dev/build-uwp.sh`](../../scripts/dev/build-uwp.sh) builds it with a pinned llvm-mingw (downloaded and checked against its published digest, or `LLVM_MINGW_ROOT`), and the `Xbox (UWP, experimental)` workflow runs it on every push. [`check-uwp-build.py`](../../scripts/ci/check-uwp-build.py) then checks what no host can run: every imported function is one `libwindowsapp.a` or `libucrtapp.a` offers (plus `D2D1CreateFactory`, allowed but missing there), and the backend's table assigns every callback in `PLATFORM.H`. Its selftest builds a `MessageBoxA` probe and drops a callback, and both must be rejected.
@@ -158,7 +170,7 @@ The exe imports only API sets, `d3d11.dll`, `d2d1.dll` and `xaudio2_9.dll`; libc
 | Back | `SystemNavigationManager.BackRequested` is marked handled; unhandled, B closes the app. The interfaces are declared by hand in `NAVIGATION.H`, their IDs from the Windows metadata as the `windows` crate prints them; the handler's ID is computed by the WinRT rule, checked by reproducing the headers' `EventHandler<Gamepad>` ID. |
 | Sound | The SDL sound backend's rules (samples, music, CD audio, WAV) over an XAudio2 transport, [`AUDIO_DEVICE_XAUDIO2.CPP`](../../LIB386/AIL/SDL/AUDIO_DEVICE_XAUDIO2.CPP): one source voice per stream, which XAudio2 resamples, mixes and sets the volume of. A stream's bytes are handed to its voice one buffer per processing pass, just ahead of need; the effects mixer is asked for more there, as SDL3 asks it. The rules reach the host through [`SDK.H`](../../LIB386/AIL/SDL/SDK.H). WAV music may be PCM or IMA ADPCM, the CD releases' encoding ([`WAV_DECODE.CPP`](../../LIB386/AIL/SDL/WAV_DECODE.CPP), checked against SDL's loader by `test_wav_decode`). |
 | Paths | Saves, config and log in `LocalState`, whose path is converted to the ANSI code page the engine's file calls read (refused if it cannot be spelled there). Game data in `LocalState\Game`, passed as `--game-dir` when that folder exists; otherwise the game's own search, which starts in the install folder. `LocalState\args.txt` adds arguments, one per line, each logged. |
-| Scripted runs | When `LocalState\env.txt` exists, its `NAME=VALUE` lines are the environment, `--game-dir` is not added, stdout and stderr go to `stdout.txt` and `stderr.txt` (binary, unbuffered), and the exit code to `exit.txt`, written when the view's `Run` returns and from `exit()` (linked with `--wrap=exit`), since the system may end the process without calling `exit()`. `--headless` keeps the window and stops the display being measured, as SDL's dummy driver does. |
+| Scripted runs | When `LocalState\env.txt` exists, its `NAME=VALUE` lines are the environment, it and `args.txt` are deleted once read (so a run that ends early leaves nothing to turn the player's next launch into a test), `--game-dir` is not added, stdout and stderr go to `stdout.txt` and `stderr.txt` (binary, unbuffered), and the exit code to `exit.txt`, written when the view's `Run` returns and from `exit()` (linked with `--wrap=exit`), since the system may end the process without calling `exit()`. `--headless` keeps the window and stops the display being measured, as SDL's dummy driver does. |
 
 The parts that need no Windows header are host-tested: translations (keys, pad buttons and axes, the events a pad reading adds, letterbox) in [`TRANSLATE.H`](../../LIB386/PLATFORM/UWP/TRANSLATE.H), and the event queue in [`QUEUE.H`](../../LIB386/PLATFORM/UWP/QUEUE.H), which never drops a quit: after `Closed` the window is not pumped again, so a lost quit would leave the game running. `test_platform_uwp_translate` checks them on every host against documented set-1 scan codes and virtual keys and the `GamepadButtons` values, and, when SDL3 is in the build, every key name and unshifted key code against SDL3's. Shifted codes are checked against the US layout directly: SDL3 without video has no Shift layer.
 
@@ -190,5 +202,5 @@ Not reachable that way: a path the engine writes into a file keeps its console s
 
 - Audio: nothing recovers after the output device is lost (XAudio2's critical error is logged). Chosen over WASAPI, which on the console reports a 7.1 float mix: with it the transport would resample, convert and mix by itself.
 - Lifecycle: the console may end a suspended app with no further event (going Home and back then starts the game afresh; the next log says "the previous run was ended by the system while suspended"). The settings are saved on suspend, so they survive it, as they survive closing the window on a desktop. Progress since the last autosave or visit to the menu is lost, as it is when a desktop window is closed; saving the game itself on suspend is not done, because the pump the handler runs in can be inside any scene, menu or dialogue. The Device Portal's stop goes the same way (suspend, then end), so `xbox-run.sh` runs test it.
-- Pointer: no mouse or touch; the backend reports pointer modes as unsupported.
+- Pointer: no mouse or touch; the backend ignores requests for a pointer grab, relative mode or a visible cursor.
 - Packaging: an `AppxManifest.xml`, icons and a signed MSIX. Microsoft's cross-platform `makemsix` may build one without Windows; not tried.
