@@ -120,27 +120,72 @@ U64 AIL_Ticks() { return g_platform.system.ticks_ms(); }
 
 /* ── Engine ────────────────────────────────────────────────────────────── */
 
+/* The engine and the voices are rebuilt when the output device goes away (a
+   headset plugged in, the TV or receiver changed), as SDL3 follows the
+   default device. XAudio2 reports it on its own thread, where no voice may be
+   destroyed, so a thread of this file does the work, and tries again each
+   second while no device is there. A stream keeps its format, gain and
+   running state for that, and one opened meanwhile gets its voice then.
+
+   s_lock guards the engine, the stream list, each stream's voice and voice
+   state. XAudio2's callbacks never take it, so a voice may be destroyed while
+   it is held. A stream's own lock guards its queue and buffers, and is the
+   one the callbacks take; the voice pointer changes under both. */
+
 namespace {
 class EngineEvents : public IXAudio2EngineCallback {
   public:
     void STDMETHODCALLTYPE OnProcessingPassStart() {}
     void STDMETHODCALLTYPE OnProcessingPassEnd() {}
-    /* The output device went away. Every voice is silent from here on. */
-    void STDMETHODCALLTYPE OnCriticalError(HRESULT error) {
-        AIL_Log("XAudio2 AIL: audio engine stopped (0x%08lx)", (unsigned long)error);
-    }
+    void STDMETHODCALLTYPE OnCriticalError(HRESULT error);
 };
 
+bool s_initialized = false;
+bool s_lockReady = false; // s_lock, kept to the end once InitAIL succeeds
 IXAudio2 *s_engine = NULL;
 IXAudio2MasteringVoice *s_master = NULL;
 EngineEvents s_engineEvents;
-CRITICAL_SECTION s_streamsLock;
+CRITICAL_SECTION s_lock;
 AILAudioStream *s_streams = NULL;
 
+HANDLE s_wake = NULL; // set on a critical error, and to stop
+volatile LONG s_lost = 0;
+volatile LONG s_stopping = 0;
+HANDLE s_recoveryThread = NULL;
+
 void ClearAIL(void);
+
+void STDMETHODCALLTYPE EngineEvents::OnCriticalError(HRESULT error) {
+    AIL_Log("XAudio2 AIL: audio engine stopped (0x%08lx); rebuilding it", (unsigned long)error);
+    InterlockedExchange(&s_lost, 1);
+    SetEvent(s_wake);
+}
+
+/* Under s_lock. */
+bool CreateEngine(void) {
+    HRESULT hr = XAudio2Create(&s_engine, 0, XAUDIO2_DEFAULT_PROCESSOR);
+    if (FAILED(hr)) {
+        AIL_SetError("XAudio2Create failed (0x%08lx)", (unsigned long)hr);
+        s_engine = NULL;
+        return false;
+    }
+    s_engine->RegisterForCallbacks(&s_engineEvents);
+    hr = s_engine->CreateMasteringVoice(&s_master, XAUDIO2_DEFAULT_CHANNELS, XAUDIO2_DEFAULT_SAMPLERATE, 0, NULL,
+                                        NULL, AudioCategory_GameEffects);
+    if (FAILED(hr)) {
+        AIL_SetError("no output device (0x%08lx)", (unsigned long)hr);
+        s_master = NULL;
+        s_engine->Release();
+        s_engine = NULL;
+        return false;
+    }
+    return true;
+}
+
+DWORD WINAPI RecoveryMain(void *);
 } // namespace
 
-bool AILAudio_Initialized(void) { return s_engine != NULL; }
+bool AILAudio_Initialized(void) { return s_initialized; }
 
 bool AIL_SetHeadless(void) {
     /* --headless also skips InitAIL, so no device is opened. */
@@ -148,24 +193,21 @@ bool AIL_SetHeadless(void) {
 }
 
 void InitAIL() {
-    if (s_engine)
+    if (s_initialized)
         return;
-    HRESULT hr = XAudio2Create(&s_engine, 0, XAUDIO2_DEFAULT_PROCESSOR);
-    if (FAILED(hr)) {
-        AIL_Log("XAudio2 AIL: Could not init audio: XAudio2Create failed (0x%08lx)", (unsigned long)hr);
-        s_engine = NULL;
-        return;
-    }
-    s_engine->RegisterForCallbacks(&s_engineEvents);
-    hr = s_engine->CreateMasteringVoice(&s_master, XAUDIO2_DEFAULT_CHANNELS, XAUDIO2_DEFAULT_SAMPLERATE, 0, NULL,
-                                        NULL, AudioCategory_GameEffects);
-    if (FAILED(hr)) {
-        AIL_Log("XAudio2 AIL: Could not init audio: no output device (0x%08lx)", (unsigned long)hr);
-        s_engine->Release();
-        s_engine = NULL;
+    InitializeCriticalSectionEx(&s_lock, 0, 0);
+    if (!CreateEngine()) {
+        AIL_Log("XAudio2 AIL: Could not init audio: %s", AIL_GetError());
+        DeleteCriticalSection(&s_lock);
         return;
     }
-    InitializeCriticalSectionEx(&s_streamsLock, 0, 0);
+    s_lockReady = true;
+    s_wake = CreateEventExW(NULL, NULL, 0, EVENT_ALL_ACCESS);
+    s_recoveryThread = s_wake ? CreateThread(NULL, 0, RecoveryMain, NULL, 0, NULL) : NULL;
+    if (!s_recoveryThread)
+        AIL_Log("XAudio2 AIL: no recovery thread (%lu); sound ends if the output device goes",
+                (unsigned long)GetLastError());
+    s_initialized = true;
     /* As the SDL transport does: stop the audio thread before the exit
        handlers and static destructors pull its data away. */
     atexit(ClearAIL);
@@ -174,12 +216,16 @@ void InitAIL() {
 /* ── Streams ───────────────────────────────────────────────────────────── */
 
 namespace {
-enum { MAX_BUFFERS = 16 };
+/* Up to MAX_BUFFERS buffers wait in the voice, each up to PASS_BUFFER
+   processing passes long: allocated with the stream, so XAudio2's thread
+   allocates nothing. */
+enum { MAX_BUFFERS = 16,
+       PASS_BUFFER = 4 };
 
-/* One buffer handed to the voice; freed when the voice is done with it. */
-struct Buffer {
+struct Slot {
+    U8 *data;
     int bytes;
-    U8 data[1];
+    bool busy;
 };
 
 class VoiceEvents : public IXAudio2VoiceCallback {
@@ -204,49 +250,54 @@ struct AILAudioStream {
     CRITICAL_SECTION lock;
     AILAudioCallback callback;
     void *userdata;
+    WAVEFORMATEX format;
+    float gain;
+    bool running;
     int frameBytes;
     int passBytes; // one 10 ms processing pass of this stream's audio, rounded up
     /* Bytes waiting for the voice: queue[head .. head + queued). */
     U8 *queue;
     int head, queued, capacity;
     /* Bytes handed to the voice and not yet played. */
-    Buffer *buffers[MAX_BUFFERS];
+    U8 *slotMemory;
+    int slotBytes;
+    Slot slots[MAX_BUFFERS];
     int submitted;
     bool submitFailed;
     AILAudioStream *next;
 };
 
 namespace {
+/* Under the stream's lock. */
 void Submit(AILAudioStream *stream, int bytes) {
-    int slot = 0;
-    while (slot < MAX_BUFFERS && stream->buffers[slot])
-        ++slot;
-    if (slot == MAX_BUFFERS)
-        return; // the voice holds enough; the next pass takes the rest
-    Buffer *buffer = (Buffer *)malloc(sizeof(Buffer) + (size_t)bytes);
-    if (!buffer)
-        return;
-    buffer->bytes = bytes;
-    memcpy(buffer->data, stream->queue + stream->head, (size_t)bytes);
-    XAUDIO2_BUFFER submit;
-    memset(&submit, 0, sizeof(submit));
-    submit.AudioBytes = (UINT32)bytes;
-    submit.pAudioData = buffer->data;
-    submit.pContext = buffer;
-    const HRESULT hr = stream->voice->SubmitSourceBuffer(&submit, NULL);
-    if (FAILED(hr)) {
-        if (!stream->submitFailed)
-            AIL_Log("XAudio2 AIL: SubmitSourceBuffer failed (0x%08lx)", (unsigned long)hr);
-        stream->submitFailed = true;
-        free(buffer);
-        return;
+    for (int i = 0; i < MAX_BUFFERS && bytes > 0; ++i) {
+        Slot *slot = &stream->slots[i];
+        if (slot->busy)
+            continue;
+        const int n = bytes < stream->slotBytes ? bytes : stream->slotBytes;
+        memcpy(slot->data, stream->queue + stream->head, (size_t)n);
+        XAUDIO2_BUFFER submit;
+        memset(&submit, 0, sizeof(submit));
+        submit.AudioBytes = (UINT32)n;
+        submit.pAudioData = slot->data;
+        submit.pContext = slot;
+        const HRESULT hr = stream->voice->SubmitSourceBuffer(&submit, NULL);
+        if (FAILED(hr)) {
+            if (!stream->submitFailed)
+                AIL_Log("XAudio2 AIL: SubmitSourceBuffer failed (0x%08lx)", (unsigned long)hr);
+            stream->submitFailed = true;
+            break;
+        }
+        slot->bytes = n;
+        slot->busy = true;
+        stream->submitted += n;
+        stream->head += n;
+        stream->queued -= n;
+        bytes -= n;
     }
-    stream->buffers[slot] = buffer;
-    stream->submitted += bytes;
-    stream->head += bytes;
-    stream->queued -= bytes;
     if (!stream->queued)
         stream->head = 0;
+    // A full voice holds enough; the next pass takes the rest.
 }
 
 /* XAudio2's thread, at the start of each pass: bytesRequired is what the voice
@@ -257,58 +308,138 @@ void STDMETHODCALLTYPE VoiceEvents::OnVoiceProcessingPassStart(UINT32 bytesRequi
     Crash_PrepareThread();
     AILAudioStream *s = stream;
     EnterCriticalSection(&s->lock);
-    int want = (int)bytesRequired + s->passBytes;
-    want -= want % s->frameBytes;
-    if (s->callback && s->queued < want)
-        s->callback(s->userdata, s, want - s->queued, want);
-    int bytes = s->queued < want ? s->queued : want;
-    bytes -= bytes % s->frameBytes;
-    if (bytes > 0)
-        Submit(s, bytes);
+    if (s->voice) {
+        int want = (int)bytesRequired + s->passBytes;
+        want -= want % s->frameBytes;
+        if (s->callback && s->queued < want)
+            s->callback(s->userdata, s, want - s->queued, want);
+        int bytes = s->queued < want ? s->queued : want;
+        bytes -= bytes % s->frameBytes;
+        if (bytes > 0)
+            Submit(s, bytes);
+    }
     LeaveCriticalSection(&s->lock);
 }
 
 void STDMETHODCALLTYPE VoiceEvents::OnBufferEnd(void *context) {
-    Buffer *buffer = (Buffer *)context;
+    Slot *slot = (Slot *)context;
     AILAudioStream *s = stream;
     EnterCriticalSection(&s->lock);
-    for (int i = 0; i < MAX_BUFFERS; ++i) {
-        if (s->buffers[i] == buffer) {
-            s->buffers[i] = NULL;
-            s->submitted -= buffer->bytes;
-            free(buffer);
-            break;
-        }
+    if (slot->busy) {
+        slot->busy = false;
+        s->submitted -= slot->bytes;
     }
     LeaveCriticalSection(&s->lock);
 }
 
+/* Under s_lock, not the stream's: destroying a voice waits for its callbacks,
+   which take the stream's lock. What the voice held is dropped. */
 void DestroyVoice(AILAudioStream *stream) {
-    if (!stream->voice)
-        return;
-    /* Waits for the voice's callbacks to finish, so no lock may be held. */
-    stream->voice->DestroyVoice();
+    EnterCriticalSection(&stream->lock);
+    IXAudio2SourceVoice *voice = stream->voice;
     stream->voice = NULL;
-    for (int i = 0; i < MAX_BUFFERS; ++i) {
-        free(stream->buffers[i]);
-        stream->buffers[i] = NULL;
-    }
+    LeaveCriticalSection(&stream->lock);
+    if (!voice)
+        return;
+    voice->DestroyVoice();
+    EnterCriticalSection(&stream->lock);
+    for (int i = 0; i < MAX_BUFFERS; ++i)
+        stream->slots[i].busy = false;
     stream->submitted = 0;
+    LeaveCriticalSection(&stream->lock);
 }
 
-void ClearAIL(void) {
-    if (!s_engine)
-        return;
-    s_engine->StopEngine();
-    EnterCriticalSection(&s_streamsLock);
-    AILAudioStream *streams = s_streams;
-    LeaveCriticalSection(&s_streamsLock);
-    for (AILAudioStream *stream = streams; stream; stream = stream->next)
+/* Under s_lock, with an engine: a stopped voice with the stream's gain,
+   started if the stream is running. */
+bool CreateVoice(AILAudioStream *stream) {
+    IXAudio2SourceVoice *voice = NULL;
+    const HRESULT hr =
+        s_engine->CreateSourceVoice(&voice, &stream->format, 0, XAUDIO2_DEFAULT_FREQ_RATIO, &stream->events, NULL, NULL);
+    if (FAILED(hr))
+        return AIL_SetError("CreateSourceVoice failed (0x%08lx)", (unsigned long)hr);
+    voice->SetVolume(stream->gain, XAUDIO2_COMMIT_NOW);
+    EnterCriticalSection(&stream->lock);
+    stream->voice = voice;
+    stream->submitFailed = false;
+    LeaveCriticalSection(&stream->lock);
+    if (stream->running)
+        voice->Start(0, XAUDIO2_COMMIT_NOW);
+    return true;
+}
+
+void FreeStream(AILAudioStream *stream) {
+    DeleteCriticalSection(&stream->lock);
+    free(stream->slotMemory);
+    free(stream->queue);
+    delete stream;
+}
+
+/* Under s_lock: every voice and the engine go, then come back on a new engine
+   with the state each stream kept. */
+bool RebuildEngine(void) {
+    for (AILAudioStream *stream = s_streams; stream; stream = stream->next)
         DestroyVoice(stream);
-    s_master->DestroyVoice();
+    if (s_master)
+        s_master->DestroyVoice();
     s_master = NULL;
-    s_engine->Release();
+    if (s_engine)
+        s_engine->Release();
     s_engine = NULL;
+    if (!CreateEngine())
+        return false;
+    int voices = 0, streams = 0;
+    for (AILAudioStream *stream = s_streams; stream; stream = stream->next) {
+        ++streams;
+        voices += CreateVoice(stream);
+    }
+    AIL_Log("XAudio2 AIL: audio engine rebuilt, %d of %d streams back", voices, streams);
+    return true;
+}
+
+DWORD WINAPI RecoveryMain(void *) {
+    DWORD wait = INFINITE;
+    for (;;) {
+        WaitForSingleObjectEx(s_wake, wait, FALSE);
+        if (s_stopping)
+            return 0;
+        if (!s_lost)
+            continue;
+        EnterCriticalSection(&s_lock);
+        const bool rebuilt = RebuildEngine();
+        LeaveCriticalSection(&s_lock);
+        if (rebuilt) {
+            InterlockedExchange(&s_lost, 0);
+            wait = INFINITE;
+        } else {
+            if (wait == INFINITE)
+                AIL_Log("XAudio2 AIL: no audio yet (%s); trying each second", AIL_GetError());
+            wait = 1000;
+        }
+    }
+}
+void ClearAIL(void) {
+    if (!s_initialized)
+        return;
+    if (s_recoveryThread) {
+        InterlockedExchange(&s_stopping, 1);
+        SetEvent(s_wake);
+        WaitForSingleObjectEx(s_recoveryThread, INFINITE, FALSE);
+        CloseHandle(s_recoveryThread);
+        s_recoveryThread = NULL;
+    }
+    EnterCriticalSection(&s_lock);
+    if (s_engine)
+        s_engine->StopEngine();
+    for (AILAudioStream *stream = s_streams; stream; stream = stream->next)
+        DestroyVoice(stream);
+    if (s_master)
+        s_master->DestroyVoice();
+    s_master = NULL;
+    if (s_engine)
+        s_engine->Release();
+    s_engine = NULL;
+    s_initialized = false;
+    LeaveCriticalSection(&s_lock);
 }
 } // namespace
 
@@ -319,7 +450,7 @@ AILAudioStream *AILAudio_Open(const AILAudioSpec *spec, AILAudioCallback callbac
         AIL_SetError("Invalid audio specification");
         return NULL;
     }
-    if (!s_engine) {
+    if (!s_initialized) {
         AIL_SetError("Audio is not initialised");
         return NULL;
     }
@@ -327,50 +458,55 @@ AILAudioStream *AILAudio_Open(const AILAudioSpec *spec, AILAudioCallback callbac
     stream->events.stream = stream;
     stream->callback = callback;
     stream->userdata = userdata;
+    stream->gain = 1.0f;
     stream->frameBytes = AIL_AUDIO_BITSIZE(spec->format) / 8 * spec->channels;
     stream->passBytes = (spec->freq / 100 + 1) * stream->frameBytes;
-    InitializeCriticalSectionEx(&stream->lock, 0, 0);
-
-    WAVEFORMATEX format;
-    memset(&format, 0, sizeof(format));
-    format.wFormatTag = WAVE_FORMAT_PCM;
-    format.nChannels = (WORD)spec->channels;
-    format.nSamplesPerSec = (DWORD)spec->freq;
-    format.wBitsPerSample = (WORD)AIL_AUDIO_BITSIZE(spec->format);
-    format.nBlockAlign = (WORD)stream->frameBytes;
-    format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
-    /* Created stopped: a stream starts paused, as SDL3's does. */
-    const HRESULT hr =
-        s_engine->CreateSourceVoice(&stream->voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO, &stream->events, NULL, NULL);
-    if (FAILED(hr)) {
-        AIL_SetError("CreateSourceVoice failed (0x%08lx)", (unsigned long)hr);
-        DeleteCriticalSection(&stream->lock);
+    stream->slotBytes = stream->passBytes * PASS_BUFFER;
+    stream->slotMemory = (U8 *)malloc((size_t)stream->slotBytes * MAX_BUFFERS);
+    if (!stream->slotMemory) {
         delete stream;
+        AIL_SetError("Unable to allocate audio buffers");
         return NULL;
     }
-    EnterCriticalSection(&s_streamsLock);
+    for (int i = 0; i < MAX_BUFFERS; ++i)
+        stream->slots[i].data = stream->slotMemory + (size_t)i * stream->slotBytes;
+    InitializeCriticalSectionEx(&stream->lock, 0, 0);
+
+    WAVEFORMATEX *format = &stream->format;
+    format->wFormatTag = WAVE_FORMAT_PCM;
+    format->nChannels = (WORD)spec->channels;
+    format->nSamplesPerSec = (DWORD)spec->freq;
+    format->wBitsPerSample = (WORD)AIL_AUDIO_BITSIZE(spec->format);
+    format->nBlockAlign = (WORD)stream->frameBytes;
+    format->nAvgBytesPerSec = format->nSamplesPerSec * format->nBlockAlign;
+    EnterCriticalSection(&s_lock);
+    /* Created stopped: a stream starts paused, as SDL3's does. With the
+       device gone, the stream waits for its voice. */
+    if (s_engine && !CreateVoice(stream)) {
+        LeaveCriticalSection(&s_lock);
+        FreeStream(stream);
+        return NULL;
+    }
     stream->next = s_streams;
     s_streams = stream;
-    LeaveCriticalSection(&s_streamsLock);
+    LeaveCriticalSection(&s_lock);
     return stream;
 }
 
 void AILAudio_Destroy(AILAudioStream *stream) {
     if (!stream)
         return;
-    if (s_engine) {
-        EnterCriticalSection(&s_streamsLock);
+    if (s_lockReady) {
+        EnterCriticalSection(&s_lock);
         AILAudioStream **link = &s_streams;
         while (*link && *link != stream)
             link = &(*link)->next;
         if (*link)
             *link = stream->next;
-        LeaveCriticalSection(&s_streamsLock);
+        DestroyVoice(stream);
+        LeaveCriticalSection(&s_lock);
     }
-    DestroyVoice(stream);
-    DeleteCriticalSection(&stream->lock);
-    free(stream->queue);
-    delete stream;
+    FreeStream(stream);
 }
 
 void AILAudio_Lock(AILAudioStream *stream) { EnterCriticalSection(&stream->lock); }
@@ -416,18 +552,32 @@ int AILAudio_Queued(AILAudioStream *stream) {
     return bytes;
 }
 
+/* The state is kept for a voice rebuilt later; with no voice now, it is all
+   there is to do. */
 bool AILAudio_Gain(AILAudioStream *stream, float gain) {
     if (!(gain >= 0.0f) || gain > 1.0f)
         return AIL_SetError("Invalid audio gain");
-    return stream->voice && SUCCEEDED(stream->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
+    EnterCriticalSection(&s_lock);
+    stream->gain = gain;
+    const bool ok = !stream->voice || SUCCEEDED(stream->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
+    LeaveCriticalSection(&s_lock);
+    return ok;
 }
 
 bool AILAudio_Resume(AILAudioStream *stream) {
-    return stream->voice && SUCCEEDED(stream->voice->Start(0, XAUDIO2_COMMIT_NOW));
+    EnterCriticalSection(&s_lock);
+    stream->running = true;
+    const bool ok = !stream->voice || SUCCEEDED(stream->voice->Start(0, XAUDIO2_COMMIT_NOW));
+    LeaveCriticalSection(&s_lock);
+    return ok;
 }
 
 bool AILAudio_Pause(AILAudioStream *stream) {
-    return stream->voice && SUCCEEDED(stream->voice->Stop(0, XAUDIO2_COMMIT_NOW));
+    EnterCriticalSection(&s_lock);
+    stream->running = false;
+    const bool ok = !stream->voice || SUCCEEDED(stream->voice->Stop(0, XAUDIO2_COMMIT_NOW));
+    LeaveCriticalSection(&s_lock);
+    return ok;
 }
 
 /* ── WAV ───────────────────────────────────────────────────────────────── */
