@@ -87,12 +87,9 @@ def api(method, path, *curl, check=True, binary=False):
 
 
 def ls(dev_path):
-    """Items of a LocalState folder ('\\LocalState\\t'), or None if it is missing."""
-    r = subprocess.run([XBOX, "api", "GET", "/api/filesystem/apps/files?%s&path=%s" % (LOCAL_Q, q(dev_path))],
-                       capture_output=True)
-    if r.returncode != 0:
-        return None
-    return [(i["Name"], bool(i.get("Type", 0) & 16)) for i in json.loads(r.stdout or b"{}").get("Items", [])]
+    """Items of a LocalState folder ('\\LocalState\\t') as (name, is_folder), or None if it is missing."""
+    items = ls_sizes(dev_path)
+    return None if items is None else [(name, size is None) for name, size in items.items()]
 
 
 def ls_sizes(dev_path):
@@ -340,9 +337,8 @@ def check_game_dir(host_game):
     hqr = os.path.join(host_game, "LBA2.HQR")
     if not os.path.isfile(hqr):
         die("LBA2_GAME_DIR has no LBA2.HQR: %s" % host_game)
-    # Sizes are not in ls(); compare by fetching the small file.
-    data = download("\\LocalState\\Game", "LBA2.HQR")
-    if data is None or len(data) != os.path.getsize(hqr):
+    sizes = ls_sizes("\\LocalState\\Game") or {}
+    if sizes.get("LBA2.HQR") != os.path.getsize(hqr):
         die("LBA2_GAME_DIR does not hold the console's game data (LBA2.HQR differs): %s" % host_game)
     state_put("gamecheck", host_game)
 
