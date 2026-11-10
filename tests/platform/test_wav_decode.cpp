@@ -194,6 +194,59 @@ static void test_pcm_matches_sdl() {
             }
 }
 
+/* Where the chunks sit and what the RIFF size says: SDL reads chunks only up to
+   the RIFF size (any size when it is zero), stops once it has fmt and data,
+   and refuses fmt after data. */
+static void test_chunk_layouts_match_sdl() {
+    std::vector<U8> format;
+    put16(format, 1);
+    put16(format, 1);
+    put32(format, 11025);
+    put32(format, 22050);
+    put16(format, 2);
+    put16(format, 16);
+    std::vector<U8> data, other, junk(10, 'j');
+    for (int i = 0; i < 200; ++i) {
+        data.push_back((U8)random_value());
+        other.push_back((U8)random_value());
+    }
+    struct Layout {
+        const char *what;
+        const char *chunks; // f fmt, d data, o a second data chunk, j junk
+        int riffSize;       // -1: the whole file; -2: up to the end of the second chunk
+    };
+    const Layout layouts[] = {
+        {"data before fmt", "df", -1},
+        {"data only", "d", -1},
+        {"two data chunks", "fdo", -1},
+        {"a second fmt after data", "fdf", -1},
+        {"RIFF size zero", "fd", 0},
+        {"RIFF size ends before data", "fjd", -2},
+        {"RIFF size ends inside data", "fd", 40},
+        {"junk then data past the RIFF size", "fjjd", -2},
+    };
+    for (const Layout &l : layouts) {
+        std::vector<U8> wav = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'};
+        U32 secondEnd = 0;
+        for (const char *c = l.chunks; *c; ++c) {
+            if (*c == 'f')
+                chunk(wav, "fmt ", format);
+            else if (*c == 'd')
+                chunk(wav, "data", data);
+            else if (*c == 'o')
+                chunk(wav, "data", other);
+            else
+                chunk(wav, "junk", junk);
+            if (c - l.chunks == 1)
+                secondEnd = (U32)wav.size();
+        }
+        const U32 size = l.riffSize == -1 ? (U32)wav.size() - 8 : l.riffSize == -2 ? secondEnd - 8
+                                                                                   : (U32)l.riffSize;
+        WriteLE_U32(&wav[4], size);
+        compare(wav, l.what);
+    }
+}
+
 static std::vector<const char *> files;
 
 static void test_named_files_match_sdl() {
@@ -222,6 +275,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_ima_adpcm_like_the_cd_music);
     RUN_TEST(test_ima_adpcm_refusals_match_sdl);
     RUN_TEST(test_pcm_matches_sdl);
+    RUN_TEST(test_chunk_layouts_match_sdl);
     if (!files.empty())
         RUN_TEST(test_named_files_match_sdl);
     TEST_SUMMARY();

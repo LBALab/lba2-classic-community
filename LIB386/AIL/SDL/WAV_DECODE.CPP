@@ -129,18 +129,26 @@ bool AILWav_DecodeMemory(const void *data, int bytes, AILAudioSpec *spec, U8 **p
     const U8 *format = NULL;
     const U8 *samples = NULL;
     U32 formatBytes = 0, sampleBytes = 0;
-    U32 at = 12;
-    while (at + 8 <= (U32)bytes) {
-        U32 length = ReadLE_U32(p + at + 4);
-        const U32 start = at + 8;
-        if (length > (U32)bytes - start)
-            length = (U32)bytes - start; // a truncated chunk keeps what is there
+    /* As SDL walks the chunks: up to the RIFF size (any size when it is zero),
+       the first fmt and the first data, and no further once both are found. */
+    const U32 riffSize = ReadLE_U32(p + 4);
+    const U64 riffEnd = 8 + (U64)(riffSize ? riffSize : 0xFFFFFFFFu);
+    U64 at = 12;
+    while (at < riffEnd && at + 8 <= (U64)bytes && !(format && samples)) {
+        const U64 start = at + 8;
+        U64 length = ReadLE_U32(p + at + 4);
+        if (length > (U64)bytes - start)
+            length = (U64)bytes - start; // a truncated chunk keeps what is there
         if (!memcmp(p + at, "fmt ", 4) && !format) {
+            if (samples) {
+                AIL_SetError("fmt chunk after data chunk in WAV");
+                return false;
+            }
             format = p + start;
-            formatBytes = length;
+            formatBytes = (U32)length;
         } else if (!memcmp(p + at, "data", 4) && !samples) {
             samples = p + start;
-            sampleBytes = length;
+            sampleBytes = (U32)length;
         }
         at = start + length + (length & 1);
     }
