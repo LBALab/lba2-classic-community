@@ -157,14 +157,18 @@ int BuildArguments(char storage[MAX_ARGS][ARG_SIZE], char *argv[MAX_ARGS]) {
         ++argc;
     }
     fclose(file);
+    /* A scripted run's arguments are its own; a player's args.txt stays. */
+    if (s_scripted)
+        remove(path);
     return argc;
 }
 
 /* A run set up from a computer by tools/uwp/xbox-lba2cc.py, which writes
    LocalState\env.txt: its NAME=VALUE lines are the environment, the console
    having none to pass, and stdout, stderr and the exit code, which the
-   console discards, go to stdout.txt, stderr.txt and exit.txt. Without
-   env.txt nothing here happens. */
+   console discards, go to stdout.txt, stderr.txt and exit.txt. Both env.txt
+   and the run's args.txt are deleted once read. Without env.txt nothing here
+   happens. */
 void StartScriptedRun(void) {
     const char *local = Uwp_LocalState();
     if (!*local)
@@ -187,6 +191,9 @@ void StartScriptedRun(void) {
         _putenv_s(line, equals + 1);
     }
     fclose(file);
+    /* Read once: if the computer's run ends early and leaves its files, the
+       player's next launch from the dashboard is still the player's. */
+    remove(path);
 
     snprintf(s_exitPath, sizeof s_exitPath, "%sexit.txt", local);
     remove(s_exitPath);
@@ -259,7 +266,8 @@ class View : public UwpInspectable<IFrameworkView> {
         argv[argc] = NULL;
         s_gameThread = GetCurrentThreadId();
         s_exitCode = Lba2Main(argc, argv);
-        /* The system may end the process once Run returns, without exit(). */
+        /* Lba2Main ends in exit(), recorded by __wrap_exit; this only covers
+           a return from it, should one be added. */
         RecordExit(s_exitCode);
         return S_OK;
     }
