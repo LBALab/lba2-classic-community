@@ -237,13 +237,15 @@ their own.
 1. **Row tables, nothing visible changes.** First, on main, a `ui` capture for each page that has
    none, and a check that selects each row once and compares the `lba2.cfg` it writes with
    main's: a capture shows a page, not what its rows write. Then move the Options pages into
-   `OPTIONS_MENU.CPP`: one table per page and one loop for every page, writing only through
-   `Settings_Apply` (Texts, Voices and Display text get their settings rows here). `DoGameMenu`
-   still draws them. Every capture matches main byte for byte. The draw record and the walks
-   ([Testing](#testing-against-the-original), points 5 and 6) come with the loop, so step 2's
-   pages are checked as they are made. In its own commit, the same loop
-   writes `lba2.cfg` when the player leaves Options, so a crash keeps the changes. The binding
-   writers then have to write the player's own tables while a replay has borrowed them, as
+   `OPTIONS_PAGES.CPP` and the loop into `OPTIONS_MENU.CPP`
+   ([Where the code goes](#where-the-code-goes)): one table per page and one loop for every
+   page, writing only through `Settings_Apply` (Texts, Voices and Display text get their
+   settings rows here). `DoGameMenu` still draws them. Every capture matches main byte for
+   byte. The draw record and the walks ([Testing](#testing-against-the-original), points 5 and
+   6) come with the loop, so step 2's pages are checked as they are made. In its own commit,
+   the same loop writes `lba2.cfg` when the player leaves Options, so a crash keeps the
+   changes. The binding writers then have to write the player's own tables while a replay has
+   borrowed them, as
    `Settings_WriteConfig` already does for a borrowed row: today `WriteInputConfig` writes
    `DefKeys`, which holds the recording's table for the length of a replay (`bindings_install` in
    [SOURCES/RECORD.CPP](../../SOURCES/RECORD.CPP)), so a replay that opens Options and is then
@@ -296,6 +298,38 @@ picture by picture before and after, show it behaves as it did; then it moves.
   game's drawing helpers (lba2cc has the originals), its settings held in memory, and its
   testing switches (screen sizes, the pad's names, help shown whole).
 
+### Where the code goes
+
+The prototype holds the menu in one file, `menu.cpp` (about 1,970 lines): its stand-in settings
+and presets, the page tables, the loop, both layouts' drawing, the voice, and its test output.
+In lba2cc these parts go to separate files, each with one job:
+
+| File | Holds | From the prototype |
+|---|---|---|
+| `OPTIONS_MENU.CPP` | the stack, [the mode](#one-mode), the loop and the row kinds' handlers; the draw record | `menu.cpp`, navigation |
+| `OPTIONS_PAGES.CPP` | the Options pages' row tables: the hub, the categories, the preset page, Advanced and reset | `menu.cpp`, pages as data |
+| `OPTIONS_PRESETS.CPP` | the presets, Undo preset, Reset settings and Undo reset, the backup they keep | `menu.cpp`, presets and undo |
+| `OPTIONS_KEYS.CPP` | Keys and buttons: its pages made from the binding tables, the chips, the device, the wait for a key | `bindings.cpp` |
+| `OPTIONS_MORE.CPP` | More options, its page made from the settings tables | `more_options.cpp` |
+| `OPTIONS_DRAW.CPP` | drawing a page from the stack and recording it: through `DoGameMenu` first, the Modern layouts later | `menu.cpp`, drawing |
+
+What stays where it is: the values in the six settings tables
+([SOURCES/SETTINGS.H](../../SOURCES/SETTINGS.H)), with the fields step 3 adds; the labels in
+`MENU_LABELS.CPP`, by id; the binding writers; `GAMEMENU.CPP` for the 1997 pages and the main
+menu, which opens Options; the console.
+
+The lines between them:
+
+- Only `OPTIONS_DRAW.CPP` knows pixels or which layout is up. The tables and the loop hold no
+  position.
+- Only the settings tables hold values. A row names its settings row, and every change goes
+  through `Settings_Apply`; no page writes a global.
+- The presets read and write through the settings tables and the binding tables, never through
+  a page.
+- Tests and `state` read the draw record and the stack, not a getter for each thing they check.
+  The prototype's self test reads twelve `Menu_*` getters besides the draw record, and More
+  options and Keys and buttons add their own, each added for one check.
+
 ## The page model
 
 A page is a table of rows, not a loop. A row says:
@@ -336,6 +370,40 @@ cancel a wait for a key. Whether there is a keyboard is a second value: on a des
 a console only once a key has been typed. Until then the legend names the pad from the start
 and the Controls page offers no Keyboard view and no Tab (decided 2026-11-11, after playing on
 an Xbox).
+
+### One mode
+
+The menu is in one mode at a time, held as one value, not a flag for each:
+
+- **A page**, the top of the stack: the cursor moves along its rows.
+- **A question**, two answers with the safe one first and the cursor on it; Esc gives the safe
+  answer and the voice says the question. Classic, Reset settings and a key already in use on
+  Keys and buttons all ask one. A question is a page pushed on the stack whose rows are its
+  answers, so Esc, the depth, the draw record and `state` need nothing of their own.
+- **Waiting for a key** on Keys and buttons: every key and button goes to the binding until one
+  is taken or the wait is left.
+
+The first launch is a page whose Esc chooses Modern, a field of the page ("Esc does"), not a
+mode. The Console row opens lba2cc's console (`Console_Toggle`), which takes the input itself,
+so it is not a mode of the menu either.
+
+The prototype keeps five flags (first launch, question, closed, console, and Keys and buttons'
+wait with its own question), tested one after another at the top of every frame, and has two
+questions written apart: Classic and Reset settings in `menu.cpp`, the key in use in
+`bindings.cpp`. Each mode there is one more flag, and one more test at the top of the frame.
+
+### A row kind brings its own handlers
+
+A row kind (setting, binding, More options' value, an answer) gives the loop a small set of
+handlers: what Left, Right, Enter and Del do on it, what the voice says on it, and how it is
+drawn and recorded. The loop calls the handlers of the row under the cursor and knows nothing
+else of the kind. A page made from another table (Keys and buttons from the bindings, More
+options from the settings tables) builds its rows and brings its kinds' handlers; it adds no
+branch to the loop.
+
+In the prototype each such page is tested for by name in the loop, the voice, the drawing, the
+place string, `state` and the cursor's getters: moving More options onto the stack touched
+all six. Handlers by kind keep a new page to its own file.
 
 ## Categories
 
