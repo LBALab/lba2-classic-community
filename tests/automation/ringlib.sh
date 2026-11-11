@@ -63,6 +63,7 @@ RING_FLIPS=(
     cam_world_anchor=1
     cam_world_return=0
     cam_zone_anchor=1
+    cam_zone_height=1
     cam_zone_return=0
     cam_zone_skip=0
 )

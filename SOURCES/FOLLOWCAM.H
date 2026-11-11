@@ -141,6 +141,9 @@ extern void FollowCamWorldAnchorRebase(void);
  * FollowCamLendToShot is called by the zone before it writes its angles, since
  * what has to be remembered is what they are about to replace. */
 extern void FollowCamLendToShot(S32 shotBeta);
+/* cam_zone_height: the shot's look-at point, as it is applied, so the Auto camera
+ * knows how far above the ground the shot was aimed. */
+extern void FollowCamNoteShotAim(S32 lookX, S32 lookY, S32 lookZ);
 
 /* The player set that axis by hand, so it is theirs now and is not given back.
  * For the pitch, call it after the tilt has been applied and clamped: the value
@@ -274,6 +277,7 @@ extern S32 FollowCamManualHoldFrames;     /* manual-override hold length (cvar c
 extern S32 FollowCamHoldAngle;            /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
 extern S32 FollowCamZoneReturn;           /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
 extern S32 FollowCamZoneAnchor;           /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
+extern S32 FollowCamZoneHeight;           /* keep a lent shot's eye height: aim above the hero, floor under the eye (cvar cam_zone_height) */
 extern S32 FollowCamWorldAnchor;          /* hold the camera's world yaw while the hero turns (cvar cam_world_anchor) */
 extern S32 FollowCamWorldReturn;          /* cam_world_anchor with cam_hold_angle 0: units walked that pace the return behind the hero (cvar cam_world_return) */
 extern S32 FollowCamEaseMs;               /* time constant of the yaw's ease behind the hero, ms; 0 = per-frame lerp (cvar cam_ease_ms) */

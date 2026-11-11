@@ -127,6 +127,24 @@
  * rather than carrying it round as an offset from wherever the hero is facing. */
 #define FOLLOW_CAM_ZONE_RETURN_DEFAULT 1
 #define FOLLOW_CAM_ZONE_ANCHOR_DEFAULT 0
+
+/* cam_zone_height (prototype, off): a lent shot keeps its yaw and pitch but not
+ * its look-at point or distance, so the Auto camera swings its own boom about
+ * the hero's feet at the shot's pitch. A shot authored low about a raised point
+ * (the Desert Island beach of the demo: 2.4 degrees about a point 1,100 over the
+ * sand) puts the eye 740 over the ground, where the near terrain is not drawn.
+ * With this on, while the hero is in the box and the pitch is still the shot's,
+ * the Auto camera aims as far above him as the shot aimed above the ground under
+ * its look-at (at most FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT). And while anything of a
+ * shot is still lent, the pitch is raised as far as it takes to keep the eye
+ * FOLLOW_CAM_ZONE_HEIGHT_FLOOR over the ground under it and the line to the hero
+ * cam_ground_clear over the ground between them: a hill behind the hero, or the
+ * swing a lent yaw makes when he turns. Both are render only and ease in and out
+ * with a time constant of FOLLOW_CAM_ZONE_HEIGHT_EASE_MS. */
+#define FOLLOW_CAM_ZONE_HEIGHT_DEFAULT 0
+#define FOLLOW_CAM_ZONE_HEIGHT_FLOOR 1500
+#define FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT 4096
+#define FOLLOW_CAM_ZONE_HEIGHT_EASE_MS 130
 #define FOLLOW_CAM_RETURN_YAW_MIN_STEP 3   /* minimum AddBetaCam step per frame of the return (units) */
 #define FOLLOW_CAM_RETURN_PITCH_MIN_STEP 1 /* minimum AlphaCam step per frame of the return (units) */
 

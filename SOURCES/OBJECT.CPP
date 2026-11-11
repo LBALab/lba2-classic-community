@@ -6375,6 +6375,7 @@ void SetZoneCamera(T_ZONE *ptrz) {
             if (FollowCamera) {
                 FollowCamAdoptAngle();
                 FollowCamObstructShotFired();
+                FollowCamNoteShotAim(info0 * SIZE_BRICK_XZ, info1 * SIZE_BRICK_Y, info2 * SIZE_BRICK_XZ);
             }
 
             SaveCamera();
