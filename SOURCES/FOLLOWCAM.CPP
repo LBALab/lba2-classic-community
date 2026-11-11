@@ -271,9 +271,23 @@ static void FollowCamHeightStep(S32 cut) {
     FollowCamHeightTime = now;
 
     /* Aim high only while the pitch on screen is still the shot's: it was
-     * written for a view about a raised point. */
-    if (lent AND FollowCamInShotBox AND(FollowCamLoan & FOLLOW_CAM_LOAN_PITCH) AND !(FollowCamLoan & FOLLOW_CAM_LOAN_RETURNING))
-        wantLift = FollowCamShotAimLift;
+     * written for a view about a raised point. And only as far as the eye
+     * needs it: up to FOLLOW_CAM_ZONE_HEIGHT_FLOOR over the ground under the
+     * hero, never past the height the shot itself aimed at. A shot steep
+     * enough to keep the eye up on its own, or a hero already high (flying,
+     * on a ledge over a drop), gets nothing. Some shots aim at something far
+     * off and high, which is no reason to look over the hero. */
+    if (lent AND FollowCamInShotBox AND(FollowCamLoan & FOLLOW_CAM_LOAN_PITCH) AND !(FollowCamLoan & FOLLOW_CAM_LOAN_RETURNING)) {
+        T_OBJ_3D *hero = &ListObjet[NumObjFollow].Obj; /* the look-at point leads him: read the ground where he is */
+        S32 alpha = AlphaCam + FollowCamRenderExtraPitch();
+        S32 eyeOverHero = (S32)(VueDistance * sin(alpha * (2.0 * M_PI / 4096.0)));
+
+        wantLift = FollowCamHeightGround(hero->X, hero->Z, hero->Y) + FOLLOW_CAM_ZONE_HEIGHT_FLOOR - (hero->Y + eyeOverHero);
+        if (wantLift > FollowCamShotAimLift)
+            wantLift = FollowCamShotAimLift;
+        if (wantLift < 0)
+            wantLift = 0;
+    }
     if (lent) {
         S32 alpha = AlphaCam + FollowCamRenderExtraPitch();
         wantPitch = FollowCamHeightPitchFor(VueOffsetX, VueOffsetY + wantLift, VueOffsetZ, VueOffsetY,

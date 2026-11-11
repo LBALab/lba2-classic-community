@@ -134,8 +134,11 @@
  * (the Desert Island beach of the demo: 2.4 degrees about a point 1,100 over the
  * sand) puts the eye 740 over the ground, where the near terrain is not drawn.
  * With this on, while the hero is in the box and the pitch is still the shot's,
- * the Auto camera aims as far above him as the shot aimed above the ground under
- * its look-at (at most FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT). And while anything of a
+ * the Auto camera aims higher until the eye is FOLLOW_CAM_ZONE_HEIGHT_FLOOR over
+ * the ground under the hero, but never higher than the shot aimed above the
+ * ground under its look-at (at most FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT): a shot steep
+ * enough to keep the eye up, or one aimed at something far off and high (the
+ * harbour of the demo's scene 209), changes nothing. And while anything of a
  * shot is still lent, the pitch is raised as far as it takes to keep the eye
  * FOLLOW_CAM_ZONE_HEIGHT_FLOOR over the ground under it and the line to the hero
  * cam_ground_clear over the ground between them: a hill behind the hero, or the
