@@ -8,6 +8,7 @@
 #include "SETTINGS.H"
 #include "INPUT.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/DEFFILE.H>
 #include <SYSTEM/LOG.H>
 #include <math.h>
 
@@ -2123,12 +2124,34 @@ static const T_SETTING FollowCamSettings[] = {
 };
 #define FOLLOW_CAM_SETTING_COUNT ((S32)(sizeof(FollowCamSettings) / sizeof(FollowCamSettings[0])))
 
+/* Which camera defaults an lba2.cfg was written under. v0.13.2 wrote every row,
+ * so its players' files hold its defaults as if chosen; marker 1 moves those
+ * still at them to the defaults the Auto camera has had since. */
+#define FOLLOW_CAM_DEFAULTS_MARKER "FollowCamDefaults"
+#define FOLLOW_CAM_DEFAULTS_VERSION 1
+
+static const T_SETTING_DEFAULT_MOVE FollowCamDefaultMoves[] = {
+    {"FollowCamWorldAnchor", 0, 1},
+    {"FollowCamHoldAngle", 1, 1},
+    {"FollowCamShotBlendMs", 600, 1},
+};
+
 void FollowCam_ReadConfig(void) {
+    S32 moved;
+
     Settings_ReadConfig(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
+    moved = Settings_MoveDefaults(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT, FOLLOW_CAM_DEFAULTS_MARKER,
+                                  FOLLOW_CAM_DEFAULTS_VERSION, FollowCamDefaultMoves,
+                                  (S32)(sizeof(FollowCamDefaultMoves) / sizeof(FollowCamDefaultMoves[0])));
+    if (moved > 0)
+        Log_Info("[cam] lba2.cfg held %d Auto camera setting(s) at an older default: moved to the current one "
+                 "(world anchor %d, hold angle %d, shot blend %d ms)",
+                 moved, FollowCamWorldAnchor, FollowCamHoldAngle, FollowCamShotBlendMs);
 }
 
 void FollowCam_WriteConfig(void) {
     Settings_WriteConfig(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
+    DefFileBufferWriteValue(FOLLOW_CAM_DEFAULTS_MARKER, FOLLOW_CAM_DEFAULTS_VERSION);
 }
 
 void FollowCam_RegisterCvars(void) {

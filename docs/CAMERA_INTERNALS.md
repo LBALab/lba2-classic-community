@@ -288,6 +288,8 @@ It does not stop an ordered change into an interior from recentring, and it carr
 
 The behaviour switches are listed in [CAMERA.md](CAMERA.md#settings). These tune them; all are console cvars with an `lba2.cfg` key, defined in the settings table in [FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) (`FollowCamSettings`).
 
+Changing a default that a release has shipped means a move: the cfg writer persists every row, so a player's `lba2.cfg` holds the old default as if chosen. Add the row to `FollowCamDefaultMoves` with the default the release wrote, and raise `FOLLOW_CAM_DEFAULTS_VERSION`. On the next start, `Settings_MoveDefaults` moves each listed row that the player's own file still holds at that value (not one an install's data layer supplied), and the writer stamps `FollowCamDefaults` so it happens once. A default that never reached a release needs no move.
+
 | Console | cfg key | Default | Tunes |
 | --- | --- | --- | --- |
 | `cam_recenter_delay` | `FollowCamReengageFrames` | 60 | frames before the camera recentres after a manual pan |

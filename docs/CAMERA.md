@@ -44,6 +44,8 @@ The zoom is not saved: it starts at the middle distance in every session, and En
 
 Each behaviour above is a setting you can switch off to get the camera as it was before it. Change one in the console with `name value`, for example `cam_shot_blend_ms 0`. Always type the value: a name typed alone switches the setting over. Console changes are written to `lba2.cfg` when the game exits. You can also edit `lba2.cfg` while the game is closed.
 
+When a default changes, an `lba2.cfg` written by an earlier version moves to it once, on the first start: a setting still at the earlier default takes the new one, and a value you changed is kept. The `FollowCamDefaults` line records which defaults the file has been moved to, so what you set after that stays.
+
 | Console | `lba2.cfg` key | Default | What it does | Off gives |
 | --- | --- | --- | --- | --- |
 | `cam_follow` | `FollowCamera` | 0 | The Auto camera itself | the classic camera |

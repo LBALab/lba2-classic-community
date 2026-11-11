@@ -340,6 +340,29 @@ extern void Settings_ReadConfig(const T_SETTING *table, S32 count);
  * borrowed persists the value it is to be given back, not the borrowed one. */
 extern void Settings_WriteConfig(const T_SETTING *table, S32 count);
 
+/* A default that changed after a release had written the old one into players'
+ * lba2.cfg. The writer persists every row, so the old default sits in the file
+ * as if the player had chosen it, and a new default would only ever reach a
+ * fresh install. `key` names the row; `was` is the default the release wrote;
+ * `since` is the version of the module's marker that brought the change. */
+typedef struct {
+    const char *key;
+    S32 was;
+    S32 since;
+} T_SETTING_DEFAULT_MOVE;
+
+/* Once per cfg: when the owned file's `marker` is older than `version` (or
+ * absent), every move newer than it whose row the owned file still holds at
+ * `was` takes the row's current default. A value the player changed is kept,
+ * and so is one an install's data layer supplied; the file cannot tell a value
+ * chosen on purpose from one left alone, so an old default chosen on purpose
+ * moves too, once. Call after Settings_ReadConfig; the caller writes `marker`
+ * as `version` with the rows, so the next boot moves nothing.
+ *
+ * Returns how many rows moved. */
+extern S32 Settings_MoveDefaults(const T_SETTING *table, S32 count, const char *marker, S32 version,
+                                 const T_SETTING_DEFAULT_MOVE *moves, S32 moveCount);
+
 /* Register every row that names a cvar, carrying its range to the console. */
 extern void Settings_RegisterCvars(const T_SETTING *table, S32 count);
 

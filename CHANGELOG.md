@@ -24,6 +24,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   600 ms, indoors too with the interior follow. `cam_shot_blend_ms 600` gives
   the earlier pace.
 
+- An `lba2.cfg` written by an earlier version moves to these three new camera
+  defaults once, on the first start: each of the three that still holds its
+  earlier default takes the new one, and a value you changed is kept. A
+  `FollowCamDefaults: 1` line marks the file as moved, so a setting you put
+  back afterwards stays.
+
 - The Auto camera keeps a scripted shot's view off the ground. A shot written
   low and flat, such as the Desert Island beach in the demo, put the camera so
   close to the sand that the bottom of the frame showed the ground missing;

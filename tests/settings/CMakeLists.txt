@@ -55,3 +55,28 @@ set_target_properties(test_retail_fix PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_retail_fix COMMAND test_retail_fix)
 register_host_test(test_retail_fix)
+
+# A default changed after a release wrote the old one into players' lba2.cfg
+# (Settings_MoveDefaults), through real cfg files and a data layer under them.
+add_executable(test_settings_defaults
+    test_settings_defaults.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/SETTINGS.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+
+target_include_directories(test_settings_defaults PRIVATE
+    ${CMAKE_SOURCE_DIR}/SOURCES
+    ${CMAKE_SOURCE_DIR}/LIB386/H
+    ${CMAKE_SOURCE_DIR}/tests
+)
+target_compile_definitions(test_settings_defaults PRIVATE LBA_LOG_NO_PLATFORM)
+set_target_properties(test_settings_defaults PROPERTIES CXX_STANDARD 11)
+
+add_test(NAME test_settings_defaults COMMAND test_settings_defaults)
+register_host_test(test_settings_defaults)
