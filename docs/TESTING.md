@@ -218,6 +218,7 @@ The camera is guarded in two places. CI runs `tests/camera/test_followcam_math.c
 | `camzone_hold` | both cameras leave an authored shot in the same place |
 | `camzone_return` | with `cam_zone_return` or `cam_zone_anchor` on, a shot's yaw and pitch come back on leaving its box, the player's own stay, and a latching shot holds its world angle |
 | `camzone_blend` | with `cam_shot_blend_ms`, the frame blends into a shot and out of it over the time the setting says, starting on the view on screen and ending on the camera's own, with the camera's own state as it is with the setting at 0; Center camera in the middle of one is still a cut |
+| `camzone_height` | with `cam_zone_height`, a lent shot's eye stays off the ground: the demo's flat beach shot aims higher, a turn under the Emerald Moon shot tilts up over the hill, the harbour shot aimed far off is left alone, and only the frame changes |
 
 Most start from `CAM_PLAIN`, which is `settings_before cam_`: every Auto camera setting that switches on a later behaviour is set to the value that switches it off, and the fixture switches on what it measures. A new setting of that kind declares that value on its row in `FOLLOWCAM.CPP` (`SETTING_BEFORE`), and `make settings-before-check` refuses a `cam_` row that says neither `SETTING_BEFORE(v)` nor `SETTING_BEFORE_NONE`.
 

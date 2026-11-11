@@ -52,6 +52,7 @@ Each behaviour above is a setting you can switch off to get the camera as it was
 | `cam_shot_blend_ms` | `FollowCamShotBlendMs` | 600 | Glide into and out of a scripted shot, in milliseconds (indoors too, with the interior follow) | 0: a cut |
 | `cam_zone_return` | `FollowCamZoneReturn` | 1 | Gives your angle and tilt back after a shot | the shot's angle stays until you move the camera |
 | `cam_zone_skip` | `FollowCamZoneSkip` | 1 | Shots that fire once leave you alone while you steer | they take the view for a moment |
+| `cam_zone_height` | `FollowCamZoneHeight` | 1 | Keeps a scripted shot's view off the ground: aims higher under a flat shot, tilts up over a hill behind Twinsen | the bottom of the frame can show the ground missing or go black |
 | `cam_scene_carry` | `FollowCamSceneCarry` | 1 | Starts behind Twinsen out of a building; keeps your angle between two outdoor scenes a script changes | the camera arrives to one side and swings round |
 | `cam_obstruct` | `FollowCamObstruct` | 1 | Tilts over scenery only while it is in the way | a steep tilt can stay after it is clear |
 | `cam_ground` | `FollowCamGround` | 1 | Rises over hills between the camera and Twinsen | a hill can hide him |
