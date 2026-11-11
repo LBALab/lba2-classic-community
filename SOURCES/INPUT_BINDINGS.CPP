@@ -5,50 +5,12 @@
 #include <SYSTEM/INPUT.H>         // DefineInputKeys
 #include <SYSTEM/KEYBOARD.H>      // CheckKey
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
+#include <INPUT_PROFILE_CONFIG.H>
 
-// The 1997 source carried two default layouts, DefKeysDefault for DOS and this
-// one for Windows 95. Only the second was ported. A binding set is where the
-// first would come back if anyone wants it.
+// The symbol retains the Windows 95 name used by the config reader; the
+// build-time keyboard profile supplies the defaults.
 const T_DEF_KEY DefKeysDefault95[MAX_INPUT_SLOTS + 1] =
-    {
-        {K_GRAY_UP, K_NUMPAD_8},    // I_UP
-        {K_GRAY_DOWN, K_NUMPAD_2},  // I_DOWN
-        {K_GRAY_LEFT, K_NUMPAD_4},  // I_LEFT
-        {K_GRAY_RIGHT, K_NUMPAD_6}, // I_RIGHT
-        {K_ALT, 0},                 // I_THROW
-        {K_CTRL, 0},                // I_COMPORTEMENT
-        {K_SHIFT, 0},               // I_INVENTORY
-        {K_SPACE, K_NUMPAD_5},      // I_ACTION_M
-        {K_W, K_GRAY_END},          // I_ACTION_ALWAYS
-        {K_ENTER, K_NUMPAD_ENTER},  // I_RETURN
-        {K_F10, 0},                 // I_MENUS
-        {K_H, K_TAB},               // I_HOLOMAP
-        {K_P, 0},                   // I_PAUSE
-        {K_X, 0},                   // I_ESQUIVE
-        {K_F5, 0},                  // I_NORMAL
-        {K_F6, 0},                  // I_SPORTIF
-        {K_F7, 0},                  // I_AGRESSIF
-        {K_F8, 0},                  // I_DISCRET
-        {K_F1, 0},                  // I_HELP
-        {K_F2, K_S},                // I_SAVE
-        {K_F3, K_L},                // I_LOAD
-        {K_F4, K_O},                // I_OPTIONS
-        {K_BACKSPACE,
-         0},                                // I_CAMERA (backtick used for console)
-        {K_NUMPAD_PLUS, K_GRAY_PAGE_UP},    // I_CAMERA_LEVEL_PLUS
-        {K_NUMPAD_MOINS, K_GRAY_PAGE_DOWN}, // I_CAMERA_LEVEL_MOINS
-        {K_1, 0},                           // I_WEAPON_1
-        {K_2, 0},                           // I_WEAPON_2
-        {K_3, 0},                           // I_WEAPON_3
-        {K_4, 0},                           // I_WEAPON_4
-        {K_5, 0},                           // I_WEAPON_5
-        {K_6, 0},                           // I_WEAPON_6
-        {K_7, 0},                           // I_WEAPON_7
-        {K_N, 0},                           // I_PINGOUIN
-        {K_J, 0},                           // I_JETPACK
-        {K_C, 0},                           // I_PROTECTION
-        {K_F, 0},                           // I_FOUDRE
-};
+    {LBA2_INPUT_KEYBOARD_DEFAULTS};
 
 T_DEF_KEY MemoDefKeys[MAX_INPUT_SLOTS + 1];
 T_DEF_KEY DefKeys[MAX_INPUT_SLOTS + 1];
@@ -62,85 +24,74 @@ U32 TabInputBit[MAX_INPUT_SLOTS * 2 + 1];
 // edge-filter, so held pad buttons edge-detect like keyboard keys and survive a
 // mid-frame GetInput() rebuild. Only the first 32 slots map to Input bits; four
 // keys per slot (keyboard Key1/Key2 + gamepad Key1/Key2) => 32 * 4 entries.
-#define INPUT_TABLE_SLOTS 32
+#define INPUT_TABLE_SLOTS INPUT_SLOT_PINGOUIN
 static U32 CombinedInputKeys[INPUT_TABLE_SLOTS * 4];
 static U32 CombinedInputMasks[INPUT_TABLE_SLOTS * 4];
 
 T_DEF_KEY GamepadKeys[MAX_INPUT_SLOTS];
 
-const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
-#ifdef LBA2_GAMEPAD_STICK_LAYOUT
-    {K_GAMEPAD_LSTICK_UP, 0},   // 0  I_UP
-    {K_GAMEPAD_LSTICK_DOWN, 0}, // 1  I_DOWN
-#else
-    {K_GAMEPAD_RTRIGGER, 0}, // 0  I_UP
-    {K_GAMEPAD_LTRIGGER, 0}, // 1  I_DOWN
-#endif
-    {K_GAMEPAD_LSTICK_LEFT, 0},  // 2  I_LEFT
-    {K_GAMEPAD_LSTICK_RIGHT, 0}, // 3  I_RIGHT
-    {K_GAMEPAD_RSHOULDER, 0},    // 4  I_THROW
-    {K_GAMEPAD_LSHOULDER, 0},    // 5  I_COMPORTEMENT
-    {K_GAMEPAD_Y, 0},            // 6  I_INVENTORY
-    {K_GAMEPAD_X, 0},            // 7  I_ACTION_M
-    {K_GAMEPAD_A, 0},            // 8  I_ACTION_ALWAYS
-#ifdef LBA2_GAMEPAD_STICK_LAYOUT
-    {0, 0}, // 9  I_RETURN (front-screen tap)
-#else
-    {K_GAMEPAD_B, 0}, // 9  I_RETURN
-#endif
-    {K_GAMEPAD_START, 0}, // 10 I_MENUS
-    {K_GAMEPAD_BACK, 0},  // 11 I_HOLOMAP
-    {0, 0},               // 12 I_PAUSE (unbound; Start opens the in-game menu)
-#ifdef LBA2_GAMEPAD_STICK_LAYOUT
-    {K_GAMEPAD_B, 0}, // 13 I_ESQUIVE
-#else
-    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN}, // 13 I_ESQUIVE
-#endif
-    {0, 0},                                          // 14 I_NORMAL
-    {0, 0},                                          // 15 I_SPORTIF
-    {0, 0},                                          // 16 I_AGRESSIF
-    {0, 0},                                          // 17 I_DISCRET
-    {0, 0},                                          // 18 I_HELP
-    {0, 0},                                          // 19 I_SAVE
-    {0, 0},                                          // 20 I_LOAD
-    {0, 0},                                          // 21 I_OPTIONS
-    {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT}, // 22 I_CAMERA (classic-mode turn; analog orbit owns Auto camera)
-    {K_GAMEPAD_RSTICK_UP, 0},                        // 23 I_CAMERA_LEVEL_PLUS
-    {K_GAMEPAD_RSTICK_DOWN, 0},                      // 24 I_CAMERA_LEVEL_MOINS
-    {0, 0},                                          // 25 I_WEAPON_1
-    {0, 0},                                          // 26
-    {0, 0},                                          // 27
-    {0, 0},                                          // 28
-    {0, 0},                                          // 29
-    {0, 0},                                          // 30
-    {0, 0},                                          // 31
-    {K_GAMEPAD_DPAD_RIGHT, 0},                       // 32 I_PINGOUIN
-    {K_GAMEPAD_DPAD_DOWN, 0},                        // 33 I_JETPACK
-    {K_GAMEPAD_DPAD_UP, 0},                          // 34 I_PROTECTION
-    {K_GAMEPAD_DPAD_LEFT, 0},                        // 35 I_FOUDRE
-};
+const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {LBA2_INPUT_GAMEPAD_DEFAULTS};
 
 U32 NbInput = MAX_INPUT_SLOTS;
 
-#ifdef LBA2_GAMEPAD_STICK_LAYOUT
-static S32 s_modalCircle = 1;
-#else
-static S32 s_modalCircle = 0;
-#endif
-static S32 s_gameplay = 0;
-static S32 s_circleSuppressed = 0;
+static const T_BINDING_REMAP CompiledRemaps[] = {LBA2_INPUT_MODAL_REMAPS{0, 0, 0, 0}};
+static T_BINDING_CONTEXT s_context = {
+    0, sizeof(CompiledRemaps) / sizeof(CompiledRemaps[0]) - 1, {LBA2_INPUT_MODAL_REMAPS}};
 
-U32 Bindings_GetContext(void) {
-    return (s_modalCircle ? BINDINGS_CONTEXT_MODAL_CIRCLE : 0) |
-           (s_gameplay ? BINDINGS_CONTEXT_GAMEPLAY : 0) |
-           (s_circleSuppressed ? BINDINGS_CONTEXT_CIRCLE_SUPPRESSED : 0);
+T_BINDING_CONTEXT Bindings_GetContext(void) {
+    return s_context;
 }
 
-void Bindings_SetContext(U32 context) {
-    s_modalCircle = (context & BINDINGS_CONTEXT_MODAL_CIRCLE) != 0;
-    s_gameplay = (context & BINDINGS_CONTEXT_GAMEPLAY) != 0;
-    s_circleSuppressed = (context & BINDINGS_CONTEXT_CIRCLE_SUPPRESSED) != 0;
+void Bindings_SetContext(const T_BINDING_CONTEXT &context) {
+    s_context = context;
     InitInput();
+}
+
+S32 Bindings_ContextValid(const T_BINDING_CONTEXT &context) {
+    if (context.gameplay > 1 || context.count > MAX_BINDING_REMAPS)
+        return 0;
+    for (U32 n = 0; n < context.count; ++n) {
+        const T_BINDING_REMAP &remap = context.remaps[n];
+        if (!remap.key || remap.key >= TABKEYS_NUM_KEYS * 8 ||
+            remap.gameplaySlot >= INPUT_TABLE_SLOTS ||
+            remap.modalSlot >= INPUT_TABLE_SLOTS || remap.suppressed > 1)
+            return 0;
+        for (U32 prior = 0; prior < n; ++prior)
+            if (context.remaps[prior].key == remap.key &&
+                context.remaps[prior].gameplaySlot == remap.gameplaySlot)
+                return 0;
+    }
+    return 1;
+}
+
+static U32 ContextMask(U32 slot, U32 key, S32 gameplay) {
+    if (!gameplay) {
+        for (U32 n = 0; n < s_context.count; ++n) {
+            const T_BINDING_REMAP *remap = &s_context.remaps[n];
+            if (remap->key == key && remap->gameplaySlot == slot)
+                return 1u << remap->modalSlot;
+        }
+    }
+    return 1u << slot;
+}
+
+static U32 KeyContextMask(U32 key, S32 gameplay) {
+    U32 mask = 0;
+    for (S32 slot = 0; slot < INPUT_TABLE_SLOTS; ++slot) {
+        U32 keys[4];
+        S32 count = Bindings_KeysForSlot(slot, keys, 4);
+        for (S32 n = 0; n < count; ++n)
+            if (keys[n] == key)
+                mask |= ContextMask(slot, key, gameplay);
+    }
+    return mask;
+}
+
+static S32 KeyContextSuppressed(U32 key) {
+    for (U32 n = 0; n < s_context.count; ++n)
+        if (s_context.remaps[n].key == key && s_context.remaps[n].suppressed)
+            return 1;
+    return 0;
 }
 
 //-------------------------------------------------------------------------
@@ -151,24 +102,11 @@ void InitInput(void) {
     // read via direct CheckKey(DefKeys[..]) in PERSO.CPP.
     S32 n = 0;
     for (S32 i = 0; i < INPUT_TABLE_SLOTS; i++) {
-        U32 mask = (1u << i);
-        CombinedInputKeys[n] = DefKeys[i].Key1;
-        CombinedInputMasks[n++] = mask;
-        CombinedInputKeys[n] = DefKeys[i].Key2;
-        CombinedInputMasks[n++] = mask;
-        CombinedInputKeys[n] = GamepadKeys[i].Key1;
-        CombinedInputMasks[n++] = mask;
-        CombinedInputKeys[n] = GamepadKeys[i].Key2;
-        CombinedInputMasks[n++] = mask;
-        /* An action remap must not turn a held modal press into a new action. */
-        if (s_modalCircle && i == 13) {
-            for (S32 key = n - 2; key < n; ++key)
-                if (CombinedInputKeys[key] == K_GAMEPAD_B) {
-                    if (s_circleSuppressed)
-                        CombinedInputMasks[key] = 0;
-                    else if (!s_gameplay)
-                        CombinedInputMasks[key] = 1u << 9;
-                }
+        const U32 keys[4] = {DefKeys[i].Key1, DefKeys[i].Key2,
+                             GamepadKeys[i].Key1, GamepadKeys[i].Key2};
+        for (S32 k = 0; k < 4; ++k) {
+            CombinedInputKeys[n] = keys[k];
+            CombinedInputMasks[n++] = KeyContextSuppressed(keys[k]) ? 0 : ContextMask(i, keys[k], s_context.gameplay);
         }
     }
 
@@ -178,19 +116,23 @@ void InitInput(void) {
 }
 
 void Bindings_SetGameplay(S32 gameplay) {
-    if (!s_modalCircle)
-        return;
     gameplay = gameplay != 0;
-    S32 suppressed = s_circleSuppressed;
-    if (!CheckKey(K_GAMEPAD_B))
-        suppressed = 0;
-    else if (s_gameplay != gameplay)
-        suppressed = 1;
-    if (s_gameplay != gameplay || s_circleSuppressed != suppressed) {
-        s_gameplay = gameplay;
-        s_circleSuppressed = suppressed;
-        InitInput();
+    S32 rebuild = s_context.gameplay != (U32)gameplay && s_context.count != 0;
+    for (U32 n = 0; n < s_context.count; ++n) {
+        U32 key = s_context.remaps[n].key;
+        U32 suppressed = s_context.remaps[n].suppressed;
+        if (!CheckKey(key))
+            suppressed = 0;
+        else if (s_context.gameplay != (U32)gameplay &&
+                 KeyContextMask(key, s_context.gameplay) != KeyContextMask(key, gameplay))
+            suppressed = 1;
+        if (s_context.remaps[n].suppressed != suppressed)
+            rebuild = 1;
+        s_context.remaps[n].suppressed = suppressed;
     }
+    s_context.gameplay = gameplay;
+    if (rebuild)
+        InitInput();
 }
 
 //-------------------------------------------------------------------------

@@ -190,15 +190,15 @@ void HandleEventsJoystick(const PlatformEvent *event) {
 //     emitted direction (which otherwise causes zig-zag under auto-camera).
 static void ApplyStickDirection(S16 x, S16 y, U32 keyLeft, U32 keyRight,
                                 U32 keyUp, U32 keyDown, StickDir *prevState) {
-    float fx = (float)x;
-    float fy = (float)y;
-    float mag2 = fx * fx + fy * fy;
-    float dz = (float)JoystickDeadzone;
+    U32 mag2 = (U32)((S32)x * x) + (U32)((S32)y * y);
+    U32 dz = (U32)JoystickDeadzone;
     if (mag2 < dz * dz) {
         *prevState = DIR_NEUTRAL;
         return;
     }
 
+    float fx = (float)x;
+    float fy = (float)y;
     // atan2(-y, x): 0° = east, 90° = north (SDL Y+ = down, so negate).
     float deg = atan2f(-fy, fx) * (180.0f / (float)M_PI);
     while (deg < 0.0f)

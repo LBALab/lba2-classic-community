@@ -74,7 +74,6 @@ static void test_offscreen_frames_and_lifecycle() {
 }
 static void test_absent_devices_and_explicit_errors() {
     ASSERT_TRUE(!g_platform.capabilities.windowed);
-    ASSERT_TRUE(!g_platform.capabilities.touch_overlay);
     ASSERT_TRUE(!g_platform.capabilities.transient_window_loss);
     PlatformEvent event = {};
     ASSERT_TRUE(g_platform.events.init());

@@ -525,8 +525,8 @@ static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
 static int s_haveRecBindings = 0;
-static U32 s_recBindingContext = 0;
-static U32 s_savedBindingContext = 0;
+static T_BINDING_CONTEXT s_recBindingContext;
+static T_BINDING_CONTEXT s_savedBindingContext;
 static int s_haveRecBindingContext = 0;
 static U32 s_recMenuSuppression = 0;
 static U32 s_savedMenuSuppression = 0;
@@ -749,7 +749,6 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "mode.language=%d\n"
                          "input.keyboard=%d\n"
                          "input.menu_suppressed=%u\n"
-                         "bindings.context=%u\n"
                          "setup.snapshot=%s\n"
                          "setup.reloaded=%d\n"
                          "setup.reload_clock=%u\n"
@@ -773,7 +772,6 @@ static S32 write_mode_lines(char *out, size_t n) {
                          (int)Language,
                          LastInputWasKeyboard ? 1 : 0,
                          (unsigned)MenuInput_Suppressed(),
-                         (unsigned)Bindings_GetContext(),
                          s_snapInline ? "(inline)" : path_leaf(s_snapshot),
                          s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
@@ -783,6 +781,9 @@ static S32 write_mode_lines(char *out, size_t n) {
                          bindings_digest());
     if (wrote <= 0 || (size_t)wrote >= n)
         return 0;
+    if (!RecFmt_WriteBindingContext(out + wrote, n - (size_t)wrote, Bindings_GetContext()))
+        return 0;
+    wrote = (int)strlen(out);
     /* The rest comes from the engine, which this module deliberately cannot see. */
     if (!Control_DescribeState(out + wrote, n - (size_t)wrote))
         return 0;
