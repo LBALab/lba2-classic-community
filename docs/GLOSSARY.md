@@ -21,9 +21,10 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 | Which values do I want? (**preset**) | Classic, Modern | The player |
 | Do my values differ from my preset? | changed when they do ("Modern settings, changed") | Nobody: the values arrive there |
 
-Experimental is a ring and a page, not a set of values, so there is no Experimental preset. The
-page is always offered, with no switch to show it: its row's help says it is unfinished and in
-English.
+Experimental is a ring, not a set of values, so there is no Experimental preset. Its rows and
+every tuning value are on More options, a page always offered with no switch to show it; an
+Experimental-ring row is tagged "experimental" there, and the page's row says it is in English
+and that those rows may change or go.
 The chosen preset is stored in `lba2.cfg` as the base the player's own values sit on, so a
 player on a preset follows that preset's values from build to build. The preset row names the chosen preset ("Modern
 settings") and marks it changed when the player's own values differ from it; changed is never chosen. A preset sets only
@@ -40,13 +41,13 @@ the game's settings, never the player's own.
 | The default | -- | A row's compiled default: what a fresh install gets, and what the Modern preset gives. Not a preset of its own. | The value from before |
 | Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows, on or off by default; going on by default takes its own evidence ([moving inward](ARCHITECTURE.md#moving-inward)). | Modern (preset) |
 | Modern (preset) | Modern | Every setting a preset sets at its default: what a fresh install gets, retail fixes on. It follows the defaults as they move. A `lba2.cfg` with no `Preset` key is on Modern. | Modern (ring) |
-| Experimental (ring) | Experimental (a page) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
+| Experimental (ring) | experimental (a tag on a row of More options) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
 | Changed (preset) | Modern settings, changed | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, changed is not, and the help line names the settings that differ. | Custom |
 | Custom | Custom | On the Fix retail bugs row: a stored value the player cycles to, and each fix's own setting decides. The preset row never shows it. | Changed (preset) |
 | Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, the fixed timestep, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
 | Retail fix | Fix retail bugs | A fix to a bug the original itself had; each has its own switch under the one row ([Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)). | Enhancement |
 | Enhancement | -- | A change to the design: its own setting, off by default when it lands. | Retail fix |
-| Tuning value | -- (shown on the Experimental page) | A number that adjusts a feature rather than switching it. Stays Experimental even when its feature is Modern. Every preset leaves it at its default. Sensitivity is not one: the player sets it for comfort, so it is a player's setting with a menu row. | Player's setting |
+| Tuning value | -- (shown on More options) | A number that adjusts a feature rather than switching it. Stays Experimental even when its feature is Modern. Every preset leaves it at its default. Sensitivity is not one: the player sets it for comfort, so it is a player's setting with a menu row. | Player's setting |
 | Core | -- | What everything else is built on: the inner core (the game's rules and formats) and the outer core (the platform, recording, the settings tables). | |
 | Tier | -- | How often a platform is tested on hardware ([Where it runs](ARCHITECTURE.md#where-it-runs)). | Ring |
 | Profile | -- | The folder `--profile` names: one player's settings and saves ([plan/PORTABILITY_PLAN.md](plan/PORTABILITY_PLAN.md)). | Preset, settings backup |
@@ -61,6 +62,10 @@ the game's settings, never the player's own.
 - **Mode** is not a preset: recordings already have `mode.` header lines and the engine has
   `CubeMode`.
 - **Profile** is not a preset or a backup.
+- **Options** is a place, as the original calls its menu: the menu itself, a part of it and a
+  row that opens one (Options, Advanced options). **Settings** are the values chosen there: a row
+  that acts on values says settings (Reset settings, Back to my settings, the preset row's
+  "Modern settings"), as docs and `lba2.cfg` do.
 
 ### One concept, several names
 
