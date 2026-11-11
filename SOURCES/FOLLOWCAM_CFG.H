@@ -128,7 +128,7 @@
 #define FOLLOW_CAM_ZONE_RETURN_DEFAULT 1
 #define FOLLOW_CAM_ZONE_ANCHOR_DEFAULT 0
 
-/* cam_zone_height (prototype, off): a lent shot keeps its yaw and pitch but not
+/* cam_zone_height (on): a lent shot keeps its yaw and pitch but not
  * its look-at point or distance, so the Auto camera swings its own boom about
  * the hero's feet at the shot's pitch. A shot authored low about a raised point
  * (the Desert Island beach of the demo: 2.4 degrees about a point 1,100 over the
@@ -144,7 +144,7 @@
  * cam_ground_clear over the ground between them: a hill behind the hero, or the
  * swing a lent yaw makes when he turns. Both are render only and ease in and out
  * with a time constant of FOLLOW_CAM_ZONE_HEIGHT_EASE_MS. */
-#define FOLLOW_CAM_ZONE_HEIGHT_DEFAULT 0
+#define FOLLOW_CAM_ZONE_HEIGHT_DEFAULT 1
 #define FOLLOW_CAM_ZONE_HEIGHT_FLOOR 1500
 #define FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT 4096
 #define FOLLOW_CAM_ZONE_HEIGHT_EASE_MS 130

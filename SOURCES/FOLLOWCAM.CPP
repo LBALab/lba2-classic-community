@@ -2056,7 +2056,7 @@ static const T_SETTING FollowCamSettings[] = {
      "Prototype: hold a latching shot's world yaw while the hero is inside its box", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamZoneHeight", NULL, "cam_zone_height", &FollowCamZoneHeight, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_HEIGHT_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Prototype: a lent shot keeps its eye height (aim above the hero as the shot aimed above the ground; floor under the eye)", SETTING_RECORDED, SETTING_BEFORE(0)},
+     "Auto cam: keep a scripted shot's eye off the ground (aim higher as the shot did; raise the pitch over a hill)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldAnchor", NULL, "cam_world_anchor", &FollowCamWorldAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_WORLD_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)", SETTING_RECORDED, SETTING_BEFORE(0)},
