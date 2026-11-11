@@ -12,6 +12,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
+- The Auto camera holds its direction when Twinsen turns, and comes back
+  behind him as he walks. Turning on the spot, or a boat turning at a dock,
+  no longer swings the camera round; in the demo's Otringal harbour it used to
+  circle the ferry after Twinsen had got off. An angle you orbit to also comes
+  back behind him as he walks. `cam_world_anchor 0` and `cam_hold_angle 1` in
+  the console (`FollowCamWorldAnchor: 0`, `FollowCamHoldAngle: 1` in
+  `lba2.cfg`) give the camera as before.
+
+- Gliding into and out of a scripted camera shot takes 900 ms instead of
+  600 ms, indoors too with the interior follow. `cam_shot_blend_ms 600` gives
+  the earlier pace.
+
 - The Auto camera keeps a scripted shot's view off the ground. A shot written
   low and flat, such as the Desert Island beach in the demo, put the camera so
   close to the sand that the bottom of the frame showed the ground missing;
@@ -80,6 +92,9 @@ Thanks to EPmager for reporting the interior follow camera leaving a room
 behind its walls when a dialogue opened during a glide, with exact steps, a
 camera trace, a recording and a video
 ([#857](https://github.com/LBALab/lba2-classic-community/issues/857)).
+
+Thanks to EPmager for play-testing the Auto camera and finding the 900 ms glide
+into and out of scripted shots.
 
 ## [0.13.2] - 2026-10-22
 

@@ -40,6 +40,7 @@ cam_ground        the ground lift, overwritten the same way
 cam_ground_clear  the ground lift's height
 cam_manual_hold   how long a manual nudge holds off those two
 cam_zone_height   acts only while a flat shot, or one with a hill behind it, has the camera; no scene here has one
+cam_zone_anchor   holds a latching shot's world yaw, which cam_world_anchor (on by default) already holds
 "
 
 work="$(mktemp -d -t lba2-ring-watch-XXXXXX)"

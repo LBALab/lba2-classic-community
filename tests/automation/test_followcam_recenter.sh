@@ -40,7 +40,9 @@ pan_off_centre() {
 
 # Pan off centre, stand still for 60 ticks, then walk for 200. The grace window is 60 frames of
 # movement, so the walk has to outlast it for the drift to be reached at all.
-cam_run "$log" "cam_hold_angle 0;" \
+# The drift measured is the one paced by the frame; with the world anchor on, a return paced by
+# distance walked replaces it (test_followcam_world_anchor.sh).
+cam_run "$log" "cam_hold_angle 0; cam_world_anchor 0;" \
     --exec-at 30 "camnudge 30 0 10" \
     --exec-at 110 "input up 200" \
     --tick 330

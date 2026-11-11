@@ -153,7 +153,7 @@ Everything `CameraZone` gates stays on, so a shot authored for a spot where the 
 
 ### Blending into and out of a shot
 
-`cam_shot_blend_ms` (cfg `FollowCamShotBlendMs`, default 600, 0 for the cut) blends the frame from the view on screen to the new one over that many milliseconds, eased in and out. Both ends are named moments, not guessed from the size of a jump: the zone about to write its shot (`FollowCamShotTookView()`, from `SetZoneCamera`), and the first Auto camera update after one. Each parameter (look-at point, distance, yaw, pitch, roll) blends on its own, the angles the short way round, toward the view as it is on each frame, since the Auto camera's own view keeps moving.
+`cam_shot_blend_ms` (cfg `FollowCamShotBlendMs`, default 900, 0 for the cut) blends the frame from the view on screen to the new one over that many milliseconds, eased in and out. Both ends are named moments, not guessed from the size of a jump: the zone about to write its shot (`FollowCamShotTookView()`, from `SetZoneCamera`), and the first Auto camera update after one. Each parameter (look-at point, distance, yaw, pitch, roll) blends on its own, the angles the short way round, toward the view as it is on each frame, since the Auto camera's own view keeps moving.
 
 The blend is in the frame only. `FollowCamSetView()` sets the exterior camera for `CameraCenter` and the scene render from the globals, or from the blend while one runs; the globals are what they would be without it. The scene is drawn whole on each frame of a blend.
 
@@ -181,11 +181,11 @@ The zoom is per session: `FollowCamBaseDist` is neither persisted nor a cvar. On
 ### Lazy orbit and pan
 
 - **Rotation lag:** `BetaCam` eases toward behind the hero, paced by `cam_ease_ms` (see [Eases paced by the clock](#eases-paced-by-the-clock)).
-- **Pan:** `[` / `]` adjust `AddBetaCam`. With `cam_hold_angle` (default on) the pan is held until Center camera or an ordered scene change, both through `CameraCenter(1)`. With `cam_hold_angle 0` it drifts back toward centre while the hero walks, and is kept while he stands.
+- **Pan:** `[` / `]` adjust `AddBetaCam`. With `cam_hold_angle` on (default off) the pan is held until Center camera or an ordered scene change, both through `CameraCenter(1)`. With `cam_hold_angle 0` it comes back toward centre while the hero walks (by distance walked with the world anchor, below), and is kept while he stands.
 
 ### World anchor (prototype)
 
-`cam_world_anchor` (cfg `FollowCamWorldAnchor`, off) changes what the horizontal angle is held against. Off, the camera aims behind the hero offset by `AddBetaCam`, so his turns turn the camera. On, each update takes the hero's turn since the previous update back out of `AddBetaCam`, leaving the target fixed in the world. Whatever else wrote the offset (an orbit, `[` / `]`, the quarter-turn key, a script) is kept.
+`cam_world_anchor` (cfg `FollowCamWorldAnchor`, on by default, with `cam_hold_angle 0`) changes what the horizontal angle is held against. Off, the camera aims behind the hero offset by `AddBetaCam`, so his turns turn the camera. On, each update takes the hero's turn since the previous update back out of `AddBetaCam`, leaving the target fixed in the world. Whatever else wrote the offset (an orbit, `[` / `]`, the quarter-turn key, a script) is kept.
 
 | | `cam_hold_angle 0` | `cam_hold_angle 1` |
 |---|---|---|
@@ -317,7 +317,6 @@ The mouse and stick settings (`cam_mouse*`, `cam_stick*`, `cam_smooth`, `cam_gli
 - **1080p framing and terrain near-clipping**, and widening the manual `AlphaCam` / `FollowCamBaseDist` clamps with `k` for fine control at tall heights.
 - **Scenery occlusion and clipping:** #363.
 - **Mouse follow-through:** #514.
-- **A world-anchored camera by default:** #351; `cam_world_anchor` is its prototype.
 - **Rebinding zoom and pan**, which read raw scancodes.
 - **A faster terrain path**, to cut the CPU cost of the per-frame `RefreshGrille`.
 
