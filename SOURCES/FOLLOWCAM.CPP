@@ -203,6 +203,8 @@ static S32 FollowCamShotAimLift = 0;
 static S32 FollowCamHeightLift = 0;
 static S32 FollowCamHeightPitch = 0;
 static U32 FollowCamHeightTime = 0;
+static S32 FollowCamHeightLiftCarry = 0; /* FollowCamEaseStepMs: thousandths not yet moved */
+static S32 FollowCamHeightPitchCarry = 0;
 
 void FollowCamNoteShotAim(S32 lookX, S32 lookY, S32 lookZ) {
     S32 lift = 0;
@@ -302,22 +304,15 @@ static void FollowCamHeightStep(S32 cut) {
         if (cut OR dt > 250) {
             FollowCamHeightLift = wantLift;
             FollowCamHeightPitch = wantPitch;
+            FollowCamHeightLiftCarry = 0;
+            FollowCamHeightPitchCarry = 0;
         }
         return;
     }
-    {
-        double k = 1.0 - exp(-(double)dt / FOLLOW_CAM_ZONE_HEIGHT_EASE_MS);
-        S32 dl = (S32)((wantLift - FollowCamHeightLift) * k);
-        S32 dp = (S32)((wantPitch - FollowCamHeightPitch) * k);
-
-        /* Land: a fraction of a small gap rounds to nothing. */
-        if (dl == 0 AND wantLift != FollowCamHeightLift)
-            dl = (wantLift > FollowCamHeightLift) ? 1 : -1;
-        if (dp == 0 AND wantPitch != FollowCamHeightPitch)
-            dp = (wantPitch > FollowCamHeightPitch) ? 1 : -1;
-        FollowCamHeightLift += dl;
-        FollowCamHeightPitch += dp;
-    }
+    FollowCamHeightLift += FollowCamEaseStepMs(wantLift - FollowCamHeightLift, dt, FOLLOW_CAM_ZONE_HEIGHT_EASE_MS,
+                                               FOLLOW_CAM_ZONE_HEIGHT_MIN_RATE, &FollowCamHeightLiftCarry);
+    FollowCamHeightPitch += FollowCamEaseStepMs(wantPitch - FollowCamHeightPitch, dt, FOLLOW_CAM_ZONE_HEIGHT_EASE_MS,
+                                                FOLLOW_CAM_ZONE_HEIGHT_MIN_RATE, &FollowCamHeightPitchCarry);
 }
 
 /* The view the globals describe, as the scene render sets it, with what
@@ -1346,7 +1341,8 @@ void FollowCamSetView(void) {
     if (FollowCamBlendOn AND FollowCamBlendWeightNow() >= 1000)
         FollowCamBlendOn = FALSE;
 
-    FollowCamHeightStep(!FollowCamShownLive OR FollowCamShownCube != NumCube);
+    /* A recentre, Center camera or a load in this step is a cut too (FollowCamBlendCut). */
+    FollowCamHeightStep(!FollowCamShownLive OR FollowCamShownCube != NumCube OR FollowCamCutThisStep);
     FollowCamShownView(&v);
     SetFollowCamera(v.X, v.Y, v.Z, v.Alpha, v.Beta, v.Gamma, v.Dist);
 

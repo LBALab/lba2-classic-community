@@ -148,6 +148,7 @@
 #define FOLLOW_CAM_ZONE_HEIGHT_FLOOR 1500
 #define FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT 4096
 #define FOLLOW_CAM_ZONE_HEIGHT_EASE_MS 130
+#define FOLLOW_CAM_ZONE_HEIGHT_MIN_RATE 60 /* slowest the lift (world units) and the pitch (angle units) close, a second, so they land */
 #define FOLLOW_CAM_RETURN_YAW_MIN_STEP 3   /* minimum AddBetaCam step per frame of the return (units) */
 #define FOLLOW_CAM_RETURN_PITCH_MIN_STEP 1 /* minimum AlphaCam step per frame of the return (units) */
 
