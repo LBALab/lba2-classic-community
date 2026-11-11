@@ -11,7 +11,7 @@ It builds on [PRINCIPLES.md](../PRINCIPLES.md) and the rings in
 Modern, Custom, Experimental, ring, preset) are defined in
 [GLOSSARY.md](../GLOSSARY.md#project-and-settings), which also keeps the menu's two words apart:
 options are the place (Options, Advanced options, More options), settings the values chosen
-there (Reset settings, "Modern settings"). The menu and the config file are shell: they show and
+there (Reset settings). The menu and the config file are shell: they show and
 set settings, and never change the game's rules.
 
 ## Where it stands
@@ -68,8 +68,8 @@ set settings, and never change the game's rules.
 ## Presets
 
 Two presets set values, and the one the player chose is stored in `lba2.cfg` as the base their
-own values sit on. The preset row names that base ("Modern settings") and marks it changed when
-the player's own values differ from it ("Modern settings, changed"): computed, never chosen.
+own values sit on. The preset row names that base ("Preset: Modern") and marks it changed when
+the player's own values differ from it ("Preset: Modern, changed"): computed, never chosen.
 
 | Preset | Sets |
 |---|---|
@@ -150,12 +150,13 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
 ### Choosing a preset
 
 - The preset row opens a page: Classic and Modern, each with a help line saying what it
-  sets, and **Back to my settings** when there is something to go back to. The row itself names
-  the chosen preset, "Modern settings" or "Classic settings", and adds "changed" when the player's
-  own values differ from it ("Modern settings, changed"). It names the preset rather than pairing
-  a word with a value ("Settings: Modern"), which sat over the categories and read as one more.
+  sets, and **Undo preset** when there is something to go back to. The row says what it opens,
+  Preset, with the chosen preset where a value goes ("Preset: Modern" in the one column), and
+  adds "changed" when the player's own values differ from it ("Modern, changed"). Played on an
+  Xbox (2026-11-11), the earlier "Modern settings" read as one more page of settings rather than
+  the preset, and the page it opens is called Preset.
 - Choosing a preset asks for confirmation, then keeps the preset it replaces and the player's
-  values as a settings backup, which Back to my settings restores: the preset, the player's values
+  values as a settings backup, which Undo preset restores: the preset, the player's values
   for the settings a preset sets, and the tuning values, not the whole file, so a volume or a
   resolution changed since stays. The backup is taken after the values in memory are written,
   since `lba2.cfg` is otherwise written only when the player leaves Options. A preset is never
@@ -166,8 +167,8 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   setting a preset sets, tuning included, marks the row changed; changing a player's setting
   does not.
 - Changed is computed: the chosen preset is stored, changed is not, and no player chooses it. A
-  file with no `Preset` key is on Modern, so a player who brings an edited `lba2.cfg` sees "Modern
-  settings, changed" where the file sets a value Modern does not, which answers EPmager's question
+  file with no `Preset` key is on Modern, so a player who brings an edited `lba2.cfg` sees "Modern,
+  changed" where the file sets a value Modern does not, which answers EPmager's question
   on #838. While the row reads changed, the page's help line names the settings that differ from
   the chosen preset, Experimental ones included, so a value set from the console or a downloaded
   file can be found.
@@ -194,7 +195,9 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
 - **Reset settings** puts every setting except the languages back to a fresh install, the preset
   to Modern and the player's settings and bindings included, after a confirmation step and with
   a settings backup
-  kept first. That is what makes it more than choosing Modern. The binding pages have their own
+  kept first, which **Undo reset**, the row after it, restores. Both undo rows say what they
+  undo (decided 2026-11-11: "Back to my settings" read as leaving the page, not undoing). That is
+  what makes it more than choosing Modern. The binding pages have their own
   reset. A fresh install's value is not always the compiled default: an install's own `lba2.cfg`
   is a layer under the profile's, and it can name the player's settings (the demo's names the
   volumes, the detail level, scenario cameras, video size and all 72 keyboard bindings). So Reset
@@ -254,7 +257,7 @@ their own.
    #846 is what keeps a switch that moves on by default later from staying on under Classic.
    Its console step, `settings_before` with no prefix, also sets player's settings (the mouse
    confine, the fixed timestep), so the preset reuses it through the presets-set field.
-7. **The Modern preset**, the preset page with Back to my settings, the offer on first launch,
+7. **The Modern preset**, the preset page with Undo preset, the offer on first launch,
    and a fixture with every Modern-ring setting on at once.
 8. **More options generated from the settings table**, a row on Advanced and reset.
    Then the camera presets (#733), the console row (#679) with the version, the Frame rate row,
@@ -290,7 +293,7 @@ The loop keeps three things so a page can change under the player:
   Kept as row positions for each layout, the place has to be translated at every crossing: the
   one column counts the return row, a wide page does not.
 - **The cursor holds a row, not a position.** "Shown when" is checked as the page is drawn, so a
-  row that comes or goes (Back to my settings) leaves the cursor on the row it was on.
+  row that comes or goes (Undo preset, Undo reset) leaves the cursor on the row it was on.
 - **Live rows** show the engine's state: Resolution the screen in use, Fullscreen the window as
   it is. They hold no value of their own, so a preset leaves them alone and they are never drawn
   as changed.
@@ -299,7 +302,12 @@ The loop also records what it drew each frame: each row's label, value, box and 
 its text ends; the help, its window and the lines it needed; the cursor. The checks in
 [Testing against the original](#testing-against-the-original) read that record, not pixels.
 Which device was used last is one value, read by the Controls page, the Console row, the band's
-legend and the wait for a key.
+legend and the wait for a key. After a pad press the legend names the pad's buttons (A Open,
+B Back), after a key the keyboard's; the wait for a key keeps its own names, since B does not
+cancel a wait for a key. Whether there is a keyboard is a second value: on a desktop always, on
+a console only once a key has been typed. Until then the legend names the pad from the start
+and the Controls page offers no Keyboard view and no Tab (decided 2026-11-11, after playing on
+an Xbox).
 
 ## Categories
 
@@ -386,7 +394,10 @@ Help follows two rules:
   typed, held for its words (300 ms a word, at least 1.5 s), then the next is typed, and the last
   stays. Moving off the row and back says it again from the start. Help is then never cut off,
   which matters for the console help on More options; a window's worth is still the aim for the
-  Options pages.
+  Options pages. While a later window is to come, the dialogue's arrow (`sprites.hqr` entry 6,
+  `AffFleche` in [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)) sits in the window's
+  bottom-right corner, at the end of the voice in the band, as a dialogue marks a full page; the
+  last window has none (decided 2026-11-11).
 
 ## The config file
 
@@ -506,6 +517,10 @@ Not a promise; the direction the steps above should not close off.
    composition goes one pane at a time, as the 1997 menu goes from a page to a sub-page: the
    hub's categories, then a page, 640 wide and centred, the page's name as its title in the
    seventh row's place, labels on the left and values ending on one edge 24 in from the right.
+   A slider is the 1997 one in both layouts (`DrawOneChoice`): under the cursor the whole row is
+   the slider plasma up to the value, the label on it, and other slider rows show their label
+   only. A slider squeezed into the value edge stretched the plasma into a strip that read badly
+   on a TV (decided 2026-11-11).
    A page shows six rows under its title, the hub seven. Two panes side by side were tried: at
    960 wide the right pane was 416 pixels, short of the 556 six English labels and their values
    need, and one pane holds them with 84 to spare; the cost is that the hub no longer previews a
@@ -560,7 +575,8 @@ Today keyboard and gamepad are two binding screens, each one 36-row table in the
 the 36 actions into seven groups of four to seven (movement, actions, behaviours, weapons, magic
 and items, camera, menus), one pane each. It shows one device at a time, Keyboard with Key 1
 and Key 2 or Gamepad with one column, and opens on the device used last; Tab (the pad's View
-button) switches. Keys are chips in the 8x8 font at 2x, which hold six letters, so long key
+button) switches. With no keyboard, a console's until a key is typed, it opens on Gamepad and
+offers no switch. Keys are chips in the 8x8 font at 2x, which hold six letters, so long key
 names are shortened ("Num 5", "RShift", "PrtSc", "ScrLk"). At 640x480 a chip is 116 pixels
 wide rather than 120, so the longest action name, "Behaviour action", clears the first chip by
 8. A key another action already has asks first, as choosing a preset does (decided 2026-11-11,
@@ -636,7 +652,7 @@ settings tables cannot: three of the four live in files that pull in the engine
 `scripts/ci/check-settings-before.py` reads them from the source. Every row naming a setting that
 exists, and every setting with exactly one entry in the menu's table, are checks of that kind.
 Host tests for the writer and the borrow: a written file that reads back to the same values, a
-preset applied and then Back to my settings giving back every value a preset sets while keeping a
+preset applied and then Undo preset giving back every value a preset sets while keeping a
 player's setting changed since, a key this build does not know surviving a write, and the binding
 writers persisting the player's tables while a replay has borrowed them.
 
@@ -653,7 +669,7 @@ writers persisting the player's tables while a replay has borrowed them.
 6. Whether the menu cursor follows rebound movement keys or the page says it does not.
 7. The reference file's name, and whether it is written every run or only when the build changes.
 8. Who checks the translations of the new labels.
-9. Decided: the preset row shows the preset's name marked as changed ("Modern settings,
+9. Decided: the preset row shows the preset's name marked as changed ("Preset: Modern,
    changed"), not Custom, since the stored preset still decides every setting the player has not
    changed. See [Choosing a preset](#choosing-a-preset).
 10. Whether the 720 and 1080 rungs of the resolution list stay in the list marked as unfinished,
