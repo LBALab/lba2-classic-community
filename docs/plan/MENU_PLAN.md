@@ -580,15 +580,19 @@ offers no switch. Keys are chips in the 8x8 font at 2x, which hold six letters, 
 names are shortened ("Num 5", "RShift", "PrtSc", "ScrLk"). At 640x480 a chip is 116 pixels
 wide rather than 120, so the longest action name, "Behaviour action", clears the first chip by
 8. A key another action already has asks first, as choosing a preset does (decided 2026-11-11,
-replacing the refusal the 1997 screen has): the voice says who has it ("J is on Jetpack, in
+replacing the refusal the 1997 screen has): the voice says who has it ("<J> is on Jetpack, in
 Magic and items."), and two answers take the actions' place, the safe one first: "No, keep it
 on Jetpack" and "Yes, Jetpack gets Up" ("keeps Num 5" or "has no key" when the chip was empty).
 Esc answers No. The refusal ("Clear C on Protection spell first.") named the action but left the
 player to find it, clear it and come back. Nothing changes that the player did not choose, and
 the page never puts one key on two actions, which would fire both in play; a clash that comes in
 from an edited `lba2.cfg` is framed red. While the page waits for a key, the help says the way
-out: "Press a key, or Esc to keep it.", and on the gamepad view "Press a button, or Menu to keep
-it." (Start, by the pad's own name); after 5 s the wait ends with nothing changed.
+out: "Press a key, or <ESC> to keep it.", and on the gamepad view "Press a button, or <MENU> to
+keep it." (Start, by the pad's own name); after 5 s the wait ends with nothing changed. The voice
+names a key or button in capitals inside angle brackets, as the 1997 text does ("<ESC> exit,
+<ENTER> Select a key", "press <SHIFT> or simply press <TAB>"); chips, answers and the legend keep
+the key list's case (decided 2026-11-11). The game font draws < and > as small raised marks, so
+on screen it reads ˚MENU˚; the 8x8 font of the 1997 key setup screen draws real brackets.
 
 **No binding locks a pad-only player out** (decided 2026-11-11). Start always opens the game
 menu, as Esc does on the keyboard: Game menu's pad chip is fixed, its help says so, and Start is
