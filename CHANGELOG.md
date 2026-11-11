@@ -12,6 +12,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
+- The Auto camera keeps a scripted shot's view off the ground. A shot written
+  low and flat, such as the Desert Island beach in the demo, put the camera so
+  close to the sand that the bottom of the frame showed the ground missing;
+  turning on the spot inside a shot could swing the camera into a hill behind
+  Twinsen and black out the bottom of the frame. The camera now aims higher or
+  tilts up over the hill. `cam_zone_height 0` in the console
+  (`FollowCamZoneHeight: 0` in `lba2.cfg`) gives the view as before.
+
 - An experimental interior follow camera, off by default: Options → Advanced
   options → Camera → **Indoors: Follow** (`cam_interior 1` in the console,
   `FollowCameraInterior: 1` in `lba2.cfg`) keeps Twinsen in the

@@ -27,7 +27,7 @@ times every fixture, reports the ones over their tier's budget, and keeps the ti
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-96 fixtures: 55 small, 30 medium, 11 big.
+97 fixtures: 55 small, 30 medium, 12 big.
 
 | Fixture | Tier | What it pins | Also needs |
 |---|---|---|---|
@@ -43,6 +43,7 @@ suite still passes, since CI cannot say so.
 | [test_camera_interior_follow.sh](test_camera_interior_follow.sh) | medium | The interior follow keeps the hero in the middle of the isometric view, the switch is what does it, and a camera zone still owns the view. | - |
 | [test_camlib_tsv.sh](test_camlib_tsv.sh) | small | camlib's trace reader returns every frame the log recorded, including the ones glued behind a console echo. | - |
 | [test_camzone_blend.sh](test_camzone_blend.sh) | medium | A scripted shot taking the view from the Auto camera, and giving it back, is a blend with cam_shot_blend_ms on, not a cut. | - |
+| [test_camzone_height.sh](test_camzone_height.sh) | big | A scripted shot lent to the Auto camera keeps its eye off the ground with cam_zone_height on. | - |
 | [test_camzone_hold.sh](test_camzone_hold.sh) | medium | A camera zone's authored angle must survive the Auto camera being switched on. | - |
 | [test_camzone_model.sh](test_camzone_model.sh) | small | Camera zones come in two shapes, and the difference is a flag in the authored data. | - |
 | [test_camzone_return.sh](test_camzone_return.sh) | big | A scripted shot borrows the Auto camera: with cam_zone_return on, the yaw and pitch it took are given back when the hero leaves its box. | - |

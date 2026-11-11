@@ -111,7 +111,7 @@ The dispatch fires when the hero is `NumObjFollow` and `ZONE_ON` is set, and the
 
 ### Interaction with the Auto camera
 
-A zone writes `BetaCam` directly, so it calls `FollowCamAdoptAngle` to keep its angle. Four settings decide what a shot does to the Auto camera, each described below: `cam_zone_skip` (a latching shot is passed over while the player steers), `cam_zone_return` (the angle and pitch are given back on leaving the box), `cam_shot_blend_ms` (taking the view and giving it back are blends) and `cam_scene_carry` (under [Scene changes](#scene-changes)).
+A zone writes `BetaCam` directly, so it calls `FollowCamAdoptAngle` to keep its angle. Five settings decide what a shot does to the Auto camera, each described below: `cam_zone_skip` (a latching shot is passed over while the player steers), `cam_zone_return` (the angle and pitch are given back on leaving the box), `cam_zone_height` (a lent shot's eye is kept off the ground), `cam_shot_blend_ms` (taking the view and giving it back are blends) and `cam_scene_carry` (under [Scene changes](#scene-changes)).
 
 With those off, what survives a shot is `cam_hold_angle`'s decision: on, the shot's angle is held until the player orbits or a recentre; off, the pan drift hands it back as the hero walks. What is held is the offset, not the shot: the zone's world yaw becomes a pan from the hero's facing on the frame it fired, so his first turn loses the authored direction. The pitch stays as authored, because the exterior Auto camera skips the path that restores the presets.
 
@@ -130,6 +130,20 @@ With those off, what survives a shot is `cam_hold_angle`'s decision: on, the sho
 `cam_zone_anchor` (cfg `FollowCamZoneAnchor`, prototype, off) holds a latching zone's world yaw while the hero is inside its box, by re-solving the pan against his facing every frame, as forced zones already behave. It ends at the box edge and gives nothing back.
 
 Knowing the hero is inside a latching zone's box needs more than `CameraZone`, which is true only on the frame the shot is applied. `CheckZoneSce` sets `FollowCamInShotBox` on each frame the followed object stands in the box of a camera zone that has fired; `camtrace` reports it as `inshot`, beside `loan` (1 yaw, 2 pitch, 4 on its way back).
+
+### Keeping a lent shot's eye off the ground
+
+A lent shot gives the Auto camera its yaw and pitch, not its look-at point or its distance: the Auto camera swings its own boom (13,750 about the hero's feet, the look-at leading him by `DISTANCE_VISEE`) at the shot's pitch. Two things then put the eye at or under the ground, where the terrain near the camera is not drawn:
+
+- **A flat shot authored about a raised point.** The demo's Desert Island beach (cube 203) is 2.4 degrees about a point 1,100 over the sand; lent, the eye sits about 740 over the ground and the bottom of the frame shows the missing terrain. Of 132 latching shots in the game data, the median aims 768 over its box's floor.
+- **A hill behind the hero.** The lent yaw turns with him, so a turn on the spot swings the boom round, and nothing else raises it: `cam_ground`'s lift does not reach the frame (the Quirk [affgrilleext-sets-the-camera-from-the-globals](knowledge/quirks/affgrilleext-sets-the-camera-from-the-globals.md)). Turning left under cube 75's shot (Emerald Moon) takes the eye 1,100 under the hill.
+
+`cam_zone_height` (cfg `FollowCamZoneHeight`, on by default) answers each in the frame only, in `FollowCamHeightStep()` from `FollowCamSetView()`:
+
+- **The lift.** While the hero is in the box of the shot that fired and the pitch is still the shot's, the look-at point rises until the eye is `FOLLOW_CAM_ZONE_HEIGHT_FLOOR` (1,500) over the ground under the hero, never higher than the shot itself aimed over the ground under its look-at point (`FollowCamNoteShotAim()`, from `SetZoneCamera`; capped at 4,096, 0 when the look-at point is outside the scene). The lift is what the eye needs, not what the shot aimed: the demo's scene 209 aims at the harbour 5,800 beyond its box, and lifting by the shot's aim turned the view to the sky over a flying car. The ground is read under the hero, not under the look-at point, which leads him onto a rock face in scene 216.
+- **The floor pitch.** While anything of a shot is lent (the return included), the pitch rises as far as it takes to keep the eye 1,500 over the ground under it and the line from the eye to the look-at point `cam_ground_clear` over the ground at four points along it.
+
+Both ease in and out with a 130 ms time constant (`FOLLOW_CAM_ZONE_HEIGHT_EASE_MS`) and snap across a cut. The globals are untouched, so the camera's own state, `camtrace`'s `vx vy vz alpha beta dist`, is the same with the setting on or off; `sy` and `salpha` carry the change. Off, the frame is that of the build before the setting, on every row of the demo reel and the Moon route. In the demo it changes scenes 203, 208, 211 and 212; `test_camzone_height.sh` checks the beach, the Moon turn, the harbour left alone and the off path.
 
 ### Passing a latching shot over
 
@@ -328,7 +342,7 @@ The mouse and stick settings (`cam_mouse*`, `cam_stick*`, `cam_smooth`, `cam_gli
 | Camera zone dispatch    | SOURCES/OBJECT.CPP         | `SetZoneCamera`, `ZONE_ON` / `ZONE_ACTIVE` / `ZONE_OBLIGATOIRE` (COMMON.H), `AllCameras` |
 | Obstruction clearance | SOURCES/FOLLOWCAM.CPP, SOURCES/INTEXT.CPP, SOURCES/EXTFUNC.CPP, SOURCES/OBJECT.CPP | `FollowCamNeededPitch`, `FollowCamRenderExtraPitch`, `FollowCamObstructOwnsSearch`, `FollowCamObstructSettle`, `FollowCamObstructHidden`, `cam_obstruct` cvar |
 | Camera trace            | SOURCES/FOLLOWCAM.CPP      | `FollowCamTrace`, `camtrace` / `camnudge` console commands |
-| A shot's loan | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP | `FollowCamLendToShot`, `FollowCamPlayerTook`, `FollowCamForgetLoan`, `FollowCamInShotBox`, `cam_zone_return` / `cam_zone_anchor` cvars |
+| A shot's loan | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP | `FollowCamLendToShot`, `FollowCamPlayerTook`, `FollowCamForgetLoan`, `FollowCamInShotBox`, `FollowCamNoteShotAim`, `FollowCamHeightStep`, `cam_zone_return` / `cam_zone_anchor` / `cam_zone_height` cvars |
 | Blending into and out of a shot | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP, SOURCES/INTEXT.CPP, SOURCES/EXTFUNC.CPP, SOURCES/PERSO.CPP | `FollowCamSetView`, `FollowCamShotTookView`, `FollowCamShotAtOnce`, `FollowCamBlending`, `FollowCamBlendFromShown`, `FollowCamBlendCut`, `cam_shot_blend_ms` cvar |
 | World anchor | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamWorldAnchorStep`, `FollowCamWorldReturnStep`, `FollowCamWorldAnchorRebase`, `cam_world_anchor` / `cam_world_return` cvars |
 | Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`, `FollowCamEasePan`, `FollowCamEaseValue`, `FollowCamEaseStepMs`, `FollowCamBlendWeight`, `FollowCamBlendValue`, `FollowCamBlendAngle`; host test in tests/camera |

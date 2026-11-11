@@ -29,7 +29,7 @@ esac
 ring_check_rows
 
 # Settings no scene here moves, and why. Each passes the world check vacuously, so the list is
-# the honest edge of what this fixture shows. All four act on the two adjustments the Quirk
+# the honest edge of what this fixture shows. The first four act on the two adjustments the Quirk
 # docs/knowledge/quirks/affgrilleext-sets-the-camera-from-the-globals.md shows never reach the
 # frame: the HD recompose's pitch steepen and the ground lift, both applied around
 # CameraCenter(3) and overwritten when the terrain is drawn. Should either become live, its
@@ -39,6 +39,7 @@ cam_hd_pitch      the recompose's pitch steepen, overwritten before the frame is
 cam_ground        the ground lift, overwritten the same way
 cam_ground_clear  the ground lift's height
 cam_manual_hold   how long a manual nudge holds off those two
+cam_zone_height   acts only while a flat shot, or one with a hill behind it, has the camera; no scene here has one
 "
 
 work="$(mktemp -d -t lba2-ring-watch-XXXXXX)"

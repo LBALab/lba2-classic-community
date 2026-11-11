@@ -9,6 +9,7 @@
 #include "INPUT.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
+#include <math.h>
 
 /* FollowCamera refreshes terrain with AFF_ALL_FLIP every movement frame.
  * AFF_ALL_FLIP runs the full AffScene preamble (MemoClipWindow / UnsetClipWindow
@@ -38,6 +39,7 @@ S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
 S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
 S32 FollowCamZoneReturn = FOLLOW_CAM_ZONE_RETURN_DEFAULT;
 S32 FollowCamZoneAnchor = FOLLOW_CAM_ZONE_ANCHOR_DEFAULT;
+S32 FollowCamZoneHeight = FOLLOW_CAM_ZONE_HEIGHT_DEFAULT;
 S32 FollowCamWorldAnchor = FOLLOW_CAM_WORLD_ANCHOR_DEFAULT;
 S32 FollowCamWorldReturn = FOLLOW_CAM_WORLD_RETURN_DEFAULT;
 S32 FollowCamEaseMs = FOLLOW_CAM_EASE_MS_DEFAULT;
@@ -194,12 +196,132 @@ static S32 FollowCamBlendApplies(void) {
     return FollowCamera AND CubeMode == CUBE_EXTERIEUR AND !CinemaMode;
 }
 
-/* The view the globals describe, as the scene render sets it. */
+/* cam_zone_height. How far above the ground under its look-at the last shot
+ * was aimed, and what the frame adds to the Auto camera's view for it now: a
+ * raised look-at point and a raised pitch, each eased toward what is wanted. */
+static S32 FollowCamShotAimLift = 0;
+static S32 FollowCamHeightLift = 0;
+static S32 FollowCamHeightPitch = 0;
+static U32 FollowCamHeightTime = 0;
+static S32 FollowCamHeightLiftCarry = 0; /* FollowCamEaseStepMs: thousandths not yet moved */
+static S32 FollowCamHeightPitchCarry = 0;
+
+void FollowCamNoteShotAim(S32 lookX, S32 lookY, S32 lookZ) {
+    S32 lift = 0;
+
+    /* The ground is only known inside the section. A shot aimed past its edge
+     * says nothing about how high it meant to be. */
+    if (lookX >= 0 AND lookX < 32768 AND lookZ >= 0 AND lookZ < 32768)
+        lift = lookY - PtrCalculAltitudeY(lookX, lookZ);
+    if (lift < 0)
+        lift = 0;
+    if (lift > FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT)
+        lift = FOLLOW_CAM_ZONE_HEIGHT_MAX_LIFT;
+    FollowCamShotAimLift = lift;
+}
+
+/* The ground at (x, z), or `outside` past the section, where it is not known. */
+static S32 FollowCamHeightGround(S32 x, S32 z, S32 outside) {
+    if (x < 0 OR x >= 32768 OR z < 0 OR z >= 32768)
+        return outside;
+    return PtrCalculAltitudeY(x, z);
+}
+
+/* The pitch, no lower than `alpha`, that keeps the eye of a view about (lx, ly,
+ * lz) at `beta` and `dist` FOLLOW_CAM_ZONE_HEIGHT_FLOOR over the ground under it,
+ * and the line from it to the look-at point cam_ground_clear over the ground
+ * along the way. Past the section the ground is taken to be at `feetY`. */
+static S32 FollowCamHeightPitchFor(S32 lx, S32 ly, S32 lz, S32 feetY, S32 alpha, S32 beta, S32 dist) {
+    static const S32 frac[] = {40, 55, 70, 85};
+    double b = beta * (2.0 * M_PI / 4096.0);
+    S32 need = alpha;
+
+    if (dist <= 0)
+        return alpha;
+    /* The eye moves in as the pitch rises, so the ground under it is read again. */
+    for (S32 it = 0; it < 4; it++) {
+        double a = need * (2.0 * M_PI / 4096.0);
+        double ox = -dist * cos(a) * sin(b), oz = dist * cos(a) * cos(b);
+        double want = (FollowCamHeightGround(lx + (S32)ox, lz + (S32)oz, feetY) + FOLLOW_CAM_ZONE_HEIGHT_FLOOR - ly) / (double)dist;
+        S32 i;
+
+        for (i = 0; i < 4; i++) {
+            S32 sx = lx + (S32)(ox * frac[i] / 100), sz = lz + (S32)(oz * frac[i] / 100);
+            if (sx >= 0 AND sx < 32768 AND sz >= 0 AND sz < 32768) {
+                double w = (PtrCalculAltitudeY(sx, sz) + FollowCamGroundClearance - ly) * 100.0 / (frac[i] * (double)dist);
+                if (w > want)
+                    want = w;
+            }
+        }
+        if (want > 0.9)
+            want = 0.9; /* about 64 degrees: past that the hero is looked down on, not followed */
+        if (want <= sin(a))
+            break;
+        need = (S32)(asin(want) * (4096.0 / (2.0 * M_PI))) + 1;
+    }
+    return need;
+}
+
+/* Once per shown frame: what cam_zone_height wants added now, eased in time so
+ * it reads the same at any frame rate. `cut` puts it there at once. */
+static void FollowCamHeightStep(S32 cut) {
+    S32 wantLift = 0, wantPitch = 0;
+    S32 lent = FollowCamZoneHeight AND FollowCamLoan AND !CameraZone;
+    U32 now = TimerRefHR;
+    S32 dt = (S32)(now - FollowCamHeightTime);
+
+    FollowCamHeightTime = now;
+
+    /* Aim high only while the pitch on screen is still the shot's: it was
+     * written for a view about a raised point. And only as far as the eye
+     * needs it: up to FOLLOW_CAM_ZONE_HEIGHT_FLOOR over the ground under the
+     * hero, never past the height the shot itself aimed at. A shot steep
+     * enough to keep the eye up on its own, or a hero already high (flying,
+     * on a ledge over a drop), gets nothing. Some shots aim at something far
+     * off and high, which is no reason to look over the hero. */
+    if (lent AND FollowCamInShotBox AND(FollowCamLoan & FOLLOW_CAM_LOAN_PITCH) AND !(FollowCamLoan & FOLLOW_CAM_LOAN_RETURNING)) {
+        T_OBJ_3D *hero = &ListObjet[NumObjFollow].Obj; /* the look-at point leads him: read the ground where he is */
+        S32 alpha = AlphaCam + FollowCamRenderExtraPitch();
+        S32 eyeOverHero = (S32)(VueDistance * sin(alpha * (2.0 * M_PI / 4096.0)));
+
+        wantLift = FollowCamHeightGround(hero->X, hero->Z, hero->Y) + FOLLOW_CAM_ZONE_HEIGHT_FLOOR - (hero->Y + eyeOverHero);
+        if (wantLift > FollowCamShotAimLift)
+            wantLift = FollowCamShotAimLift;
+        if (wantLift < 0)
+            wantLift = 0;
+    }
+    if (lent) {
+        S32 alpha = AlphaCam + FollowCamRenderExtraPitch();
+        wantPitch = FollowCamHeightPitchFor(VueOffsetX, VueOffsetY + wantLift, VueOffsetZ, VueOffsetY,
+                                            alpha, BetaCam, VueDistance) -
+                    alpha;
+        if (wantPitch < 0)
+            wantPitch = 0;
+    }
+
+    if (cut OR dt <= 0 OR dt > 250) {
+        /* A cut, the first frame, or a clock that jumped: no glide across it. */
+        if (cut OR dt > 250) {
+            FollowCamHeightLift = wantLift;
+            FollowCamHeightPitch = wantPitch;
+            FollowCamHeightLiftCarry = 0;
+            FollowCamHeightPitchCarry = 0;
+        }
+        return;
+    }
+    FollowCamHeightLift += FollowCamEaseStepMs(wantLift - FollowCamHeightLift, dt, FOLLOW_CAM_ZONE_HEIGHT_EASE_MS,
+                                               FOLLOW_CAM_ZONE_HEIGHT_MIN_RATE, &FollowCamHeightLiftCarry);
+    FollowCamHeightPitch += FollowCamEaseStepMs(wantPitch - FollowCamHeightPitch, dt, FOLLOW_CAM_ZONE_HEIGHT_EASE_MS,
+                                                FOLLOW_CAM_ZONE_HEIGHT_MIN_RATE, &FollowCamHeightPitchCarry);
+}
+
+/* The view the globals describe, as the scene render sets it, with what
+ * cam_zone_height adds (nothing while it is off). */
 static void FollowCamGlobalView(T_FOLLOW_CAM_VIEW *v) {
     v->X = VueOffsetX;
-    v->Y = VueOffsetY;
+    v->Y = VueOffsetY + FollowCamHeightLift;
     v->Z = VueOffsetZ;
-    v->Alpha = AlphaCam + FollowCamRenderExtraPitch();
+    v->Alpha = AlphaCam + FollowCamRenderExtraPitch() + FollowCamHeightPitch;
     v->Beta = BetaCam;
     v->Gamma = GammaCam;
     v->Dist = VueDistance;
@@ -1208,6 +1330,8 @@ void FollowCamSetView(void) {
     if (!FollowCamBlendApplies()) {
         FollowCamBlendOn = FALSE;
         FollowCamShownLive = FALSE;
+        FollowCamHeightLift = 0;
+        FollowCamHeightPitch = 0;
         SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                         AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
                         VueDistance);
@@ -1217,6 +1341,8 @@ void FollowCamSetView(void) {
     if (FollowCamBlendOn AND FollowCamBlendWeightNow() >= 1000)
         FollowCamBlendOn = FALSE;
 
+    /* A recentre, Center camera or a load in this step is a cut too (FollowCamBlendCut). */
+    FollowCamHeightStep(!FollowCamShownLive OR FollowCamShownCube != NumCube OR FollowCamCutThisStep);
     FollowCamShownView(&v);
     SetFollowCamera(v.X, v.Y, v.Z, v.Alpha, v.Beta, v.Gamma, v.Dist);
 
@@ -1924,6 +2050,9 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamZoneAnchor", NULL, "cam_zone_anchor", &FollowCamZoneAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Prototype: hold a latching shot's world yaw while the hero is inside its box", SETTING_RECORDED, SETTING_BEFORE(0)},
+    {"FollowCamZoneHeight", NULL, "cam_zone_height", &FollowCamZoneHeight, SETTING_TRUTHY,
+     FOLLOW_CAM_ZONE_HEIGHT_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: keep a scripted shot's eye off the ground (aim higher as the shot did; raise the pitch over a hill)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldAnchor", NULL, "cam_world_anchor", &FollowCamWorldAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_WORLD_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)", SETTING_RECORDED, SETTING_BEFORE(0)},
