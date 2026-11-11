@@ -376,7 +376,7 @@ the help is how a player learns what a setting does, and what Classic changes. T
 has the band on every page (north star 3), with the help in it. At every size the help is typed
 in the dialogue voice, again on every cursor move; a player who stops on a row reads it whole.
 
-Help follows two rules:
+Help follows these rules:
 
 - **One message at a time.** When there is something to tell about the row (a question, the wait
   for a key, why a row is dimmed), it takes the help's place; nothing
@@ -387,17 +387,41 @@ Help follows two rules:
   game's own `TEXT.HQR`, its translations of a sentence run 1.1 times the English typically and
   up to 1.5 times (German) in their longest tenth, so a translation half as long again still
   fits. "Stops the picture tearing." is the register; "Stops the picture tearing. Off can raise
-  the frame rate on a slow display." is too long. Once translations exist, a test measures each
-  language's real text.
-- **Long help turns its own pages** (decided 2026-11-11), as the demo reel's dialogue does
-  ([SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP), `Dial` under `DemoSlide`): a window is
-  typed, held for its words (300 ms a word, at least 1.5 s), then the next is typed, and the last
-  stays. Moving off the row and back says it again from the start. Help is then never cut off,
-  which matters for the console help on More options; a window's worth is still the aim for the
-  Options pages. While a later window is to come, the dialogue's arrow (`sprites.hqr` entry 6,
-  `AffFleche` in [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)) sits in the window's
-  bottom-right corner, at the end of the voice in the band, as a dialogue marks a full page; the
-  last window has none (decided 2026-11-11).
+  the frame rate on a slow display." is too long. In the prototype, stand-in translations of
+  every help text into the five other languages ran 1.08 to 1.19 times the English at the
+  median and at most 1.6 to 2.0 times, the most on short texts; every row's help fit two band
+  lines (620) and three 640x480 dialogue lines (591) in every language and both fonts, after
+  the Classic question was shortened. A test measures each language's text, as the prototype's
+  does.
+- **Help never pages** (decided 2026-11-12). Paging help that turned its own windows, with the
+  dialogue's arrow (`AffFleche` in [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)), was tried
+  on the Xbox and dropped: the arrow asks for a key the menu never waits for, and on the last
+  window a player cannot tell there was an earlier one. Help on the Options pages stays within
+  the budget above in every language. The console help on More options is not shortened: it
+  moves out of the voice into the table's own status lines, in the 8x8 font, whole. Where help
+  could still page, a page count in the 8x8 font sits in the window's bottom-right corner,
+  "1/2", and stays "2/2" on the last window.
+
+### Languages
+
+- **The Text row changes the whole menu** (decided 2026-11-12, after changing it in the
+  prototype showed only the help change): labels, values, page titles, answers, the Controls
+  column heads and the legend's words, not only the help. The 1997 rows keep their `TEXT.HQR`
+  text; every new label comes in the six languages, as step 2 says. Key names, numbers and More
+  options' tuning rows stay as they are. A text is translated where it is drawn and measured, so
+  every width the layout takes is the translated one. One English word with two meanings gets
+  two entries: the legend's Back (the page before) is not the action Back (walking backwards).
+- **Labels are written to fit.** The tightest room is the action name on the Controls page at
+  640x480, 275 pixels before the first key chip. In the prototype eleven stand-in names were
+  shortened for it (the spells, the behaviour rows, turning, Talk and search; Spanish "Mochila
+  propulsora" became "Jetpack") and three answers to a key already in use.
+- **Text too wide swings, as 1997 did** (decided 2026-11-12). `DrawOneChoice`
+  ([SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP), "Shake Baby, shake...") draws a row wider
+  than the menu from its left, clipped, and under the cursor slides it until its end shows and
+  back (`InitShakeChoice`, 48 pixels a second). lba2cc already does this for long save names.
+  Every label and answer does the same in its room, which ends where the value, its marks or
+  the first key chip begin. It is a fallback, so a translation that does not fit can still be
+  read: text that fits stays the rule, and the layout check still fails text that does not.
 
 ## The config file
 
@@ -636,8 +660,10 @@ The menu does not touch the game's rules, so the world hash cannot see it. Four 
 5. **The layout keeps its rules.** Read from the draw record (see [The page model](#the-page-model)),
    on every page at each size the resolution list offers: one cursor on the screen; a pane's rows
    share their edges, labels starting on one and values ending on the other; rows 56 apart; the
-   help fits its window; nothing in the wide layout's margins; a key name fits its chip. A
-   capture says a page changed; a rule says which row is wrong and by how many pixels.
+   help fits its window without paging; nothing in the wide layout's margins; a key name fits
+   its chip. The walks run in all six Text languages: every label fits its room, and a drawn
+   text with no translation is a problem. A capture says a page changed; a rule says which row
+   is wrong and by how many pixels.
 6. **The keys go where they say.** Walks that work on any page, since pages are data: every page
    can be reached by keys from the hub; Esc from whatever Enter opened puts the cursor back on the
    row it left; Left then Right on a setting gives its value back; a dimmed row takes no key. A
