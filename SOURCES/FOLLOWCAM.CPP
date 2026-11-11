@@ -413,8 +413,15 @@ static void FollowCamBlendCut(void) {
  * blend into or out of a scripted shot (0 when none runs, always 0 with
  * cam_shot_blend_ms 0), and `sbeta` `salpha` `sdist` `sx` `sy` `sz` are the view
  * the frame shows, which differs from the ones before only while one runs; the
- * shown pitch includes `obs`. */
+ * shown pitch includes `obs`. `fobj` is the object the camera follows (0 is
+ * the hero; a script's CAM_FOLLOW changes it), `auto` is 1 on a frame the Auto
+ * camera's update ran, and `hxh` `hzh` are the hero's own position, which differ
+ * from `hxw` `hzw` while the camera follows something else. A `[cam] follow`
+ * line marks each change of the followed object, or of whether the Auto camera
+ * is steering by one that is not the hero. */
 void FollowCamTrace(void) {
+    static S32 prevFollow = -1;
+    static S32 prevAutoOther = -1;
     static S32 prevBeta = 0;
     static S32 prevX = 0;
     static S32 prevZ = 0;
@@ -467,6 +474,7 @@ void FollowCamTrace(void) {
     FollowCamIsoPan(&isoPanX, &isoPanY);
 
     /* camt: the iso camera is on its tile's corner, so the pan is whole pixels (FollowCamIsoCentre). */
+    S32 autoRan = (FollowCamEaseFrame == FollowCamFrame);
     S32 isoOnTile = (CameraX == StartXCube * SIZE_BRICK_XZ) && (CameraY == StartYCube * SIZE_BRICK_Y) &&
                     (CameraZ == StartZCube * SIZE_BRICK_XZ);
 
@@ -474,7 +482,7 @@ void FollowCamTrace(void) {
              "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
              "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d "
              "iso %d tx %d ty %d tz %d hx %d hz %d hxw %6d hzw %6d vxw %6d vzw %6d "
-             "lagx %d lagy %d lagz %d panx %d pany %d camt %d ibl %d",
+             "lagx %d lagy %d lagz %d panx %d pany %d camt %d ibl %d fobj %d auto %d hxh %6d hzh %6d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
@@ -491,8 +499,19 @@ void FollowCamTrace(void) {
              (int)(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ),
              (int)(FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y),
              (int)(FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
-             (int)isoPanX, (int)isoPanY, (int)isoOnTile, (int)iso_blend_left());
+             (int)isoPanX, (int)isoPanY, (int)isoOnTile, (int)iso_blend_left(),
+             (int)NumObjFollow, (int)autoRan, (int)ListObjet[NUM_PERSO].Obj.X, (int)ListObjet[NUM_PERSO].Obj.Z);
     FollowCamHiddenSeen = 0;
+
+    {
+        S32 autoOther = autoRan AND NumObjFollow != NUM_PERSO;
+        if ((S32)NumObjFollow != prevFollow OR autoOther != prevAutoOther) {
+            Log_Info("[cam] follow obj %d cube %d auto %d cine %d zone %d", (int)NumObjFollow, (int)NumCube,
+                     (int)autoRan, (int)CinemaMode, (int)CameraZone);
+            prevFollow = NumObjFollow;
+            prevAutoOther = autoOther;
+        }
+    }
 
     prevBeta = BetaCam;
     prevX = ptr3d->X;
@@ -724,6 +743,27 @@ void UpdateFollowCameraExt(void) {
      * was on the previous step with no cut since. */
     S32 consecutive = FollowCamEaseClockRuns AND FollowCamFrame - FollowCamEaseFrame == 1;
     S32 dtMs = FollowCamEaseTick();
+
+    /* Logged in every build, once each time it starts: the Auto camera is about to
+     * steer by an object a script put the camera on (CAM_FOLLOW), not by the hero.
+     * It aims behind that object's facing like his, so it turns with it; the
+     * demo's Otringal ferry circles the camera that way after he has got off.
+     * Collected to find where else in the game this happens. */
+    {
+        static S32 loggedObj = -1;
+        static S32 loggedCube = -1;
+        if (NumObjFollow != NUM_PERSO) {
+            if ((S32)NumObjFollow != loggedObj OR NumCube != loggedCube) {
+                Log_Info("[cam] Auto camera follows object %d, not the hero, in cube %d (hero at %d %d)",
+                         (int)NumObjFollow, (int)NumCube, (int)ListObjet[NUM_PERSO].Obj.X,
+                         (int)ListObjet[NUM_PERSO].Obj.Z);
+                loggedObj = NumObjFollow;
+                loggedCube = NumCube;
+            }
+        } else {
+            loggedObj = -1;
+        }
+    }
 
     /* The first update since a shot was applied: the Auto camera takes the view
      * back, from a shot that held it while the hero stood in its box, or from
