@@ -19,7 +19,8 @@ trap 'rm -f "$log"' EXIT
 
 # Orbit off the hero's back and let go, then turn him on the spot for 60 ticks. The last 40 ticks
 # are his turn plus the settle after it, which is the window the camera must sit still through.
-cam_run "$log" "" \
+# The offset held is the one measured from his facing, so the world anchor is off.
+cam_run "$log" "cam_world_anchor 0" \
     --exec-at 30 "camnudge 30 0 10" \
     --exec-at 100 "input left 60" \
     --tick 190

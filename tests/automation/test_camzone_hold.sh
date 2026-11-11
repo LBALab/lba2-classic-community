@@ -27,7 +27,7 @@ trap 'rm -f "$auto" "$classic" "$orbit"' EXIT
 zone_run() { # <log> <extra first-tick cmds>
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
         --exec "cube 90" \
-        --exec-at 15 "camtrace 1; $CAM_PLAIN; $2" \
+        --exec-at 15 "camtrace 1; $CAM_PLAIN; cam_hold_angle 1; $2" \
         --exec-at 40 "teleport 18000 3900 8000" \
         --exec-at 70 "teleport 13000 4000 8000" \
         --tick 160 --exit > "$1" 2>&1 || fail "run failed: exit $?"
@@ -48,7 +48,7 @@ classic_beta="$(cam_col "$classic" beta | tail -1)"
 # The shot holds, it is not nailed down: the player can still orbit away from it afterwards.
 ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
     --exec "cube 90" \
-    --exec-at 15 "camtrace 1; $CAM_PLAIN; cam_follow 1" \
+    --exec-at 15 "camtrace 1; $CAM_PLAIN; cam_hold_angle 1; cam_follow 1" \
     --exec-at 40 "teleport 18000 3900 8000" \
     --exec-at 70 "teleport 13000 4000 8000" \
     --exec-at 100 "camnudge 20 0 10" \

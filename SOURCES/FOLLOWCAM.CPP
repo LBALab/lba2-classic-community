@@ -8,6 +8,7 @@
 #include "SETTINGS.H"
 #include "INPUT.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/DEFFILE.H>
 #include <SYSTEM/LOG.H>
 #include <math.h>
 
@@ -413,8 +414,15 @@ static void FollowCamBlendCut(void) {
  * blend into or out of a scripted shot (0 when none runs, always 0 with
  * cam_shot_blend_ms 0), and `sbeta` `salpha` `sdist` `sx` `sy` `sz` are the view
  * the frame shows, which differs from the ones before only while one runs; the
- * shown pitch includes `obs`. */
+ * shown pitch includes `obs`. `fobj` is the object the camera follows (0 is
+ * the hero; a script's CAM_FOLLOW changes it), `auto` is 1 on a frame the Auto
+ * camera's update ran, and `hxh` `hzh` are the hero's own position, which differ
+ * from `hxw` `hzw` while the camera follows something else. A `[cam] follow`
+ * line marks each change of the followed object, or of whether the Auto camera
+ * is steering by one that is not the hero. */
 void FollowCamTrace(void) {
+    static S32 prevFollow = -1;
+    static S32 prevAutoOther = -1;
     static S32 prevBeta = 0;
     static S32 prevX = 0;
     static S32 prevZ = 0;
@@ -467,6 +475,7 @@ void FollowCamTrace(void) {
     FollowCamIsoPan(&isoPanX, &isoPanY);
 
     /* camt: the iso camera is on its tile's corner, so the pan is whole pixels (FollowCamIsoCentre). */
+    S32 autoRan = (FollowCamEaseFrame == FollowCamFrame);
     S32 isoOnTile = (CameraX == StartXCube * SIZE_BRICK_XZ) && (CameraY == StartYCube * SIZE_BRICK_Y) &&
                     (CameraZ == StartZCube * SIZE_BRICK_XZ);
 
@@ -474,7 +483,7 @@ void FollowCamTrace(void) {
              "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
              "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d "
              "iso %d tx %d ty %d tz %d hx %d hz %d hxw %6d hzw %6d vxw %6d vzw %6d "
-             "lagx %d lagy %d lagz %d panx %d pany %d camt %d ibl %d",
+             "lagx %d lagy %d lagz %d panx %d pany %d camt %d ibl %d fobj %d auto %d hxh %6d hzh %6d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
@@ -491,8 +500,19 @@ void FollowCamTrace(void) {
              (int)(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ),
              (int)(FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y),
              (int)(FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
-             (int)isoPanX, (int)isoPanY, (int)isoOnTile, (int)iso_blend_left());
+             (int)isoPanX, (int)isoPanY, (int)isoOnTile, (int)iso_blend_left(),
+             (int)NumObjFollow, (int)autoRan, (int)ListObjet[NUM_PERSO].Obj.X, (int)ListObjet[NUM_PERSO].Obj.Z);
     FollowCamHiddenSeen = 0;
+
+    {
+        S32 autoOther = autoRan AND NumObjFollow != NUM_PERSO;
+        if ((S32)NumObjFollow != prevFollow OR autoOther != prevAutoOther) {
+            Log_Info("[cam] follow obj %d cube %d auto %d cine %d zone %d", (int)NumObjFollow, (int)NumCube,
+                     (int)autoRan, (int)CinemaMode, (int)CameraZone);
+            prevFollow = NumObjFollow;
+            prevAutoOther = autoOther;
+        }
+    }
 
     prevBeta = BetaCam;
     prevX = ptr3d->X;
@@ -724,6 +744,27 @@ void UpdateFollowCameraExt(void) {
      * was on the previous step with no cut since. */
     S32 consecutive = FollowCamEaseClockRuns AND FollowCamFrame - FollowCamEaseFrame == 1;
     S32 dtMs = FollowCamEaseTick();
+
+    /* Logged in every build, once each time it starts: the Auto camera is about to
+     * steer by an object a script put the camera on (CAM_FOLLOW), not by the hero.
+     * It aims behind that object's facing like his, so it turns with it; the
+     * demo's Otringal ferry circles the camera that way after he has got off.
+     * Collected to find where else in the game this happens. */
+    {
+        static S32 loggedObj = -1;
+        static S32 loggedCube = -1;
+        if (NumObjFollow != NUM_PERSO) {
+            if ((S32)NumObjFollow != loggedObj OR NumCube != loggedCube) {
+                Log_Info("[cam] Auto camera follows object %d, not the hero, in cube %d (hero at %d %d)",
+                         (int)NumObjFollow, (int)NumCube, (int)ListObjet[NUM_PERSO].Obj.X,
+                         (int)ListObjet[NUM_PERSO].Obj.Z);
+                loggedObj = NumObjFollow;
+                loggedCube = NumCube;
+            }
+        } else {
+            loggedObj = -1;
+        }
+    }
 
     /* The first update since a shot was applied: the Auto camera takes the view
      * back, from a shot that held it while the hero stood in its box, or from
@@ -2043,7 +2084,7 @@ static const T_SETTING FollowCamSettings[] = {
      "Frames the pitch/distance auto-assist yields after a manual camera nudge", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHoldAngle", NULL, "cam_hold_angle", &FollowCamHoldAngle, SETTING_TRUTHY,
      FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift", SETTING_RECORDED, SETTING_BEFORE_NONE},
+     "Hold the manual camera rotation (free-camera); off = it comes back behind the hero as he walks", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamZoneReturn", NULL, "cam_zone_return", &FollowCamZoneReturn, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_RETURN_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam: give a scripted shot's yaw and pitch back when the hero leaves its box", SETTING_RECORDED, SETTING_BEFORE(0)},
@@ -2055,7 +2096,7 @@ static const T_SETTING FollowCamSettings[] = {
      "Auto cam: keep a scripted shot's eye off the ground (aim higher as the shot did; raise the pitch over a hill)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldAnchor", NULL, "cam_world_anchor", &FollowCamWorldAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_WORLD_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)", SETTING_RECORDED, SETTING_BEFORE(0)},
+     "Auto cam: hold the camera's world direction while the hero turns (off = it turns with him)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldReturn", NULL, "cam_world_return", &FollowCamWorldReturn, SETTING_CLAMP,
      FOLLOW_CAM_WORLD_RETURN_DEFAULT, 0, FOLLOW_CAM_WORLD_RETURN_MAX, NULL, NULL, NULL, NULL,
      "cam_world_anchor with cam_hold_angle 0: units walked forward that pace the return behind the hero (0 = none)", SETTING_RECORDED, SETTING_BEFORE_NONE},
@@ -2083,12 +2124,34 @@ static const T_SETTING FollowCamSettings[] = {
 };
 #define FOLLOW_CAM_SETTING_COUNT ((S32)(sizeof(FollowCamSettings) / sizeof(FollowCamSettings[0])))
 
+/* Which camera defaults an lba2.cfg was written under. v0.13.2 wrote every row,
+ * so its players' files hold its defaults as if chosen; marker 1 moves those
+ * still at them to the defaults the Auto camera has had since. */
+#define FOLLOW_CAM_DEFAULTS_MARKER "FollowCamDefaults"
+#define FOLLOW_CAM_DEFAULTS_VERSION 1
+
+static const T_SETTING_DEFAULT_MOVE FollowCamDefaultMoves[] = {
+    {"FollowCamWorldAnchor", 0, 1},
+    {"FollowCamHoldAngle", 1, 1},
+    {"FollowCamShotBlendMs", 600, 1},
+};
+
 void FollowCam_ReadConfig(void) {
+    S32 moved;
+
     Settings_ReadConfig(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
+    moved = Settings_MoveDefaults(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT, FOLLOW_CAM_DEFAULTS_MARKER,
+                                  FOLLOW_CAM_DEFAULTS_VERSION, FollowCamDefaultMoves,
+                                  (S32)(sizeof(FollowCamDefaultMoves) / sizeof(FollowCamDefaultMoves[0])));
+    if (moved > 0)
+        Log_Info("[cam] lba2.cfg held %d Auto camera setting(s) at an older default: moved to the current one "
+                 "(world anchor %d, hold angle %d, shot blend %d ms)",
+                 moved, FollowCamWorldAnchor, FollowCamHoldAngle, FollowCamShotBlendMs);
 }
 
 void FollowCam_WriteConfig(void) {
     Settings_WriteConfig(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
+    DefFileBufferWriteValue(FOLLOW_CAM_DEFAULTS_MARKER, FOLLOW_CAM_DEFAULTS_VERSION);
 }
 
 void FollowCam_RegisterCvars(void) {

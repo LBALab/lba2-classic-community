@@ -30,8 +30,9 @@ The zoom is not saved: it starts at the middle distance in every session, and En
 
 ## What the Auto camera does
 
-- **It keeps the angle you set.** Orbit the camera and it stays there as Twinsen walks, until you press Enter. With `cam_hold_angle 0` it drifts back behind him instead.
-- **It comes round behind Twinsen as he turns**, in about a second, and stops exactly behind him. The view trails him a little while he runs and settles after he stops. Both follow the pace of the 2022 Classic release's auto camera.
+- **It holds its direction when Twinsen turns.** Turning on the spot, or a boat turning under him, does not swing the camera round. As he walks it comes back behind him, sooner the faster he goes, and stops exactly behind him. With `cam_world_anchor 0` it comes round behind him as he turns instead, in about a second, the pace of the 2022 Classic release's auto camera.
+- **The angle you set.** Orbit the camera and it stays there for a moment, then comes back behind Twinsen as he walks. With `cam_hold_angle 1` it stays until you press Enter.
+- **The view trails Twinsen** a little while he runs and settles after he stops.
 - **Scripted camera shots.** Many outdoor places have a camera shot placed by the game's designers. A shot that holds the view takes it while Twinsen is inside its area, gliding in and out rather than cutting. When he leaves, the camera eases back to the angle and tilt you had before. Shots that only fire once do not take the view while you are steering.
 - **Signs.** A sign that shows a place shows that view as soon as its text opens. When you close it, the camera glides back to Twinsen.
 - **Buildings.** Coming out of a door, the camera starts straight behind Twinsen.
@@ -43,13 +44,15 @@ The zoom is not saved: it starts at the middle distance in every session, and En
 
 Each behaviour above is a setting you can switch off to get the camera as it was before it. Change one in the console with `name value`, for example `cam_shot_blend_ms 0`. Always type the value: a name typed alone switches the setting over. Console changes are written to `lba2.cfg` when the game exits. You can also edit `lba2.cfg` while the game is closed.
 
+When a default changes, an `lba2.cfg` written by an earlier version moves to it once, on the first start: a setting still at the earlier default takes the new one, and a value you changed is kept. The `FollowCamDefaults` line records which defaults the file has been moved to, so what you set after that stays.
+
 | Console | `lba2.cfg` key | Default | What it does | Off gives |
 | --- | --- | --- | --- | --- |
 | `cam_follow` | `FollowCamera` | 0 | The Auto camera itself | the classic camera |
-| `cam_hold_angle` | `FollowCamHoldAngle` | 1 | Keeps the angle you orbit to | drifts back behind Twinsen as he walks |
+| `cam_hold_angle` | `FollowCamHoldAngle` | 0 | 1: keeps the angle you orbit to until you press Enter | comes back behind Twinsen as he walks |
 | `cam_ease_ms` | `FollowCamEaseMs` | 300 | How quickly the camera comes round behind Twinsen, in milliseconds (600 is the earlier pace) | 0: the earlier per-frame follow, which can stop up to a degree short |
 | `cam_target_ms` | `FollowCamTargetMs` | 300 | How far the view trails Twinsen, in milliseconds | 0: the view pinned to him |
-| `cam_shot_blend_ms` | `FollowCamShotBlendMs` | 600 | Glide into and out of a scripted shot, in milliseconds (indoors too, with the interior follow) | 0: a cut |
+| `cam_shot_blend_ms` | `FollowCamShotBlendMs` | 900 | Glide into and out of a scripted shot, in milliseconds (indoors too, with the interior follow) | 0: a cut |
 | `cam_zone_return` | `FollowCamZoneReturn` | 1 | Gives your angle and tilt back after a shot | the shot's angle stays until you move the camera |
 | `cam_zone_skip` | `FollowCamZoneSkip` | 1 | Shots that fire once leave you alone while you steer | they take the view for a moment |
 | `cam_zone_height` | `FollowCamZoneHeight` | 1 | Keeps a scripted shot's view off the ground: aims higher under a flat shot, tilts up over a hill behind Twinsen | the bottom of the frame can show the ground missing or go black |
@@ -57,10 +60,10 @@ Each behaviour above is a setting you can switch off to get the camera as it was
 | `cam_obstruct` | `FollowCamObstruct` | 1 | Tilts over scenery only while it is in the way | a steep tilt can stay after it is clear |
 | `cam_ground` | `FollowCamGround` | 1 | Rises over hills between the camera and Twinsen | a hill can hide him |
 | `cam_hd` | `FollowCamHDRecompose` | 1 | Reframes at tall resolutions | Twinsen small under a lot of sky |
-| `cam_world_anchor` | `FollowCamWorldAnchor` | 0 | **Experimental.** Holds a direction in the world: Twinsen turns, the camera does not. With `cam_hold_angle 0` it comes back behind him as he walks, paced by `cam_world_return` (700) | |
+| `cam_world_anchor` | `FollowCamWorldAnchor` | 1 | Holds a direction in the world: Twinsen turns, the camera does not. With `cam_hold_angle 0` it comes back behind him as he walks, paced by `cam_world_return` (700) | the camera turns with Twinsen |
 | `cam_zone_anchor` | `FollowCamZoneAnchor` | 0 | **Experimental.** Inside a shot that fires once, holds the shot's angle as Twinsen turns | |
 
-`settings_before cam_` in the console switches off, at once, every behaviour added since the Auto camera first shipped: the rows from `cam_ease_ms` to `cam_obstruct` and the two experimental ones. The finer tuning values (`cam_hd_*`, `cam_ground_clear`, `cam_obstruct_hurry`, `cam_manual_hold`, `cam_recenter_*`) are described in [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md), and `help <name>` in the console explains any of them.
+`settings_before cam_` in the console switches off, at once, every behaviour added since the Auto camera first shipped: the rows from `cam_ease_ms` to `cam_obstruct`, `cam_world_anchor` and the experimental `cam_zone_anchor`. The finer tuning values (`cam_hd_*`, `cam_ground_clear`, `cam_obstruct_hurry`, `cam_manual_hold`, `cam_recenter_*`) are described in [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md), and `help <name>` in the console explains any of them.
 
 A session recording carries the camera settings it was made with. A replay uses them for its length and then gives yours back.
 

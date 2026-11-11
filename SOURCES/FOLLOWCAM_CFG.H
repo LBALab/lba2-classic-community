@@ -87,16 +87,18 @@
 /* When on, the manual camera rotation (AddBetaCam) is never auto-recentered
  * while walking; it holds until the scene changes or the player hits Center
  * camera (Enter / gamepad B), like a free third-person camera. Off restores the
- * classic lazy drift-back. cvar cam_hold_angle. */
-#define FOLLOW_CAM_HOLD_ANGLE_DEFAULT 1
+ * classic lazy drift-back, or with the world anchor the return paced by distance
+ * walked. Off by default, so the anchored camera comes back behind the hero.
+ * cvar cam_hold_angle. */
+#define FOLLOW_CAM_HOLD_ANGLE_DEFAULT 0
 
-/* World anchor (prototype) ---------------------------------------------------*/
+/* World anchor -----------------------------------------------------------------*/
 /* What the camera's horizontal angle is held against. Off, it is an offset from
  * the hero's facing (AddBetaCam), so when he turns the camera comes round with
  * him once any grace after a pan has run out, and hold-angle holds that offset.
  * On, it holds a direction in the world: the hero turns under the camera and it
  * stays where it is, and only the player turns it (orbit, the pan keys, the
- * quarter-turn key, Center camera). Off by default. cvar cam_world_anchor.
+ * quarter-turn key, Center camera). On by default. cvar cam_world_anchor.
  *
  * cam_hold_angle still decides whether the direction is held for good. With it
  * off, the camera comes back behind the hero as he walks forward, by distance
@@ -104,7 +106,7 @@
  * is, and a run brings it round sooner than a walk. cam_world_return is that
  * distance, in world units walked, as a time constant is in milliseconds: about
  * 95% of the way round after three of them. Walking backwards does not pull. */
-#define FOLLOW_CAM_WORLD_ANCHOR_DEFAULT 0
+#define FOLLOW_CAM_WORLD_ANCHOR_DEFAULT 1
 #define FOLLOW_CAM_WORLD_RETURN_DEFAULT 700
 #define FOLLOW_CAM_WORLD_RETURN_MAX 20000
 #define FOLLOW_CAM_WORLD_RETURN_MIN_RATE 180 /* slowest the pull goes, in angle units per 1000 units walked, so it lands */
@@ -156,8 +158,9 @@
  * camera taking it back, is a cut of every camera parameter at once: the look-at
  * point, the distance, the yaw and the pitch. With this above 0 the frame shows
  * a blend from the view on screen to the new one instead, over this many
- * milliseconds, eased in and out. 0 is the cut. */
-#define FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT 600
+ * milliseconds, eased in and out. 0 is the cut. 900 by default, from a player's
+ * play test. */
+#define FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT 900
 #define FOLLOW_CAM_SHOT_BLEND_MS_MAX 5000
 /* Indoors the same setting is the SHORTEST glide: a longer one gets 6 ms a pixel, so its top speed
  * is a quarter of a pixel a millisecond (4 a frame at 60 Hz, a little over the follow's while he

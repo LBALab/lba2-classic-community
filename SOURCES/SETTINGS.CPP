@@ -4,6 +4,8 @@
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/DEFFILE.H>
 
+#include <string.h>
+
 void Settings_ReadConfig(const T_SETTING *table, S32 count) {
     S32 i;
 
@@ -153,6 +155,41 @@ void Settings_WriteConfig(const T_SETTING *table, S32 count) {
         }
         DefFileBufferWriteValue(s->key, value);
     }
+}
+
+S32 Settings_MoveDefaults(const T_SETTING *table, S32 count, const char *marker, S32 version,
+                          const T_SETTING_DEFAULT_MOVE *moves, S32 moveCount) {
+    S32 from = 0;
+    S32 moved = 0;
+    S32 m;
+
+    /* Only the player's own file says which defaults it was written under. */
+    if (DefFileBufferKeyOrigin(marker) == DEFFILE_ORIGIN_OWNED)
+        from = DefFileBufferReadValueDefault(marker, 0);
+    if (from >= version)
+        return 0;
+
+    for (m = 0; m < moveCount; m++) {
+        const T_SETTING_DEFAULT_MOVE *mv = &moves[m];
+        S32 i;
+
+        if (mv->since <= from OR mv->since > version)
+            continue;
+        for (i = 0; i < count; i++) {
+            const T_SETTING *s = &table[i];
+
+            if (s->key == NULL OR strcmp(s->key, mv->key) != 0)
+                continue;
+            if (DefFileBufferKeyOrigin(s->key) != DEFFILE_ORIGIN_OWNED OR * s->value != mv->was)
+                break;
+            *s->value = s->def;
+            if (s->stored != NULL)
+                *s->stored = s->def;
+            moved++;
+            break;
+        }
+    }
+    return moved;
 }
 
 /* The console's side of a setting: it parses, this decides. Registered as the

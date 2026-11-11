@@ -86,6 +86,12 @@ field() {
         END { print (which == "before") ? before : (which == "shot") ? atshot : prev }' "$work/$1.tsv"
 }
 
+# worldyaw <name> <which>: the direction the camera aims in the world, the hero's facing plus the
+# offset, at the same frames as field.
+worldyaw() {
+    echo $(( ($(field "$1" heroBeta "$2") + $(field "$1" add "$2")) & 4095 ))
+}
+
 # ever <name> <column> <value>: how many frames a column held a value.
 ever() {
     awk -v want="$2" -v val="$3" '
@@ -123,13 +129,15 @@ pitch0="$(field forced_off alpha before)"
 [ "$(field forced_return loan last)" = 0 ] \
     || fail "the loan was still open at the end of the run"
 
-# The same visit with nothing set but the Auto camera itself. What ships gives the shot back.
+# The same visit with nothing set but the Auto camera itself. What ships gives the shot back. The
+# world anchor ships on, so what comes back is the direction in the world the camera had before
+# the shot, not the offset from a facing the hero has since turned away from.
 shot_run forced_shipped "as shipped" "$FORCED"
 
 [ "$(ever forced_shipped zone 1)" -gt 50 ] \
     || fail "as shipped, the forced zone never held the view"
-[ "$(field forced_shipped add last)" = "$(field forced_shipped add before)" ] \
-    || fail "as shipped, the yaw offset was not given back: $(field forced_shipped add last), lent at $(field forced_shipped add before)"
+[ "$(worldyaw forced_shipped last)" = "$(worldyaw forced_shipped before)" ] \
+    || fail "as shipped, the direction was not given back: $(worldyaw forced_shipped last), lent at $(worldyaw forced_shipped before)"
 [ "$(field forced_shipped alpha last)" = "$(field forced_shipped alpha before)" ] \
     || fail "as shipped, the pitch was not given back: $(field forced_shipped alpha last), lent at $(field forced_shipped alpha before)"
 

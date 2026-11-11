@@ -26,13 +26,15 @@ log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 
 # 30: orbit away from behind the hero and release. 100: turn him in place for 60 ticks -- the camera
-# holds, so the target drifts out from under it. 170: the smallest possible stick touch.
+# holds, so the target drifts out from under it. 170: the smallest possible stick touch. The backlog
+# only builds with the target measured from his facing, so the world anchor is off: with it on the
+# target holds still as he turns, and there is nothing to snap through.
 #
 # `cam_follow` and `cam_hold_angle` are cvars, so this run writes them back to its settings folder
 # on exit; lib.sh hands every test a folder of its own, which is what keeps that off everyone else's
 # camera (a stray FollowCamera=1 moves the projection corpus).
 ctl_headless --load "$FIX" --fixed-dt 16 \
-    --exec "cam_follow 1; cam_hold_angle 1; camtrace 1" \
+    --exec "cam_follow 1; cam_hold_angle 1; cam_world_anchor 0; camtrace 1" \
     --exec-at 30 "camnudge 40 0 10" \
     --exec-at 100 "input left 60" \
     --exec-at 170 "camnudge 1 0 1" \
