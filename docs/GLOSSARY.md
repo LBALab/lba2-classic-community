@@ -19,15 +19,15 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 |---|---|---|
 | How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had, or a retail fix, is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
 | Which values do I want? (**preset**) | Classic, Modern | The player |
-| Do my values differ from my preset? | changed when they do ("Modern settings, changed") | Nobody: the values arrive there |
+| Do my values differ from my preset? | changed when they do ("Preset: Modern, changed") | Nobody: the values arrive there |
 
 Experimental is a ring, not a set of values, so there is no Experimental preset. Its rows and
 every tuning value are on More options, a page always offered with no switch to show it; an
 Experimental-ring row is tagged "experimental" there, and the page's row says it is in English
 and that those rows may change or go.
 The chosen preset is stored in `lba2.cfg` as the base the player's own values sit on, so a
-player on a preset follows that preset's values from build to build. The preset row names the chosen preset ("Modern
-settings") and marks it changed when the player's own values differ from it; changed is never chosen. A preset sets only
+player on a preset follows that preset's values from build to build. The preset row names the chosen preset ("Preset:
+Modern") and marks it changed when the player's own values differ from it; changed is never chosen. A preset sets only
 the game's settings, never the player's own.
 
 ### Terms
@@ -42,7 +42,7 @@ the game's settings, never the player's own.
 | Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows, on or off by default; going on by default takes its own evidence ([moving inward](ARCHITECTURE.md#moving-inward)). | Modern (preset) |
 | Modern (preset) | Modern | Every setting a preset sets at its default: what a fresh install gets, retail fixes on. It follows the defaults as they move. A `lba2.cfg` with no `Preset` key is on Modern. | Modern (ring) |
 | Experimental (ring) | experimental (a tag on a row of More options) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
-| Changed (preset) | Modern settings, changed | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, changed is not, and the help line names the settings that differ. | Custom |
+| Changed (preset) | Preset: Modern, changed | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, changed is not, and the help line names the settings that differ. | Custom |
 | Custom | Custom | On the Fix retail bugs row: a stored value the player cycles to, and each fix's own setting decides. The preset row never shows it. | Changed (preset) |
 | Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, the fixed timestep, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
 | Retail fix | Fix retail bugs | A fix to a bug the original itself had; each has its own switch under the one row ([Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)). | Enhancement |
@@ -64,8 +64,8 @@ the game's settings, never the player's own.
 - **Profile** is not a preset or a backup.
 - **Options** is a place, as the original calls its menu: the menu itself, a part of it and a
   row that opens one (Options, Advanced options). **Settings** are the values chosen there: a row
-  that acts on values says settings (Reset settings, Back to my settings, the preset row's
-  "Modern settings"), as docs and `lba2.cfg` do.
+  that acts on values says settings (Reset settings), as docs and `lba2.cfg` do; a row that
+  takes a change back says what it undoes (Undo preset, Undo reset).
 
 ### One concept, several names
 
