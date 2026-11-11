@@ -46,6 +46,15 @@ set settings, and never change the game's rules.
 - The 1997 Options menu is one flat page of 8 rows (333929a `SOURCES/GAMEMENU.CPP`,
   `GameOptionMenu`): return, volume, reverse stereo, detail level, scenario cameras, keyboard
   config, video size, display text.
+- A playable prototype, [lba2-menu-prototype](https://github.com/noctonca/lba2-menu-prototype),
+  draws the Modern menu this plan describes with the game's own data: the hub and the category
+  pages, the presets with Undo preset and the first launch's offer, the Keys and buttons page,
+  More options, in both layouts. It builds lba2cc's `LIB386` from a submodule, copies the few
+  game-layer drawing helpers it needs, and holds its settings in memory: nothing writes
+  `lba2.cfg`. Its Options pages run on [the page model](#the-page-model) below, and its self
+  test checks the layout rules and the walks of [Testing](#testing-against-the-original), points
+  5 and 6. Its code is to be carried into lba2cc, the whole menu (decided 2026-11-11);
+  [Order of work](#order-of-work) says which part goes where.
 
 ## What the principles ask
 
@@ -267,6 +276,25 @@ their own.
     where the original had them, and the main menu as the per-game part once LBA1 needs it.
 
 Steps 1 and 2 are the first slice. The rest is direction, settled one PR at a time.
+
+The code comes from the prototype. A part is first brought to this plan's model inside the
+prototype, where its self test and a record of scripted runs, compared state by state and
+picture by picture before and after, show it behaves as it did; then it moves.
+
+- **Step 1** takes the page model: the row tables, the stack, the loop, the draw record and the
+  walks. The tables hold lba2cc's pages as they are today and write through `Settings_Apply`
+  where the prototype writes its settings in memory. `DoGameMenu` still draws them, so the
+  captures still match main.
+- **Steps 2, 7 and 8** take the hub and the category pages, the presets with Undo preset and
+  the first launch's offer, and More options, which reads lba2cc's settings tables where the
+  prototype reads a copy. The Keys and buttons page ([Controls](#controls)) comes the same way.
+- **The prototype's drawing** (the one column with the help in the dialogue window, the wide
+  composition and its band) draws the Options pages only once it draws today's pages to main's
+  captures, as [A north star](#a-north-star-for-the-modern-ui) asks of any new renderer. The
+  1997 drawing stays ([Testing](#testing-against-the-original), point 2).
+- **Stays in the prototype:** its window, input and clock (lba2cc has its own), its copies of the
+  game's drawing helpers (lba2cc has the originals), its settings held in memory, and its
+  testing switches (screen sizes, the pad's names, help shown whole).
 
 ## The page model
 
@@ -637,7 +665,7 @@ a PC player who rebinds will notice. The 1997 screen stays.
 
 ## Testing against the original
 
-The menu does not touch the game's rules, so the world hash cannot see it. Four checks do:
+The menu does not touch the game's rules, so the world hash cannot see it. Six checks do:
 
 1. **A refactor changes nothing.** Every menu page is captured before and after and must match
    main byte for byte, and each row is selected once and the `lba2.cfg` it writes compared with
@@ -673,6 +701,9 @@ The menu does not touch the game's rules, so the world hash cannot see it. Four 
 Each problem found by 5 or 6 comes with the command line that opens the screen it was found on.
 Both need game data for the font, as the captures do. The rules are written once, in the
 engine's automation, and take the row and group counts from the tables rather than restate them.
+The prototype's self test holds them today, with a second copy in Python that reads the same
+record from outside as a cross-check, and both still restate some counts (the actions per group,
+the More options rows per group); carried over, they read them from the tables.
 
 The page tables and the config layout are plain data, so most of this needs no game data. The
 page tables and the menu's own table can be host tests if they name settings by `lba2.cfg` key
