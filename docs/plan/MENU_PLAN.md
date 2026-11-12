@@ -478,25 +478,33 @@ Help follows these rules:
   for a key, why a row is dimmed), it takes the help's place; nothing
   is added after the help. A dimmed row says why it is dimmed ("Only with the Auto camera."),
   not what it does.
-- **Room for translation.** English help is at most about 750 pixels in the game font, two
-  thirds of what the band's two lines hold (about 1,130 at 620 wide). Measured on the 1997
-  game's own `TEXT.HQR`, its translations of a sentence run 1.1 times the English typically and
-  up to 1.5 times (German) in their longest tenth, so a translation half as long again still
-  fits. "Stops the picture tearing." is the register; "Stops the picture tearing. Off can raise
-  the frame rate on a slow display." is too long. In the prototype, stand-in translations of
-  every help text into the five other languages ran 1.08 to 1.19 times the English at the
-  median and at most 1.6 to 2.0 times, the most on short texts; every row's help fit two band
-  lines (620) and three 640x480 dialogue lines (591) in every language and both fonts, after
-  the Classic question was shortened. A test measures each language's text, as the prototype's
-  does.
-- **Help never pages** (decided 2026-11-12). Paging help that turned its own windows, with the
-  dialogue's arrow (`AffFleche` in [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)), was tried
-  on the Xbox and dropped: the arrow asks for a key the menu never waits for, and on the last
-  window a player cannot tell there was an earlier one. Help on the Options pages stays within
-  the budget above in every language. The console help on More options is not shortened: it
-  moves out of the voice into the table's own status lines, in the 8x8 font, whole. Where help
-  could still page, a page count in the 8x8 font sits in the window's bottom-right corner,
-  "1/2", and stays "2/2" on the last window.
+- **A short line, then More** (decided 2026-11-12, after help held to about 750 pixels of English
+  read as too short to be useful: the median English help used 45% of the band's two lines,
+  and 74 of 104 texts took one). A row's help is its short line, the one read while scrolling
+  ("Everything at once."), then a second window that says when or why to change it ("Turns
+  all the sound up or down. The rows below set each part."). The writer ends a window with
+  `@P`, as `TEXT.HQR` ends a 1997 dialogue page (`GetNextLine` in
+  [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)). Space, or the pad's Y, turns to the next
+  window and from the last back to the first; moving the cursor starts again at the short
+  line; while a key change waits for a key, Space is that key. The legend shows More, before
+  Back, only when the help has another window. Rows with nothing more to say keep their short
+  line alone.
+- **Ellipses say there is more.** A window with more to come ends in "..." (its own full stop
+  dropped), and a later window starts with one; the lines wrap short of the width by the
+  ellipsis. A "1/2" page count was tried and dropped: at 640x480 it sat under the legend's
+  Back. So was the dialogue's arrow (`AffFleche`), tried on the Xbox: it asks for a key the
+  menu never waits for, and on the last window a player cannot tell there was an earlier one.
+  No window turns by itself.
+- **Every window fits two lines in every language.** Measured on the 1997 game's own
+  `TEXT.HQR`, its translations of a sentence run 1.1 times the English typically and up to 1.5
+  times (German) in their longest tenth, so English is not held to a budget; each window is
+  measured in all six languages instead, at the narrowest voice it is said in: the band (620
+  pixels), the 640x480 dialogue window (591) and the Keys and buttons pages, where More widens
+  the legend (445 to 482). A window too long for its lines goes on in the next, so a player
+  still reads all of it, but the test reports it. In the prototype, the stand-in translations
+  of every window fit after nine first drafts and seven older translations were shortened. The
+  console help on More options moves out of the voice into the table's own status lines, in
+  the 8x8 font, whole.
 
 ### Languages
 
