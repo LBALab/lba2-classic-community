@@ -45,7 +45,7 @@ Main Menu
 │   │   │   ├── Back (26)
 │   │   │   ├── Outdoors: Auto / Classic [custom localized label]
 │   │   │   └── Indoors: Follow / Classic [custom localized label]
-│   │   ├── Small videos / Full screen videos (27/28)
+│   │   ├── Movies at original size / Movies fit to screen [custom localized label]
 │   │   └── Don't display text / Display text (16/17)
 │   └── Controls [custom localized label]
 │       ├── Back (26)
