@@ -46,15 +46,55 @@ set settings, and never change the game's rules.
 - The 1997 Options menu is one flat page of 8 rows (333929a `SOURCES/GAMEMENU.CPP`,
   `GameOptionMenu`): return, volume, reverse stereo, detail level, scenario cameras, keyboard
   config, video size, display text.
-- A playable prototype, [lba2-menu-prototype](https://github.com/noctonca/lba2-menu-prototype),
-  draws the Modern menu this plan describes with the game's own data: the hub and the category
-  pages, the presets with Undo preset and the first launch's offer, the Keys and buttons page,
-  More options, in both layouts. It builds lba2cc's `LIB386` from a submodule, copies the few
-  game-layer drawing helpers it needs, and holds its settings in memory: nothing writes
-  `lba2.cfg`. Its Options pages run on [the page model](#the-page-model) below, and its self
-  test checks the layout rules and the walks of [Testing](#testing-against-the-original), points
-  5 and 6. Its code is to be carried into lba2cc, the whole menu (decided 2026-11-11);
-  [Order of work](#order-of-work) says which part goes where.
+
+## The prototype
+
+A playable prototype,
+[lba2-menu-prototype](https://github.com/noctonca/lba2-menu-prototype),
+draws the Modern menu this plan describes with the game's own data: the hub and the category
+pages, the presets with Undo preset and the first launch's offer, Reset settings and Undo reset,
+Keys and buttons, More options, in both layouts, with keys, a pad, a mouse and touch. It builds
+lba2cc's `LIB386` from a submodule, copies the few game-layer drawing helpers it needs, and holds
+its settings in memory: nothing writes `lba2.cfg`. The maintainer (on an Xbox too) and EPmager
+have played it, and its rows, words and layout changed with what they found.
+
+The prototype is this plan's reference for how the menu looks and behaves: which rows each page
+has and in what order, their labels and help, the layouts, the legend, the scroll bar, the key
+chips, the questions, the pointer. This plan does not restate them. A PR that carries prototype
+code into lba2cc names the prototype commit it was checked against. Where to read it:
+
+- its tables in `src/menu.cpp` (the Options pages), `src/bindings.cpp` (Keys and buttons) and
+  `src/more_options.cpp` (More options);
+- `docs/UX.md`, the layout and wording rules and why, each one the self test checks marked with
+  the check's name;
+- the README, for each page as a player meets it, and for the testing tools;
+- `lba2menu --selftest` and `tools/sweep.py`, which check those rules on every page at seven
+  screen sizes, and `tools/baseline.py`, which records a run state by state
+  and picture by picture so a change meant to move code can show it moved nothing.
+
+Its code is to be carried into lba2cc, the whole menu (decided 2026-11-11);
+[Order of work](#order-of-work) says which part goes where.
+
+### Where lba2cc departs from it
+
+The prototype tries things this plan has not taken, and stands in for lba2cc where it has no
+engine. lba2cc does not carry these over:
+
+- **Presets set the look.** The prototype's presets also set the background, the font, the
+  Outdoors and Indoors cameras and the screen (Classic 640x480, Modern the native size), and
+  Undo preset, Reset settings and Undo reset put the screen back. Here a preset sets how the
+  game plays and leaves the player's screen alone ([What a preset leaves alone](#what-a-preset-leaves-alone)),
+  and a fresh install keeps the Auto camera off until it moves on by default (#839).
+- **Background and Font rows** on Language and interface: lba2cc has neither the Twinsun
+  background nor the Zilla Slab face.
+- **Rows that stand in for work not done here.** Image stands in for the filters (#835, open
+  question 2), Invert camera and Camera speed for the invert and sensitivity rows (open
+  question 3), Button names for the prompts #371 adds, the Console row's version for lba2cc's
+  own.
+- **Its own machinery.** Its window, input and clock (lba2cc has its own), its copies of the
+  game's drawing helpers (lba2cc has the originals), its settings held in memory, its switches
+  for testing (screen sizes, the pad's names, help shown whole, the key list overlay), and the
+  "original" page that stands for today's lba2cc Options in its captures.
 
 ## What the principles ask
 
@@ -156,14 +196,10 @@ checked. A player who wants a setup frozen across builds names its values. The b
 writer to leave out a value equal to it, so it is one Decision with point 2 of
 [The config file](#the-config-file).
 
-### Choosing a preset
+### Choosing, undoing and resetting
 
-- The preset row opens a page: Classic and Modern, each with a help line saying what it
-  sets, and **Undo preset** when there is something to go back to. The row says what it opens,
-  Preset, with the chosen preset where a value goes ("Preset: Modern" in the one column), and
-  adds "changed" when the player's own values differ from it ("Modern, changed"). Played on an
-  Xbox (2026-11-11), the earlier "Modern settings" read as one more page of settings rather than
-  the preset, and the page it opens is called Preset.
+The prototype shows the pages and their words; these are the rules under them.
+
 - Choosing a preset asks for confirmation, then keeps the preset it replaces and the player's
   values as a settings backup, which Undo preset restores: the preset, the player's values
   for the settings a preset sets, and the tuning values, not the whole file, so a volume or a
@@ -173,12 +209,12 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   with no way back.
 - Applying a preset takes out the player's own values for every setting a preset sets and puts
   the tuning values back to their defaults (the backup keeps both). Changing a
-  setting a preset sets, tuning included, marks the row changed; changing a player's setting
+  setting a preset sets, tuning included, marks the preset changed; changing a player's setting
   does not.
 - Changed is computed: the chosen preset is stored, changed is not, and no player chooses it. A
   file with no `Preset` key is on Modern, so a player who brings an edited `lba2.cfg` sees "Modern,
   changed" where the file sets a value Modern does not, which answers EPmager's question
-  on #838. While the row reads changed, the page's help line names the settings that differ from
+  on #838. While the preset reads changed, the help names the settings that differ from
   the chosen preset, Experimental ones included, so a value set from the console or a downloaded
   file can be found.
 - The Fix retail bugs row stays as it is, and works differently: its Custom is a stored value the
@@ -194,24 +230,18 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   run under automation (`Control_IsActive`: `--load`, `--exec`, `--tick`) skips the page as it
   skips the logos ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), so a `ui` verb captures it.
   Afterwards the page is in Options.
-- **The More options page is always offered**, a row on Advanced and reset; no switch shows or
-  hides it (decided 2026-11-03). The page is already a level down, so a switch only hid a row a
-  player had to go looking for, and cost a setting, a row that comes and goes, and a second
-  step. The row's help carries the warning instead: "Fine tuning, experiments and options from
-  1997, in English. Rows marked experimental may change or go." It was the Experimental page
-  until 2026-11-11: most of its rows tune finished features, and only the Experimental-ring rows
-  among them carry the warning, as a tag of their own (see [Long lists](#long-lists)).
+- **More options is always offered**, a row on Advanced and reset; no switch shows or hides it
+  (decided 2026-11-03). Its help warns instead, and only its Experimental-ring rows carry the
+  experimental tag (see [Long lists](#long-lists)).
 - **Reset settings** puts every setting except the languages back to a fresh install, the preset
   to Modern and the player's settings and bindings included, after a confirmation step and with
-  a settings backup
-  kept first, which **Undo reset**, the row after it, restores. Both undo rows say what they
-  undo (decided 2026-11-11: "Back to my settings" read as leaving the page, not undoing). That is
-  what makes it more than choosing Modern. The binding pages have their own
-  reset. A fresh install's value is not always the compiled default: an install's own `lba2.cfg`
-  is a layer under the profile's, and it can name the player's settings (the demo's names the
-  volumes, the detail level, scenario cameras, video size and all 72 keyboard bindings). So Reset
-  takes keys out of the profile's file rather than writing defaults over that layer, which needs
-  the writer to leave a key out ([The config file](#the-config-file), point 2).
+  a settings backup kept first, which **Undo reset** restores. That is what makes it more than
+  choosing Modern. The binding pages have their own reset. A fresh install's value is not always
+  the compiled default: an install's own `lba2.cfg` is a layer under the profile's, and it can
+  name the player's settings (the demo's names the volumes, the detail level, scenario cameras,
+  video size and all 72 keyboard bindings). So Reset takes keys out of the profile's file rather
+  than writing defaults over that layer, which needs the writer to leave a key out
+  ([The config file](#the-config-file), point 2).
 
 For this every setting gains four fields: the **ring** (none for a 1997 setting or a retail fix,
 Modern or Experimental), from which More options tags its experimental rows and the Modern-ring
@@ -240,9 +270,10 @@ their own.
    `OPTIONS_PAGES.CPP` and the loop into `OPTIONS_MENU.CPP`
    ([Where the code goes](#where-the-code-goes)): one table per page and one loop for every
    page, writing only through `Settings_Apply` (Texts, Voices and Display text get their
-   settings rows here). `DoGameMenu` still draws them. Every capture matches main byte for
-   byte. The draw record and the walks ([Testing](#testing-against-the-original), points 5 and
-   6) come with the loop, so step 2's pages are checked as they are made. In its own commit,
+   settings rows here). `DoGameMenu` still draws them, Return rows included. Every capture
+   matches main byte for byte. The draw record and the walks
+   ([Testing](#testing-against-the-original), points 5 and 6) come with the loop, so step 2's
+   pages are checked as they are made. In its own commit,
    the same loop writes `lba2.cfg` when the player leaves Options, so a crash keeps the
    changes. The binding writers then have to write the player's own tables while a replay has
    borrowed them, as
@@ -250,10 +281,10 @@ their own.
    `DefKeys`, which holds the recording's table for the length of a replay (`bindings_install` in
    [SOURCES/RECORD.CPP](../../SOURCES/RECORD.CPP)), so a replay that opens Options and is then
    killed would leave the recording's keys in the player's file.
-2. **Categories (#782).** The hub and the category pages below, new labels in six languages,
-   goldens remade. PR #835's filter rows land here or in Display first, by agreement with its
-   author. The Camera page gains invert and sensitivity rows. A check fails a label that uses a
-   reserved word (GLOSSARY).
+2. **Categories (#782).** The hub and the category pages as the prototype has them, new labels in
+   six languages, goldens remade. PR #835's filter rows land here or in Display first, by
+   agreement with its author. The Camera page's rows join Controls and camera, with invert and
+   sensitivity. A check fails a label that uses a reserved word (GLOSSARY).
 3. **The menu's table of ring, presets-set and category fields**, and the config file grouped by
    category (see below). Keys with no settings row (the bindings, the resolution, `LastSave`, the
    install's own keys) get an entry naming their group, so the writer can place them too.
@@ -280,8 +311,8 @@ their own.
 Steps 1 and 2 are the first slice. The rest is direction, settled one PR at a time.
 
 The code comes from the prototype. A part is first brought to this plan's model inside the
-prototype, where its self test and a record of scripted runs, compared state by state and
-picture by picture before and after, show it behaves as it did; then it moves.
+prototype, where its self test and `tools/baseline.py`, compared state by state and picture by
+picture before and after, show it behaves as it did; then it moves.
 
 - **Step 1** takes the page model: the row tables, the stack, the loop, the draw record and the
   walks. The tables hold lba2cc's pages as they are today and write through `Settings_Apply`
@@ -289,20 +320,18 @@ picture by picture before and after, show it behaves as it did; then it moves.
   captures still match main.
 - **Steps 2, 7 and 8** take the hub and the category pages, the presets with Undo preset and
   the first launch's offer, and More options, which reads lba2cc's settings tables where the
-  prototype reads a copy. The Keys and buttons page ([Controls](#controls)) comes the same way.
+  prototype reads a copy. Keys and buttons ([Controls](#controls)) comes the same way. What
+  [Where lba2cc departs from it](#where-lba2cc-departs-from-it) lists stays behind.
 - **The prototype's drawing** (the one column with the help in the dialogue window, the wide
   composition and its band) draws the Options pages only once it draws today's pages to main's
   captures, as [A north star](#a-north-star-for-the-modern-ui) asks of any new renderer. The
   1997 drawing stays ([Testing](#testing-against-the-original), point 2).
-- **Stays in the prototype:** its window, input and clock (lba2cc has its own), its copies of the
-  game's drawing helpers (lba2cc has the originals), its settings held in memory, and its
-  testing switches (screen sizes, the pad's names, help shown whole).
 
 ### Where the code goes
 
-The prototype holds the menu in one file, `menu.cpp` (about 1,970 lines): its stand-in settings
-and presets, the page tables, the loop, both layouts' drawing, the voice, and its test output.
-In lba2cc these parts go to separate files, each with one job:
+The prototype holds the menu in one file, `menu.cpp`: its stand-in settings and presets, the
+page tables, the loop, both layouts' drawing, the pointer, the voice, and its test output. In
+lba2cc these parts go to separate files, each with one job:
 
 | File | Holds | From the prototype |
 |---|---|---|
@@ -327,8 +356,8 @@ The lines between them:
 - The presets read and write through the settings tables and the binding tables, never through
   a page.
 - Tests and `state` read the draw record and the stack, not a getter for each thing they check.
-  The prototype's self test reads twelve `Menu_*` getters besides the draw record, and More
-  options and Keys and buttons add their own, each added for one check.
+  The prototype's self test reads a `Menu_*` getter for each of many things besides the draw
+  record, and More options and Keys and buttons add their own, each added for one check.
 
 ## The page model
 
@@ -341,7 +370,7 @@ A page is a table of rows, not a loop. A row says:
 | setting | the settings-table row it reads and writes, if any; resolution and bindings are kinds of their own |
 | shown when | a check: the platform has the feature, the data has speech |
 | active when | a check on another setting; while it fails the row is drawn dimmed and its help says what it needs |
-| help | one line saying what the row does, and its cost if any |
+| help | a short line saying what the row does, and its cost if any, then more if there is more to say |
 
 One loop draws and runs any page, writes through `Settings_Apply`, and repaints the backdrop on
 entry and exit in one place (today seven page handlers each repeat it). Nothing in the table is a
@@ -360,8 +389,6 @@ The loop keeps three things so a page can change under the player:
 - **Where the player is** is one stack of pages, each with the row its cursor is on, the same
   for every layout. A layout works out its panes from the stack, so a screen that changes size
   in the menu, or crosses from the one column to the wide layout, keeps the page and the row.
-  Kept as row positions for each layout, the place has to be translated at every crossing: the
-  one column counts the return row, a wide page does not.
 - **The cursor holds a row, not a position.** "Shown when" is checked as the page is drawn, so a
   row that comes or goes (Undo preset, Undo reset) leaves the cursor on the row it was on.
 - **Live rows** show the engine's state: Resolution the screen in use, Fullscreen the window as
@@ -371,13 +398,10 @@ The loop keeps three things so a page can change under the player:
 The loop also records what it drew each frame: each row's label, value, box and fill, and where
 its text ends; the help, its window and the lines it needed; the cursor. The checks in
 [Testing against the original](#testing-against-the-original) read that record, not pixels.
-Which device was used last is one value, read by the Controls page, the Console row, the band's
-legend and the wait for a key. After a pad press the legend names the pad's buttons (A Open,
-B Back), after a key the keyboard's; the wait for a key keeps its own names, since B does not
-cancel a wait for a key. Whether there is a keyboard is a second value: on a desktop always, on
+Which device was used last is one value, read by the Controls page, the Console row, the legend
+and the wait for a key. Whether there is a keyboard is a second value: on a desktop always, on
 a console only once a key has been typed. Until then the legend names the pad from the start
-and the Controls page offers no Keyboard view and no Tab (decided 2026-11-11, after playing on
-an Xbox).
+and Keys and buttons offers no Keyboard view (decided 2026-11-11, after playing on an Xbox).
 
 ### One mode
 
@@ -385,9 +409,9 @@ The menu is in one mode at a time, held as one value, not a flag for each:
 
 - **A page**, the top of the stack: the cursor moves along its rows.
 - **A question**, two answers with the safe one first and the cursor on it; Esc gives the safe
-  answer and the voice says the question. Classic, Reset settings and a key already in use on
-  Keys and buttons all ask one. A question is a page pushed on the stack whose rows are its
-  answers, so Esc, the depth, the draw record and `state` need nothing of their own.
+  answer. Classic, Reset settings and a key already in use on Keys and buttons all ask one. A
+  question is a page pushed on the stack whose rows are its answers, so Esc, the depth, the draw
+  record and `state` need nothing of their own.
 - **Waiting for a key** on Keys and buttons: every key and button goes to the binding until one
   is taken or the wait is left.
 
@@ -395,9 +419,9 @@ The first launch is a page whose Esc chooses Modern, a field of the page ("Esc d
 mode. The Console row opens lba2cc's console (`Console_Toggle`), which takes the input itself,
 so it is not a mode of the menu either.
 
-The prototype keeps five flags (first launch, question, closed, console, and Keys and buttons'
-wait with its own question), tested one after another at the top of every frame, and has two
-questions written apart: Classic and Reset settings in `menu.cpp`, the key in use in
+The prototype keeps a flag for each (first launch, question, closed, console, and Keys and
+buttons' wait with its own question), tested one after another at the top of every frame, and
+has two questions written apart: Classic and Reset settings in `menu.cpp`, the key in use in
 `bindings.cpp`. Each mode there is one more flag, and one more test at the top of the frame.
 
 ### A row kind brings its own handlers
@@ -415,38 +439,34 @@ all six. Handlers by kind keep a new page to its own file.
 
 ## Categories
 
-| Page | Rows | Waiting for a place |
-|---|---|---|
-| Language and interface | Texts, Voices, Display text | On-screen prompts (#371) |
-| Display and graphics | Resolution, Fullscreen, Vsync, Frame rate, Image (a page: the filters) | |
-| Sound | Samples, Voice, Music, General volume | |
-| Controls and camera | Keyboard, Gamepad, Camera (a page: Outdoors, Indoors, Movie camera) | Camera presets (#733), modern controls (#372) |
-| Gameplay | opens with its second row | play-changing enhancements |
-| Advanced and reset | Reset settings, Fix retail bugs (until Gameplay opens), Console (#679, its value the version), More options (a page: the tuning values, and From 1997) | settings backups, cheats |
+The hub holds the preset row and six categories: Language and interface, Display and graphics,
+Sound, Controls and camera, Gameplay (once it has its second row; until then Fix retail bugs
+stays on Advanced and reset), and Advanced and reset. The prototype's tables say which rows each
+holds. These are the parts that rest on lba2cc rather than on the prototype:
 
-Three rows the 1997 Options had for the machines of the day go to a **From 1997** group on More
-options (decided 2026-11-11): Detail level (each step down takes away animated water, rain, the
-far scenery, then shadows; `SetDetailLevel` in [SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP)),
-Video size, labelled Movies (at original size or fit to screen; original size was for slow CD
-drives), and Reverse stereo. A player rarely needs them now, and on Display and Sound they sat
-among the rows a player comes for. Movies is the one new label, since "Video size" reads as the
-screen's; the 1997 Options page
-(step 10) keeps them where they were. Movie camera, the 1997 scenario cameras, is camera
-behaviour rather than a machine's limit: off skips the outdoor shots that cut once as Twinsen
-enters a zone ([CAMERA_INTERNALS.md](../CAMERA_INTERNALS.md)), so it goes on the Camera page.
-
-The hub has the return row, the preset row and the categories: 7 rows, 8 once Gameplay opens.
-The preset row sits on the hub, under the return row, because it is the choice most players
-come for, and "Advanced" reads as "leave this alone". Every page stays within 8 rows at 640x480;
-Display and graphics reaches 6 with the return row, Advanced and reset 6. A layout that shows
-fewer rows scrolls a page rather than move Frame rate away from Vsync, where a player looks
-for it. A row that cannot apply here (no speech in the data, an
-always-fullscreen device) is hidden, as today.
-
-More options holds settings, not debugging. The debug tools (the hit boxes `zv`, `horizon`, the
-traces, `godmode`) are console variables and commands outside the settings table, never saved,
-and stay in the console: there is no Debug page. Two things get a row instead:
-
+- **From 1997, on More options** (decided 2026-11-11): Detail level (each step down takes away
+  animated water, rain, the far scenery, then shadows; `SetDetailLevel` in
+  [SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP)) and Video size, labelled Movies (at
+  original size or fit to screen; original size was for slow CD drives), were for the machines
+  of the day. Reverse stereo stays on Sound: speakers the wrong way round are not a machine's
+  limit. Movie camera, the 1997 scenario cameras, is camera behaviour: off skips the outdoor
+  shots that cut once as Twinsen enters a zone ([CAMERA_INTERNALS.md](../CAMERA_INTERNALS.md)),
+  so it goes with the cameras. The 1997 Options page (step 10) keeps all of them where they were.
+- **Invert and sensitivity** for the mouse and the stick go with the cameras: players look for
+  them there in any game, so they are player's settings with rows, not tuning on More options.
+  They only do something with Outdoors on Auto: the mouse camera runs only with the Auto camera
+  outdoors, and the stick camera only with the Auto camera
+  ([SOURCES/EXTFUNC.CPP](../../SOURCES/EXTFUNC.CPP)). They are the first rows that depend on
+  another setting, and they are dimmed rather than hidden, so cycling Outdoors never moves the
+  rows under the cursor.
+- **The Resolution list** offers 640x480, a widescreen rung 480 pixels high that fills the
+  display's width, and rungs 720 and 1080 high
+  ([RUNTIME_RESOLUTION.md](../RUNTIME_RESOLUTION.md), `Res_BuildMenuList`). Widescreen is
+  finished; HD is not: at 720 and 1080 the UI is a 640x480 block in the middle, interiors are a
+  640-class blit, and the vertical framing is undecided
+  ([WIDESCREEN.md, Phase 7](../WIDESCREEN.md#phase-7-native-hd)). The console's list already tags
+  those rungs experimental (`RES_CATALOG.CPP`); the menu shows them bare. The list marks them,
+  and their help says what is unfinished, until Phase 7 lands (open question 9).
 - **Frame rate** shows the frame count in a corner while the player plays, as the console's
   `fps` and the 1997 SPEED code do (`DebugFps`, drawn by `AffNbFps` in
   [SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP)). It is not kept in `lba2.cfg`: off at every
@@ -457,83 +477,35 @@ and stay in the console: there is no Debug page. Two things get a row instead:
   release. Today the version is only in the window title (hidden in fullscreen and on Android),
   the log, `--version` and the console's `buildinfo`, so a player asked "which build?" has to
   know where to look.
+- **No Debug page.** The debug tools (the hit boxes `zv`, `horizon`, the traces, `godmode`) are
+  console variables and commands outside the settings table, never saved, and stay in the
+  console.
+- A row that cannot apply here (no speech in the data, an always-fullscreen device) is hidden,
+  as today.
 
-The Camera page keeps Outdoors and Indoors, gains Movie camera (above), and gains invert and sensitivity for the mouse and
-the stick. Players look for those on the camera page in any game, so they are player's settings
-with rows, not tuning on More options. They only do something with Outdoors on Auto: the
-mouse camera runs only with the Auto camera outdoors, and the stick camera only with the Auto
-camera ([SOURCES/EXTFUNC.CPP](../../SOURCES/EXTFUNC.CPP)). That makes them the first rows that
-depend on another setting. Outdoors is on the same page, so they are dimmed rather than hidden:
-hidden, they would move the rows under the cursor each time the player cycles Outdoors.
-
-The Resolution list offers 640x480, a widescreen rung 480 pixels high that fills the display's
-width, and rungs 720 and 1080 high ([RUNTIME_RESOLUTION.md](../RUNTIME_RESOLUTION.md),
-`Res_BuildMenuList`). Widescreen is finished; HD is not: at 720 and 1080 the UI is a 640x480
-block in the middle, interiors are a 640-class blit, and the vertical framing is undecided
-([WIDESCREEN.md, Phase 7](../WIDESCREEN.md#phase-7-native-hd)). The console's list already tags
-those rungs experimental (`RES_CATALOG.CPP`); the menu shows them bare. The list marks them, and
-their help line says what is unfinished, until Phase 7 lands (open question 10). Resolution is a
-player's setting, so Modern never picks HD.
-
-At 640x480 every page shows the selected row's help below its rows, in the 1997 dialogue window:
-the help is how a player learns what a setting does, and what Classic changes. The wide layout
-has the band on every page (north star 3), with the help in it. At every size the help is typed
-in the dialogue voice, again on every cursor move; a player who stops on a row reads it whole.
-
-Help follows these rules:
-
-- **One message at a time.** When there is something to tell about the row (a question, the wait
-  for a key, why a row is dimmed), it takes the help's place; nothing
-  is added after the help. A dimmed row says why it is dimmed ("Only with the Auto camera."),
-  not what it does.
-- **A short line, then More** (decided 2026-11-12, after help held to about 750 pixels of English
-  read as too short to be useful: the median English help used 45% of the band's two lines,
-  and 74 of 104 texts took one). A row's help is its short line, the one read while scrolling
-  ("Everything at once."), then a second window that says when or why to change it ("Turns
-  all the sound up or down. The rows below set each part."). The writer ends a window with
-  `@P`, as `TEXT.HQR` ends a 1997 dialogue page (`GetNextLine` in
-  [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)). Space, or the pad's Y, turns to the next
-  window and from the last back to the first; moving the cursor starts again at the short
-  line; while a key change waits for a key, Space is that key. The legend shows More, before
-  Back, only when the help has another window. Rows with nothing more to say keep their short
-  line alone.
-- **Ellipses say there is more.** A window with more to come ends in "..." (its own full stop
-  dropped), and a later window starts with one; the lines wrap short of the width by the
-  ellipsis. A "1/2" page count was tried and dropped: at 640x480 it sat under the legend's
-  Back. So was the dialogue's arrow (`AffFleche`), tried on the Xbox: it asks for a key the
-  menu never waits for, and on the last window a player cannot tell there was an earlier one.
-  No window turns by itself.
-- **Every window fits two lines in every language.** Measured on the 1997 game's own
-  `TEXT.HQR`, its translations of a sentence run 1.1 times the English typically and up to 1.5
-  times (German) in their longest tenth, so English is not held to a budget; each window is
-  measured in all six languages instead, at the narrowest voice it is said in: the band (620
-  pixels), the 640x480 dialogue window (591) and the Keys and buttons pages, where More widens
-  the legend (445 to 482). A window too long for its lines goes on in the next, so a player
-  still reads all of it, but the test reports it. In the prototype, the stand-in translations
-  of every window fit after nine first drafts and seven older translations were shortened. The
-  console help on More options moves out of the voice into the table's own status lines, in
-  the 8x8 font, whole.
+At every size the selected row's help is shown, in the 1997 dialogue window in the one column
+and in the band in the wide layout, typed in the dialogue voice on every cursor move. A help
+text is a short line, then more windows where there is more to say, which Space or the pad's Y
+turns; the writer ends a window with `@P`, as `TEXT.HQR` ends a 1997 dialogue page
+(`GetNextLine` in [SOURCES/MESSAGE.CPP](../../SOURCES/MESSAGE.CPP)).
 
 ### Languages
 
-- **The Text row changes the whole menu** (decided 2026-11-12, after changing it in the
-  prototype showed only the help change): labels, values, page titles, answers, the Controls
-  column heads and the legend's words, not only the help. The 1997 rows keep their `TEXT.HQR`
-  text; every new label comes in the six languages, as step 2 says. Key names, numbers and More
-  options' tuning rows stay as they are. A text is translated where it is drawn and measured, so
-  every width the layout takes is the translated one. One English word with two meanings gets
-  two entries: the legend's Back (the page before) is not the action Back (walking backwards).
-- **Labels are written to fit.** The tightest room is the action name on the Controls page at
-  640x480, 275 pixels before the first key chip. In the prototype eleven stand-in names were
-  shortened for it (the spells, the behaviour rows, turning, Talk and search; Spanish "Mochila
-  propulsora" became "Jetpack") and three answers to a key already in use.
+- **The Text row changes the whole menu** (decided 2026-11-12): labels, values, page titles,
+  answers, the column heads and the legend's words, not only the help. The 1997 rows keep their
+  `TEXT.HQR` text; every new label comes in the six languages, as step 2 says. Key names, numbers
+  and More options' tuning rows stay as they are. A text is translated where it is drawn and
+  measured, so every width the layout takes is the translated one.
+- **Every window fits two lines in every language.** Measured on the 1997 game's own `TEXT.HQR`,
+  its translations of a sentence run 1.1 times the English typically and up to 1.5 times
+  (German) in their longest tenth, so English is not held to a budget; each window is measured
+  in all six languages instead, at the narrowest place it is shown.
 - **Text too wide swings, as 1997 did** (decided 2026-11-12). `DrawOneChoice`
   ([SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP), "Shake Baby, shake...") draws a row wider
   than the menu from its left, clipped, and under the cursor slides it until its end shows and
   back (`InitShakeChoice`, 48 pixels a second). lba2cc already does this for long save names.
-  Every label and answer does the same in its room, which ends where the value, its marks or
-  the first key chip begin. It is a fallback, so a translation that does not fit can still be
-  read: text that fits stays the rule, and the layout check still fails text that does not.
+  It is a fallback, so a translation that does not fit can still be read: text that fits stays
+  the rule, and the layout check still fails text that does not.
 
 ## The config file
 
@@ -601,7 +573,7 @@ though they never chose it. Moving inward cannot reach existing players.
    nothing while that file names every key, and over it a change made in the menu would be lost
    at the next boot. A `Preset` line in the file sets the base; without one the base stays as it
    was. Whether that line also takes out the player's own values for settings presets set, as
-   choosing a preset in the menu does, is open question 11. A binding that takes a key another
+   choosing a preset in the menu does, is open question 10. A binding that takes a key another
    action already has is refused, as the keyboard page refuses it (`CheckKeyConfig`,
    [SOURCES/CONFIG.CPP](../../SOURCES/CONFIG.CPP)), and the import says which ones it skipped.
    Settings backups (EPmager, Discussion #782) save and load such files from the menu.
@@ -633,7 +605,8 @@ on the new-game frame and the European CD volume name.
 
 ## A north star for the Modern UI
 
-Not a promise; the direction the steps above should not close off.
+Not a promise; the direction the steps above should not close off. The prototype draws points
+2, 3 and 5.
 
 1. **Pages are data.** As in the page model above.
 2. **The UI scales in whole steps.** A screen 3:2 or wider takes one 960x540 composition at the
@@ -646,27 +619,13 @@ Not a promise; the direction the steps above should not close off.
    3x) lets the player choose, and Auto can use the display's content scale where the platform
    reports one (SDL3 has `SDL_GetDisplayContentScale`). A handheld shows why the row is not
    enough alone: a 7-inch 1280x800 screen gets the composition at 1x, small at arm's length, and
-   2x gives a 640x400 canvas, where an 8-row page (8 × 50 + 7 × 6 = 442 pixels) does not fit.
-   So pages window below 480 logical pixels, as long lists do, or the larger scale is out of
-   reach there; 1280x720 at 2x is 360 pixels tall.
+   2x gives a 640x400 canvas. So pages window below 480 logical pixels, as long lists do, or the
+   larger scale is out of reach there; 1280x720 at 2x is 360 pixels tall.
 3. **The same page lays out by width.** The one column is today's 640x480 menu. The wide
-   composition goes one pane at a time, as the 1997 menu goes from a page to a sub-page: the
-   hub's categories, then a page, 640 wide and centred, the page's name as its title in the
-   seventh row's place, labels on the left and values ending on one edge 24 in from the right.
-   A slider is the 1997 one in both layouts (`DrawOneChoice`): under the cursor the whole row is
-   the slider plasma up to the value, the label on it, and other slider rows show their label
-   only. A slider squeezed into the value edge stretched the plasma into a strip that read badly
-   on a TV (decided 2026-11-11).
-   A page shows six rows under its title, the hub seven. Two panes side by side were tried: at
-   960 wide the right pane was 416 pixels, short of the 556 six English labels and their values
-   need, and one pane holds them with 84 to spare; the cost is that the hub no longer previews a
-   category's rows. Under the rows, at the same height on every page, the band: one frame,
-   darkened to level 15 (at the menu rows' level, 11, the help measured 1.24:1 over the foam of
-   the menu picture; 15 holds 3.15:1 or more), holding the help in the dialogue voice on two lines
-   and, stacked at its right, the keys the selected row takes, named for the device in use. The
-   first launch's question sits inside the composition, in the band's place. The menu picture
-   behind it is scaled evenly to cover the whole screen and cropped, never stretched. Nothing
-   else is drawn in the margins (32 at the sides, 24 at the top and bottom).
+   composition goes one pane at a time, as the 1997 menu goes from a page to a sub-page, with a
+   band under the rows holding the help and the keys the selected row takes. Two panes side by
+   side were tried: at 960 wide the right pane was 416 pixels, short of the 556 six English
+   labels and their values need. The prototype's `docs/UX.md` has the rest.
 4. **One focus for every input.** Keyboard, pad, mouse and touch move the same cursor, as the
    fixed UI navigation already does.
 5. **The original parts.** Palette colours, one frame, the game font at one size, plasma for the
@@ -682,14 +641,9 @@ existing goldens byte for byte. Only then does it get wide layouts.
 
 ### Long lists
 
-A long list of one kind (resolutions, More options) is a windowed list as the save list
-is, with a scroll bar beside the window: a framed track, a framed thumb sized to the window's
-share of the list, Page Up and Page Down or the shoulder buttons for a window at a time, the
-wheel and a drag for the pointer. On the wide canvas a plain page holds its rows (Display and
-graphics, at seven, scrolls by one). At 640x480 the help's dialogue window leaves room for five
-rows, so the hub and most pages scroll there too: the rows stay centred at the 1997 width and
-the bar sits beside them, in the screen's right gap (chosen 2026-11-03 over the bar inside the
-rows, no bar, and a two-line help window).
+A long list of one kind (resolutions, More options) is a windowed list as the save list is, with
+a scroll bar beside it; at 640x480 the help's dialogue window leaves room for few rows, so most
+pages scroll there too.
 
 More options is generated from the settings table: every tuning value and Experimental-ring
 setting with no row of its own elsewhere, grouped by the table that declares it (the Auto camera
@@ -698,41 +652,24 @@ English, then the From 1997 group. Grouped by category, 38 of the 41 would fall 
 and camera. A row in the Experimental ring carries an "experimental" tag after its name and its
 help starts "Experimental:" (today `cam_zone_anchor` and `cam_world_anchor`,
 [CAMERA.md](../CAMERA.md)); the ring field gives the tag, so a setting that moves inward loses
-it with no change to the page. An experiment then needs no hand-made row and no translations. It is a dense table in the 8x8 font, like the
-key binding screen: the 41 tuning rows in a six-row game-font window would be seven windows of
-scrolling. The table's font is drawn at 1x on every canvas, the size the key binding screen
-had at 640x480: 31 lines in view on the wide canvas, against 14 at 2x. Everywhere else on the
-wide canvas the 8x8 font is 2x. The game-font list was mocked too.
+it with no change to the page. An experiment then needs no hand-made row and no translations. It
+is a dense table in the 8x8 font, like the key binding screen.
 
 ### Controls
 
 Today keyboard and gamepad are two binding screens, each one 36-row table in the 8x8 font
-(`DrawScreenConfig` in [SOURCES/CONFIG.CPP](../../SOURCES/CONFIG.CPP)). The Modern page splits
-the 36 actions into seven groups of four to seven (movement, actions, behaviours, weapons, magic
-and items, camera, menus), one pane each. It shows one device at a time, Keyboard with Key 1
-and Key 2 or Gamepad with one column, and opens on the device used last; Tab (the pad's View
-button) switches. With no keyboard, a console's until a key is typed, it opens on Gamepad and
-offers no switch. Keys are chips in the 8x8 font at 2x, which hold six letters, so long key
-names are shortened ("Num 5", "RShift", "PrtSc", "ScrLk"). At 640x480 a chip is 116 pixels
-wide rather than 120, so the longest action name, "Behaviour action", clears the first chip by
-8. A key another action already has asks first, as choosing a preset does (decided 2026-11-11,
-replacing the refusal the 1997 screen has): the voice says who has it ("<J> is on Jetpack, in
-Magic and items."), and two answers take the actions' place, the safe one first: "No, keep it
-on Jetpack" and "Yes, Jetpack gets Up" ("keeps Num 5" or "has no key" when the chip was empty).
-Esc answers No. The refusal ("Clear C on Protection spell first.") named the action but left the
-player to find it, clear it and come back. Nothing changes that the player did not choose, and
-the page never puts one key on two actions, which would fire both in play; a clash that comes in
-from an edited `lba2.cfg` is framed red. While the page waits for a key, the help says the way
-out: "Press a key, or <ESC> to keep it.", and on the gamepad view "Press a button, or <MENU> to
-keep it." (Start, by the pad's own name); after 5 s the wait ends with nothing changed. The voice
-names a key or button in capitals inside angle brackets, as the 1997 text does ("<ESC> exit,
-<ENTER> Select a key", "press <SHIFT> or simply press <TAB>"); chips, answers and the legend keep
-the key list's case (decided 2026-11-11). The game font draws < and > as small raised marks, so
-on screen it reads ˚MENU˚; the 8x8 font of the 1997 key setup screen draws real brackets.
+(`DrawScreenConfig` in [SOURCES/CONFIG.CPP](../../SOURCES/CONFIG.CPP)). Keys and buttons splits
+the 36 actions into seven groups (movement, actions, behaviours, weapons, magic and items,
+camera, menus), shows one device at a time, and opens on the device used last. A key another
+action already has asks first, as choosing a preset does, where the 1997 screen refuses it
+(decided 2026-11-11): the refusal named the action but left the player to find it, clear it and
+come back. Nothing changes that the player did not choose, and the page never puts one key on
+two actions, which would fire both in play; a clash that comes in from an edited `lba2.cfg` is
+shown on both actions.
 
 **No binding locks a pad-only player out** (decided 2026-11-11). Start always opens the game
-menu, as Esc does on the keyboard: Game menu's pad chip is fixed, its help says so, and Start is
-never bound to another action, so no answer to the question above can take it. The menu's own
+menu, as Esc does on the keyboard: Game menu's pad button is fixed, its help says so, and Start
+is never bound to another action, so no answer to the question above can take it. The menu's own
 pad buttons are fixed as its keys are: A confirms, B goes back, and the d-pad and left stick
 move. Today only the directions are fixed ([SOURCES/MENU_INPUT.CPP](../../SOURCES/MENU_INPUT.CPP)):
 the game menu confirms only on Recentre camera, Behaviour action or Enter (`DoGameMenu`), and
@@ -742,10 +679,10 @@ pad button that picks a row, and clearing Menus on the pad leaves no way to open
 Vita layout, Circle confirms only while it stays on Dodge. A keyboard still gets out; an Xbox,
 Switch, Vita or Android TV player does not (an Android TV remote's Back does nothing). Which
 button confirms differs by device (Circle on the Vita, A on the east on Nintendo pads), so the
-fixed buttons belong in the build-time input profiles of #836. The names the buttons of the
-pad in use (#371), and each device's bindings have their own reset. Rebound movement keys (WASD,
-say) do not move the menu cursor, which uses fixed keys ([MENU.md](../MENU.md#navigation)), and
-a PC player who rebinds will notice. The 1997 screen stays.
+fixed buttons belong in the build-time input profiles of #836. Each device's bindings have
+their own reset. Rebound movement keys (WASD, say) do not move the menu cursor, which uses fixed
+keys ([MENU.md](../MENU.md#navigation)), and a PC player who rebinds will notice. The 1997 screen
+stays.
 
 ## Testing against the original
 
@@ -769,13 +706,13 @@ The menu does not touch the game's rules, so the world hash cannot see it. Six c
    its value from before.
 4. **The 1997 page.** Its table against 333929a's `GameOptionMenu` (8 rows, known text ids), and
    captures beside GOG DOS `LBA2.EXE` under DOSBox-X. A visual check, not pixel-exact.
-5. **The layout keeps its rules.** Read from the draw record (see [The page model](#the-page-model)),
-   on every page at each size the resolution list offers: one cursor on the screen; a pane's rows
-   share their edges, labels starting on one and values ending on the other; rows 56 apart; the
-   help fits its window without paging; nothing in the wide layout's margins; a key name fits
-   its chip. The walks run in all six Text languages: every label fits its room, and a drawn
-   text with no translation is a problem. A capture says a page changed; a rule says which row
-   is wrong and by how many pixels.
+5. **The layout keeps its rules.** The prototype's self test rules (`docs/UX.md`), read from the
+   draw record (see [The page model](#the-page-model)) on every page at each size the resolution
+   list offers: one cursor on the screen, a pane's rows sharing their edges, each help window
+   fitting its lines, nothing in the wide layout's margins, a key name fitting its chip, and the
+   rest. The walks run in all six Text languages: every label fits its room, and a drawn text
+   with no translation is a problem. A capture says a page changed; a rule says which row is
+   wrong and by how many pixels.
 6. **The keys go where they say.** Walks that work on any page, since pages are data: every page
    can be reached by keys from the hub; Esc from whatever Enter opened puts the cursor back on the
    row it left; Left then Right on a setting gives its value back; a dimmed row takes no key. A
@@ -785,17 +722,18 @@ The menu does not touch the game's rules, so the world hash cannot see it. Six c
 Each problem found by 5 or 6 comes with the command line that opens the screen it was found on.
 Both need game data for the font, as the captures do. The rules are written once, in the
 engine's automation, and take the row and group counts from the tables rather than restate them.
-The prototype's self test holds them today, with a second copy in Python that reads the same
-record from outside as a cross-check, and both still restate some counts (the actions per group,
-the More options rows per group); carried over, they read them from the tables.
+The prototype's self test holds them today, with a second copy in Python (`tools/sweep.py`) that
+reads the same record from outside as a cross-check, and both still restate some counts (the
+actions per group, the More options rows per group); carried over, they read them from the
+tables.
 
 The page tables and the config layout are plain data, so most of this needs no game data. The
 page tables and the menu's own table can be host tests if they name settings by `lba2.cfg` key
-and stay free of engine headers: at most 8 rows a plain page, every label in six languages. The
-settings tables cannot: three of the four live in files that pull in the engine
+and stay free of engine headers: every label in six languages, every row naming a setting that
+exists. The settings tables cannot: three of the four live in files that pull in the engine
 (`CONFIG_FILE.CPP`, `FOLLOWCAM.CPP`, `AMBIANCE.CPP`), which is why
-`scripts/ci/check-settings-before.py` reads them from the source. Every row naming a setting that
-exists, and every setting with exactly one entry in the menu's table, are checks of that kind.
+`scripts/ci/check-settings-before.py` reads them from the source. Every setting with exactly one
+entry in the menu's table is a check of that kind.
 Host tests for the writer and the borrow: a written file that reads back to the same values, a
 preset applied and then Undo preset giving back every value a preset sets while keeping a
 player's setting changed since, a key this build does not know surviving a write, and the binding
@@ -806,29 +744,26 @@ writers persisting the player's tables while a replay has borrowed them.
 1. Category names. The wide layout's hub uses the same ones: one concept, one name, so a
    name too long for it is shortened everywhere.
 2. Image: one choice for the three filters, or three rows (#835)?
-3. How many rows invert and sensitivity take on the Camera page: each has two axes and two
-   devices, and the page holds 8 rows.
-4. Whether a category page gets its own reset, as a row or as a key in the band's legend.
+3. How many rows invert and sensitivity take: each has two axes and two devices. The prototype
+   has one of each.
+4. Whether a category page gets its own reset, as a row or as a key in the legend.
 5. Whether "Fix retail bugs" reads well to players, since "retail" is a developer's word; if it
    changes, with the step 2 labels.
 6. Whether the menu cursor follows rebound movement keys or the page says it does not.
 7. The reference file's name, and whether it is written every run or only when the build changes.
 8. Who checks the translations of the new labels.
-9. Decided: the preset row shows the preset's name marked as changed ("Preset: Modern,
-   changed"), not Custom, since the stored preset still decides every setting the player has not
-   changed. See [Choosing a preset](#choosing-a-preset).
-10. Whether the 720 and 1080 rungs of the resolution list stay in the list marked as unfinished,
-    or are left out until Phase 7. (There is no Show experimental settings switch to put them
-    behind: More options is always offered.)
-11. Whether a `Preset` line in an imported file takes out the player's own values for settings
+9. Whether the 720 and 1080 rungs of the resolution list stay in the list marked as unfinished,
+   or are left out until Phase 7.
+10. Whether a `Preset` line in an imported file takes out the player's own values for settings
     presets set, as choosing the preset in the menu does, and whether an imported key equal to
     the new base stays in the file as one the player named. Left alone, a Modern player who
     turned the Auto camera on and imports a Classic file keeps the Auto camera and reads
     "Classic, changed".
-12. Whether the main menu and the 1997 key binding screens stop stretching the menu picture too
+11. Whether the main menu and the 1997 key binding screens stop stretching the menu picture too
     (`Image_LoadStretched`), as the Options pages will.
-13. Whether Reset settings changes the screen. Resolution and Fullscreen are player's settings,
-    which Reset puts back, but putting them back changes the screen under the menu.
+12. Whether Reset settings changes the screen. Resolution and Fullscreen are player's settings,
+    which Reset puts back, but putting them back changes the screen under the menu. The
+    prototype puts it back.
 
 ## Not in this plan
 
