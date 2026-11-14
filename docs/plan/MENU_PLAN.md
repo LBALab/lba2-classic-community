@@ -347,6 +347,14 @@ One loop draws and runs any page, writes through `Settings_Apply`, and repaints 
 entry and exit in one place (today seven page handlers each repeat it). Nothing in the table is a
 pixel position, so a second layout can read the same tables.
 
+The loop is only a caller. Each frame it calls one update and one draw for the page on top of the
+stack, then presents; neither waits for a key or presents a frame itself, as `Menu_Update` and
+`Menu_Draw` in the prototype's `src/main.cpp` do not. Today `GAMEMENU.CPP` calls `Flip`,
+`BoxUpdate` or `CopyScreen` 67 times. Kept to that shape, the last step of
+[the north star](#a-north-star-for-the-modern-ui) changes who calls the update and the draw, not
+the pages, and a host that owns the frame can run the menu as it is: the prototype's web build
+hands every frame back to the browser.
+
 The loop keeps three things so a page can change under the player:
 
 - **Where the player is** is one stack of pages, each with the row its cursor is on, the same
