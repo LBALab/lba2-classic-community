@@ -42,7 +42,12 @@ set settings, and never change the game's rules.
   the app, loses every other change made in that session.
 - A fresh install never shows the menu first: with no save,
   [SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP) (`IsFirstGameLaunched`) goes straight into
-  the intro and a new game, so a new player plays on the defaults before seeing Options.
+  the intro and a new game, so a new player plays on the defaults before seeing Options. It
+  also skips the Adeline logo ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)).
+- The publisher logo (Activision, EA or Virgin) is shown before the Adeline logo when the
+  install's config declares a `Version`, and not when it declares none
+  ([VERSIONS.md](../VERSIONS.md)). `ShowDistribLogo` overrides that either way; it is read, never
+  written, and only the console's `distrib logo` sets it.
 - The 1997 Options menu is one flat page of 8 rows (333929a `SOURCES/GAMEMENU.CPP`,
   `GameOptionMenu`): return, volume, reverse stereo, detail level, scenario cameras, keyboard
   config, video size, display text.
@@ -52,7 +57,7 @@ set settings, and never change the game's rules.
 A playable prototype,
 [lba2-menu-prototype](https://github.com/noctonca/lba2-menu-prototype),
 draws the Modern menu this plan describes with the game's own data: the hub and the category
-pages, the presets with Undo preset and the first launch's offer, Reset settings and Undo reset,
+pages, the presets with Undo preset, Reset settings and Undo reset,
 Keys and buttons, More options, in both layouts, with keys, a pad, a mouse and touch. It builds
 lba2cc's `LIB386` from a submodule, copies the few game-layer drawing helpers it needs, and holds
 its settings in memory: nothing writes `lba2.cfg`. The maintainer (on an Xbox too) and EPmager
@@ -122,8 +127,8 @@ the player's own values differ from it ("Preset: Modern, changed"): computed, ne
 
 | Preset | Sets |
 |---|---|
-| **Classic** | Every switch the port added at its value from before, and Fix retail bugs on No: the 1997 CD release's rules. |
-| **Modern** | Every switch at its default: what a fresh install gets. Retail fixes on, and a port feature on once it has moved on by default. |
+| **Classic** | Every switch the port added at its value from before, and Fix retail bugs on No: the 1997 CD release's rules. The publisher logo as the release declares it. |
+| **Modern** | Every switch at its default: what a fresh install gets. Retail fixes on, no publisher logo, and a port feature on once it has moved on by default. |
 
 The question a player answers is the original's rules or the port's. Being in the Modern ring
 does not put a setting in the Modern preset: a Modern-ring setting is a tested menu row, on or
@@ -134,8 +139,19 @@ offered but not well enough to be on for everyone; a player turns those on by th
 
 Today the two differ in Fix retail bugs alone: every switch the port added is off by default,
 which is its value from before, and nothing is in the Modern ring yet (the Auto camera is
-Experimental until #839). The preset earns its place on first launch, where it is the one choice
-a new player makes.
+Experimental until #839). The publisher logo will be the second difference.
+
+Modern is the preset a fresh install plays, and nobody is asked to choose (decided 2026-11-16).
+A player who wants the original's rules sets Classic in Options.
+
+**The publisher logo** (decided 2026-11-16) becomes a setting the presets set. Activision, EA and
+Virgin no longer distribute the game, so their logo before the Adeline logo is part of the
+original's presentation, not the port's: off by default, so Modern shows none, and its value
+from before is today's rule, the logo the install's `Version` declares, so Classic shows it as
+1997 did. That makes `ShowDistribLogo` a setting like the others, written when the player
+changes it: its values are Off and As the release says, never the resolved yes or no, so a
+profile pointed at another game folder still follows that folder's declaration. Its row is on
+More options. The demo's bumper is the demo's own presentation and stays as it is.
 
 A preset sets switches, never tuning values: every preset leaves tuning at its default. A
 camera tuning row's value from before is the Auto camera before that behaviour, the start the
@@ -223,13 +239,14 @@ The prototype shows the pages and their words; these are the rules under them.
   loses nothing. A preset sets this row and never the fixes under it, which keeps the promise
   that Yes and No never overwrite them; comparing values with a preset leaves the fixes out too,
   since under Yes or No they change nothing.
-- **First launch** offers the preset page once, before the intro, so a new player knows Classic
-  and Modern exist. First launch means the profile had no `lba2.cfg` of its own at boot: the
-  check the intro uses today (`IsFirstGameLaunched`, no saves) would offer the page again to a
-  player who deleted their saves. Escape changes nothing, which on a first launch is Modern. A
-  run under automation (`Control_IsActive`: `--load`, `--exec`, `--tick`) skips the page as it
-  skips the logos ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), so a `ui` verb captures it.
-  Afterwards the page is in Options.
+- **A fresh install opens on the game menu** (decided 2026-11-16), after the logos, the Adeline
+  logo included, as any other start has them: New game, Options, Quit. Today, with no save, the game goes straight into the intro
+  and a new game, so a new player plays before they could set anything. New game still plays the
+  intro (`Introduction` in [SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP)), so nothing is
+  lost. No question is asked on first launch: Modern is what a fresh install plays, and the
+  preset page is in Options. A run under automation (`Control_IsActive`: `--load`, `--exec`,
+  `--tick`) skips the logos ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)) and goes where it is
+  told, as today.
 - **More options is always offered**, a row on Advanced and reset; no switch shows or hides it
   (decided 2026-11-03). Its help warns instead, and only its Experimental-ring rows carry the
   experimental tag (see [Long lists](#long-lists)).
@@ -295,12 +312,13 @@ their own.
    before it.
 6. **A value from before on every row the port added (#846)**, then the **Classic** preset.
    Today Classic needs only Fix retail bugs on No, since every switch the port added is off by
-   default;
+   default, and the publisher logo's value from before;
    #846 is what keeps a switch that moves on by default later from staying on under Classic.
    Its console step, `settings_before` with no prefix, also sets player's settings (the mouse
    confine, the fixed timestep), so the preset reuses it through the presets-set field.
-7. **The Modern preset**, the preset page with Undo preset, the offer on first launch,
-   and a fixture with every Modern-ring setting on at once.
+7. **The Modern preset**, the preset page with Undo preset, the publisher logo off by default,
+   the game menu on a fresh install in place of the intro, and a fixture with every Modern-ring
+   setting on at once.
 8. **More options generated from the settings table**, a row on Advanced and reset.
    Then the camera presets (#733), the console row (#679) with the version, the Frame rate row,
    saving and loading settings backups from the menu, each in its own PR.
@@ -318,8 +336,8 @@ picture before and after, show it behaves as it did; then it moves.
   walks. The tables hold lba2cc's pages as they are today and write through `Settings_Apply`
   where the prototype writes its settings in memory. `DoGameMenu` still draws them, so the
   captures still match main.
-- **Steps 2, 7 and 8** take the hub and the category pages, the presets with Undo preset and
-  the first launch's offer, and More options, which reads lba2cc's settings tables where the
+- **Steps 2, 7 and 8** take the hub and the category pages, the presets with Undo preset, and
+  More options, which reads lba2cc's settings tables where the
   prototype reads a copy. Keys and buttons ([Controls](#controls)) comes the same way. What
   [Where lba2cc departs from it](#where-lba2cc-departs-from-it) lists stays behind.
 - **The prototype's drawing** (the one column with the help in the dialogue window, the wide
@@ -415,8 +433,7 @@ The menu is in one mode at a time, held as one value, not a flag for each:
 - **Waiting for a key** on Keys and buttons: every key and button goes to the binding until one
   is taken or the wait is left.
 
-The first launch is a page whose Esc chooses Modern, a field of the page ("Esc does"), not a
-mode. The Console row opens lba2cc's console (`Console_Toggle`), which takes the input itself,
+The Console row opens lba2cc's console (`Console_Toggle`), which takes the input itself,
 so it is not a mode of the menu either.
 
 The prototype keeps a flag for each (first launch, question, closed, console, and Keys and
