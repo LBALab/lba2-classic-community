@@ -609,17 +609,30 @@ Not a promise; the direction the steps above should not close off. The prototype
 2, 3 and 5.
 
 1. **Pages are data.** As in the page model above.
-2. **The UI scales in whole steps.** A screen 3:2 or wider takes one 960x540 composition at the
-   largest whole step it fits, centred both ways, as 1997 centred its 640x480 canvas: 1920x1080
-   is 2x; 2560x1440, 3440x1440 and 2560x1600 are 2x with a border; 3840x2160 is 4x. A narrower
-   screen (4:3, 5:4) takes the one 640x480 column at `max(1, floor(min(W / 640, H / 480)))`.
-   640x480 is 1x and looks as today. This is part of finishing HD (the UI is an
-   unscaled 640x480 block there today), so it waits on the same work. Needs a scaled `Font()` (it blits 1:1
-   today) and scaled plasma; sprites already have `ScaleSprite`. A UI scale row (Auto, 1x, 2x,
+2. **The UI scales to the screen.** A screen 3:2 or wider takes one 960x540 composition at the
+   largest scale it fits, centred both ways, as 1997 centred its 640x480 canvas: 1280x720 is
+   1.33x, 1440x900 1.5x, 1920x1080 2x, 2560x1440 2.67x, 3840x2160 4x. A narrower screen (4:3,
+   5:4) takes the one 640x480 column at `max(1, min(W / 640, H / 480))`. 640x480 is 1x and looks
+   as today, and at a whole step the menu is drawn exactly as a whole-step-only rule would draw
+   it. Between whole steps, frames, plasma and the darkening's edges are scaled linearly, and
+   the game font is drawn over them at the screen's resolution: each of its pixels an exact
+   square of the scale, a screen pixel it covers in part taking that share of its colour, so
+   strokes keep one weight (nearest neighbour was tried and gave strokes of 1 and 2 pixels by
+   turns). Zilla Slab is drawn at the scale. The prototype draws this (decided 2026-11-16, from
+   EPmager's proposal).
+   This is part of finishing HD ([WIDESCREEN.md, Phase 7](../WIDESCREEN.md#phase-7-native-hd):
+   the UI is an unscaled 640x480 block there today, and its bitmap fonts item), so it waits on
+   the same work. The font between whole steps needs a full-colour text layer drawn over the
+   paletted frame before it is shown, as parked HD UI work built for Zilla Slab (a `UI_TEXT`
+   layer in the pre-present hook, not published); the menu would be its first user, and dialogue,
+   inventory and holomap text can share it. Until that layer exists the menu scales in whole
+   steps only: the largest whole step the composition fits, 1280x720 to 1680x1050 then at 1x
+   with a border. Also needs a scaled `Font()` (it blits 1:1 today) and scaled plasma; sprites
+   already have `ScaleSprite`. A UI scale row (Auto, 1x, 2x,
    3x) lets the player choose, and Auto can use the display's content scale where the platform
    reports one (SDL3 has `SDL_GetDisplayContentScale`). A handheld shows why the row is not
-   enough alone: a 7-inch 1280x800 screen gets the composition at 1x, small at arm's length, and
-   2x gives a 640x400 canvas. So pages window below 480 logical pixels, as long lists do, or the
+   enough alone: a 7-inch 1280x800 screen gets the composition at 1.33x (1x with whole steps
+   only), small at arm's length, and 2x gives a 640x400 canvas. So pages window below 480 logical pixels, as long lists do, or the
    larger scale is out of reach there; 1280x720 at 2x is 360 pixels tall.
 3. **The same page lays out by width.** The one column is today's 640x480 menu. The wide
    composition goes one pane at a time, as the 1997 menu goes from a page to a sub-page, with a
