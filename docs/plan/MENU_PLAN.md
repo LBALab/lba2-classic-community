@@ -77,6 +77,13 @@ code into lba2cc names the prototype commit it was checked against. Where to rea
   screen sizes, and `tools/baseline.py`, which records a run state by state
   and picture by picture so a change meant to move code can show it moved nothing.
 
+Its game menu's title is the product's name: the gold LBA 2 logo from the 1997 intro, with a
+lower-case cc of this project's own under the 2, so the mark reads LBA, 2, cc. It is drawn in
+code at the screen's resolution from an outline traced from the intro (`video.hqr` entry 16,
+the European release) and a cc drawn by rule, and builds in as the intro builds it; in play the
+game menu has it smaller and still (decided 2026-11-17 and 2026-11-18). With the game font it
+falls back to the name in one line of text. Whether lba2cc takes it is open question 13.
+
 Its code is to be carried into lba2cc, the whole menu (decided 2026-11-11);
 [Order of work](#order-of-work) says which part goes where.
 
@@ -794,6 +801,11 @@ writers persisting the player's tables while a replay has borrowed them.
 12. Whether Reset settings changes the screen. Resolution and Fullscreen are player's settings,
     which Reset puts back, but putting them back changes the screen under the menu. The
     prototype puts it back.
+13. The logo with the cc as lba2cc's game menu title. The traced outline lives in the repo
+    (decided 2026-11-18), not built at load from the player's `video.hqr`. The logo belongs to
+    the game's rights holders and the README says game art is not redistributable, so it waits
+    on 2.21's permission, asked by the maintainer; their answer goes beside the outline and in
+    the README's licence section.
 
 ## Not in this plan
 
