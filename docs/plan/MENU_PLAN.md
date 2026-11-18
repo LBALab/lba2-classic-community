@@ -921,16 +921,45 @@ writers persisting the player's tables while a replay has borrowed them.
     player follows Modern as it moves, so after an update they land on values they did not
     pick, which is the cost EPmager named on #838; and an experimental feature nobody hears of
     is not tried. There is no store page and no network to lean on, the text is in six
-    languages, and someone who came to play is not to be stopped on the way. Not designed;
-    to be tried in the prototype first, since how the settings table would carry it is not
-    worth working out for something that does not work for a player.
+    languages, and someone who came to play is not to be stopped on the way. Tried in the
+    prototype (switch `whatsnew`, `src/whats_new.cpp`) and liked in play (the maintainer,
+    2026-11-18). The notes are rows, not prose, worked out per player, in three quiet layers:
+    - a gold dot after a new row's name and on the way to it (Options on the game menu, the
+      category), gone once the cursor has been on the row and left it. Gold over pale cyan,
+      which went into the cursor's plasma, and soft green, too near Enter's; not red or orange;
+    - "What's new: Options." in the game menu's voice, on the first run of a new build, on the
+      menu before a game, until What's new is opened. At 640x480 the strip's one line holds
+      about 380 px before a game and 204 to 248 px in play, where nothing fits in all six
+      languages; a sentence with a count needed up to 833 px;
+    - a What's new page, first on Options, in three groups: now on in Modern, new settings, to
+      try. Its rows are the settings, so a player turns one off there. Options still opens on
+      the preset row. A run that starts with something unseen keeps the row for that session;
+      the next run that starts with nothing unseen leaves Options as it always was.
+
+    A fresh install sees none of it; bug fixes stay in README.txt and the changelog. Open:
+    whether on a later run the row moves to the bottom of Options or into Advanced and reset.
+
+    How it would be tracked (proposed, 2026-11-18). What the build knows: each row of lba2cc's
+    settings tables, More options' console settings included, carries `since`, the release it
+    came in, and where Modern turned it on, the release that did; experimental is already
+    there. The page and its groups are worked out from them, and a check fails a row added
+    after this lands with no `since`, or one later than the build. What the game keeps about
+    the player: `LastBuildRun`, the release news is counted from, and `NewSeen`, what was seen
+    since. A file without `LastBuildRun` is a fresh install: it is set to this release and
+    nothing is new. A run that starts with nothing unseen moves it to this release and empties
+    `NewSeen`. Whether the row is offered this session and whether the line had its run are
+    the running game's, never written. So news a player never looks at adds up across updates;
+    a build compares by its release number, so `0.13.3-dev` counts as 0.13.3 and dev builds
+    of one release do not tell each other's news; an older build ignores both keys, and a
+    newer one reading an older file treats it as a fresh install.
 17. Whether `lba2.cfg` as one file of `Key: value` lines still carries what is asked of it.
     Questions 15 and 16 would add a player's changes per preset, the build they last ran and
     what they have seen, beside the settings, the bindings and `LastSave`: the file is
     becoming a small database, and the settings table a list of feature switches with a
     history. Whether that stays one file, becomes several, or a database such as SQLite, and
     what a file written by an older or a newer build reads as, is to be thought through with
-    [The config file](#the-config-file) once question 16 has shown what is needed. A way to
+    [The config file](#the-config-file). Question 16 needs two keys of what the game keeps about
+    the player (`LastBuildRun`, `NewSeen`). A way to
     think of it (2026-11-18): the pressure is less the file's size than that it holds kinds
     of data with different lifetimes, what the player owns, edits and shares, and what the
     game keeps about the player, so where that line falls comes before the choice of store.
