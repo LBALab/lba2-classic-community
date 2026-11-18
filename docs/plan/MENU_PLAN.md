@@ -87,7 +87,9 @@ game menu has it smaller and still (decided 2026-11-17 and 2026-11-18). With the
 falls back to the name in one line of text. Whether lba2cc takes it is open question 13.
 
 Its code is to be carried into lba2cc, the whole menu (decided 2026-11-11);
-[Order of work](#order-of-work) says which part goes where. The game menu, Load game and Save
+[Order of work](#order-of-work) says which part goes where, and
+[One copy, and a bench to try it on](#one-copy-and-a-bench-to-try-it-on) what the prototype is
+for a part that has moved. The game menu, Load game and Save
 game come as pages of this menu too (decided 2026-11-18): the page model is for the whole menu
 system in time, not the Options pages alone. Order of work carries the Options pages first and
 does not yet say which step brings those three (open question 14).
@@ -364,6 +366,35 @@ picture before and after, show it behaves as it did; then it moves.
   composition and its band) draws the Options pages only once it draws today's pages to main's
   captures, as [A north star](#a-north-star-for-the-modern-ui) asks of any new renderer. The
   1997 drawing stays ([Testing](#testing-against-the-original), point 2).
+
+### One copy, and a bench to try it on
+
+Once a file has moved, lba2cc's is the only copy of it (decided 2026-11-18). The prototype
+drops its own and builds the file from the lba2cc submodule it already builds `LIB386` from,
+against its stand-ins: for that file it is no longer a second menu but the bench lba2cc's menu
+runs on, with no game behind it. A fix made while a file is being carried, and any change
+after, is made once, in lba2cc's file. The bench is where it is tried: it starts in the menu,
+a script reaches a given screen in under a second, and it has the self test,
+`tools/baseline.py` and the web build testers play. The same file is then the PR. For a part
+that has moved, lba2cc's file is the reference for how it looks and behaves.
+
+This is known before the first file moves, since it says what shape a file is carried in:
+
+- **The doors are the same on both sides.** A carried file includes the same headers and
+  calls the same names here and in the bench
+  ([What the menu asks of the game](#what-the-menu-asks-of-the-game)); only what answers them
+  differs. A file that needs an `#if` for the bench has a door missing.
+- **What lba2cc does not take stays out of a shared file.** The bench's own rows
+  ([Where lba2cc departs from it](#where-lba2cc-departs-from-it)) sit in a table of the
+  bench's, and so do its switches for testing.
+- **A file is shared from the step that makes it the same thing in both.** The loop and the
+  page model are from step 1. The tables are from step 2: until then lba2cc's hold today's
+  pages and the bench's the pages to come. The drawing is from the day it draws lba2cc's
+  pages. Until its step, a file is changed in the prototype as now.
+
+The first file carried is the test. If the loop does not compile unchanged on both sides, the
+doors are not yet right, and that is fixed before a second file moves. If it cannot be made
+to, the prototype stays a sketchbook and lba2cc is the reference for each part it has taken.
 
 ### Where the code goes
 
