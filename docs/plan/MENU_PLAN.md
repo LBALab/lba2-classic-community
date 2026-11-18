@@ -87,7 +87,10 @@ game menu has it smaller and still (decided 2026-11-17 and 2026-11-18). With the
 falls back to the name in one line of text. Whether lba2cc takes it is open question 13.
 
 Its code is to be carried into lba2cc, the whole menu (decided 2026-11-11);
-[Order of work](#order-of-work) says which part goes where.
+[Order of work](#order-of-work) says which part goes where. The game menu, Load game and Save
+game come as pages of this menu too (decided 2026-11-18): the page model is for the whole menu
+system in time, not the Options pages alone. Order of work carries the Options pages first and
+does not yet say which step brings those three (open question 14).
 
 ### Where lba2cc departs from it
 
@@ -107,8 +110,8 @@ engine. lba2cc does not carry these over:
   own.
 - **Its own machinery.** Its window, input and clock (lba2cc has its own), its copies of the
   game's drawing helpers (lba2cc has the originals), its settings held in memory, its game and
-  saves, which are stand-ins (`src/fake_game.cpp`; whether the game menu, Load game and Save
-  game pages it draws over them come here is open question 14), its switches
+  saves, which are stand-ins (`src/fake_game.cpp`; the game menu, Load game and Save game
+  pages it draws over them do come here, over the game's own), its switches
   for testing (screen sizes, the pad's names, help shown whole, the key list overlay), and the
   "original" page that stands for today's lba2cc Options in its captures.
 
@@ -164,7 +167,8 @@ changes it: its values are Off and As the release says, never the resolved yes o
 profile pointed at another game folder still follows that folder's declaration. Its row is on
 More options. The demo's bumper is the demo's own presentation and stays as it is.
 
-A preset sets switches, never tuning values: every preset leaves tuning at its default. A
+A preset sets switches, never tuning values: every preset leaves tuning at its default (what
+choosing one does to tuning a player has changed is open question 15). A
 camera tuning row's value from before is the Auto camera before that behaviour, the start the
 camera fixtures measure from
 ([Decision](../knowledge/decisions/a-camera-setting-names-its-value-from-before.md)), not
@@ -235,7 +239,7 @@ The prototype shows the pages and their words; these are the rules under them.
   applied by cycling a row: one press past a changed preset would overwrite a player's setup
   with no way back.
 - Applying a preset takes out the player's own values for every setting a preset sets and puts
-  the tuning values back to their defaults (the backup keeps both). Changing a
+  the tuning values back to their defaults (the backup keeps both; open question 15). Changing a
   setting a preset sets, tuning included, marks the preset changed; changing a player's setting
   does not.
 - Changed is computed: the chosen preset is stored, changed is not, and no player chooses it. A
@@ -378,7 +382,8 @@ time. In lba2cc each has one job:
 What stays where it is: the values in the six settings tables
 ([SOURCES/SETTINGS.H](../../SOURCES/SETTINGS.H)), with the fields step 3 adds; the labels in
 `MENU_LABELS.CPP`, by id; the binding writers; `GAMEMENU.CPP` for the 1997 pages and the main
-menu, which opens Options; the console.
+menu, which opens Options, until a step brings the game menu, Load game and Save game over as
+pages (open question 14); the console.
 
 The lines between them:
 
@@ -412,7 +417,7 @@ the engine, so carrying a file over changes what is behind a door, not the file.
 | settings | a row's value and its text, whether it is changed, a step left or right | `menu_settings.h`, values in memory; More options' values are still inside `more_options.cpp` | the settings tables, through `Settings_Apply` |
 | presets | the chosen preset, whether it is changed; apply, undo, reset | `menu_settings.h` | `OPTIONS_PRESETS.CPP`, over the settings and binding tables |
 | bindings | an action's keys and buttons; bind, clear, swap, a device back to its defaults | still inside `bindings.cpp`, with the page | the binding tables and their writers |
-| the game and its saves | whether a game is going on, the saves, what New game, Load, Save and Quit do | `game.h`, a stand-in | `GAMEMENU.CPP` (open question 14) |
+| the game and its saves | whether a game is going on, the saves, what New game, Load, Save and Quit do | `game.h`, a stand-in | what `GAMEMENU.CPP` calls for them today, once those pages are this menu's (open question 14) |
 | input, clock, screen | keys, buttons, the pointer, the time, the screen's size | `host.h` | the engine's own |
 | drawing and text | the frames, the font, the plasma; a label in the Text language | `ui.h`, `game_pieces.h`, `lang.h` | the originals; `MENU_LABELS.CPP` |
 
@@ -785,7 +790,8 @@ The menu does not touch the game's rules, so the world hash cannot see it. Six c
    stay put; a diff against 333929a shows only the port's known edits, listed in a comment where
    they sit.
 3. **Classic is the original.** Choosing Classic sets every switch a preset sets to its value
-   from before, and leaves the player's settings and the tuning values alone, some of which the original did not have
+   from before, and leaves the player's settings and the tuning values alone (open question 15
+for the tuning values), some of which the original did not have
    (texture filtering, mouse confine). So
    [test_ring_off_is_gone.sh](../../tests/automation/test_ring_off_is_gone.sh) runs with Classic
    applied over a player's setup that is not the default, texture filtering on say, which also
@@ -858,10 +864,24 @@ writers persisting the player's tables while a replay has borrowed them.
     the game's rights holders and the README says game art is not redistributable, so it waits
     on 2.21's permission, asked by the maintainer; their answer goes beside the outline and in
     the README's licence section.
-14. Whether the game menu, Load game and Save game become pages of this menu, as the prototype
-    has them (rows in `menu_pages.cpp`, over a stand-in game), or stay `GAMEMENU.CPP`'s with
-    the menu opened from them. [Order of work](#order-of-work) carries the Options pages only;
-    step 7's game menu on a fresh install and step 9's save list do not say which.
+14. Which step brings the game menu, Load game and Save game over as pages of this menu, as the
+    prototype has them (rows in `menu_pages.cpp`, over a stand-in game). That they come is
+    decided (2026-11-18); [Order of work](#order-of-work) carries the Options pages only, and
+    step 7's game menu on a fresh install and step 9's save list do not say which of them it
+    is.
+15. What a preset does to the tuning values, and with it what presets are for. Three places
+    here do not agree: [Presets](#presets) has every preset leave tuning at its default,
+    [Choosing, undoing and resetting](#choosing-undoing-and-resetting) has applying a preset
+    put the tuning values back to their defaults, and point 3 of
+    [Testing](#testing-against-the-original) has Classic leave them alone. Not to be settled
+    quickly, since the answer shapes the settings system (the maintainer, 2026-11-18). Their
+    thinking so far: presets are for going quickly between the classic game and the modern
+    one; a fresh install is on Modern; a player's changes sit on the chosen preset, as
+    [The chosen preset is the base](#the-chosen-preset-is-the-base) has it; choosing Classic
+    loads it, and changes are allowed on Classic too. Tuning is what makes this hard, and may
+    be where a custom preset has a place, which would reopen the 2026-11-03 decision that the
+    preset row never reads Custom. To be worked out from who the players are and what each of
+    them comes to the menu to do.
 
 ## Not in this plan
 
