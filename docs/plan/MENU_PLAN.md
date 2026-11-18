@@ -900,19 +900,28 @@ writers persisting the player's tables while a replay has borrowed them.
     decided (2026-11-18); [Order of work](#order-of-work) carries the Options pages only, and
     step 7's game menu on a fresh install and step 9's save list do not say which of them it
     is.
-15. What a preset does to the tuning values, and with it what presets are for. Three places
-    here do not agree: [Presets](#presets) has every preset leave tuning at its default,
-    [Choosing, undoing and resetting](#choosing-undoing-and-resetting) has applying a preset
-    put the tuning values back to their defaults, and point 3 of
-    [Testing](#testing-against-the-original) has Classic leave them alone. Not to be settled
-    quickly, since the answer shapes the settings system (the maintainer, 2026-11-18). Their
-    thinking so far: presets are for going quickly between the classic game and the modern
-    one; a fresh install is on Modern; a player's changes sit on the chosen preset, as
-    [The chosen preset is the base](#the-chosen-preset-is-the-base) has it; choosing Classic
-    loads it, and changes are allowed on Classic too. Tuning is what makes this hard, and may
-    be where a custom preset has a place, which would reopen the 2026-11-03 decision that the
-    preset row never reads Custom. To be worked out from who the players are and what each of
-    them comes to the menu to do.
+15. What choosing the other preset does with a player's changes. The model it sits in (the
+    maintainer, 2026-11-18): settings are a way inward, and Modern is a milestone on it. Some
+    settings are a preference whatever the preset. An experimental or unpolished feature is
+    off by default; once it is polished and agreed, it is on in Modern and off in Classic, and
+    what is in Modern is the curated modern experience. A player always has full control of
+    what they land with, and does not miss what Modern gains because their file is frozen.
+    That is [The chosen preset is the base](#the-chosen-preset-is-the-base): the file holds
+    the preset and the player's changes. It makes a tuning value part of its feature: it
+    follows the default unless the player changed it, as the feature's switch does, and is not
+    a preference like a volume. What is left is the flip.
+    [Choosing, undoing and resetting](#choosing-undoing-and-resetting) has choosing a preset
+    take the player's changes out, tuning included, with Undo preset to get them back, and
+    point 3 of [Testing](#testing-against-the-original) reads as if the tuning ones stayed.
+    The leaning (2026-11-18) is to keep a player's changes per preset: Classic is clean the
+    first time, and going back to Modern lands on Modern as the player left it, so comparing
+    the two loses nothing. The file then holds changes per preset, and Undo preset matters
+    less.
+16. How the game tells a player what a new build changed, and what there is to try. A Modern
+    player follows Modern as it moves, so after an update they land on values they did not
+    pick, which is the cost EPmager named on #838; and an experimental feature nobody hears of
+    is not tried. There is no store page and no network to lean on, the text is in six
+    languages, and someone who came to play is not to be stopped on the way. Not designed.
 
 ## Not in this plan
 
