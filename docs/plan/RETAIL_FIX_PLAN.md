@@ -6,9 +6,9 @@ How a fix to a bug the original game has (label `retail`) stays reversible. Deci
 
 **Retail means what shipped in the 1990s**: the 1997 CD releases (DOS and Windows 95). The 2022
 Classic release is a later port, not a reference. Where the two differ, the 90s build is the
-original, and lba2cc matching Classic instead is a port difference to put back, not a retail
+original, and lba2cc matching the 2022 release instead is a port difference to put back, not a retail
 bug. Evidence for "the original does this" comes from a 90s build or the 1997 source (commit
-333929a), and Classic is at most a second witness.
+333929a), and the 2022 release is at most a second witness.
 
 ## The decision, in short
 
@@ -207,11 +207,11 @@ alone does not decide it.
 | #600 | Distance2D/3D overflow | port bug | not retail: restore the original, no setting (below) |
 | #707 | one-brick skip at an outdoor scene boundary | fix (decided 2026-10-19) | two code paths, below |
 | #538 | NPCs respawn on every outdoor crossing | enhancement (decided 2026-10-19) | two code paths, below |
-| #745 | catching on wall corners | port difference | the 1997 CD release does not catch; lba2cc follows Classic's regression, so the fix restores the original, no setting |
+| #745 | catching on wall corners | port difference | the 1997 CD release does not catch; lba2cc follows the 2022 release's regression, so the fix restores the original, no setting |
 | #735, #144 | texture swim, terrain seams | display option | not `fix_` |
 | #498, #59 | the bat's path, lava rock collision | unknown | no confirmed cause or retail check yet |
 
-EPmager's checks of #746-#751 compared the DOS CD release and Classic, so the CD side is the
+EPmager's checks of #746-#751 compared the DOS CD release and the 2022 release, so the CD side is the
 one that counts. The rows marked "once the cause is known" still need the cause found in the
 1997 source before calling them retail.
 

@@ -5,6 +5,81 @@ concept is defined or primarily implemented.
 
 Truth hierarchy: code > this document > external sources.
 
+## Project and settings
+
+The project's own words: how its settings are sorted and what players are offered. One concept
+keeps one name across the menu, the docs, `lba2.cfg` and the console; where an older name stays
+for compatibility, the mapping below says so. The reasons behind the terms are in
+[PRINCIPLES.md](PRINCIPLES.md) and [ARCHITECTURE.md](ARCHITECTURE.md#the-rings-and-the-core); how
+they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
+
+### Four questions, four sets of words
+
+| Question | Words | Who decides |
+|---|---|---|
+| How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had, or a retail fix, is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
+| Which values do I want? (**preset**) | Classic, Modern | The player |
+| Do my values differ from my preset? | changed when they do ("Preset: Modern, changed") | Nobody: the values arrive there |
+
+Experimental is a ring, not a set of values, so there is no Experimental preset. Its rows and
+every tuning value are on More options, a page always offered with no switch to show it; an
+Experimental-ring row is tagged "experimental" there, and the page's row says it is in English
+and that those rows may change or go.
+The chosen preset is stored in `lba2.cfg` as the base the player's own values sit on, so a
+player on a preset follows that preset's values from build to build. The preset row names the chosen preset ("Preset:
+Modern") and marks it changed when the player's own values differ from it; changed is never chosen. A preset sets only
+the game's settings, never the player's own.
+
+### Terms
+
+| Term | Player sees | Definition | Not to be confused with |
+|---|---|---|---|
+| The original | -- (players see **Classic**) | The game as the 1990s CD release played it: the reference every change is measured against ([principle 1](PRINCIPLES.md#1-the-original-is-the-reference)). | The 2022 release |
+| Classic | Classic | The player's word for the original's behaviour: the Classic preset, and a setting's value that gives the 1997 behaviour ("Outdoors: Classic"). | The 2022 release, which docs always call "the 2022 release" |
+| The 2022 release | -- | The official re-release of 2022 (on Steam and GOG). A second witness at most, never the reference. | The original |
+| Value from before | -- | The value of a setting the port added that gives back what the game did before it existed (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). The Classic preset applies these to switches, never to the player's settings or to tuning values. | The default |
+| The default | -- | A row's compiled default: what a fresh install gets, and what the Modern preset gives. Not a preset of its own. | The value from before |
+| Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows, on or off by default; going on by default takes its own evidence ([moving inward](ARCHITECTURE.md#moving-inward)). | Modern (preset) |
+| Modern (preset) | Modern | Every setting a preset sets at its default: what a fresh install gets, retail fixes on. It follows the defaults as they move. A `lba2.cfg` with no `Preset` key is on Modern. | Modern (ring) |
+| Experimental (ring) | experimental (a tag on a row of More options) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
+| Changed (preset) | Preset: Modern, changed | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, changed is not, and the help line names the settings that differ. | Custom |
+| Custom | Custom | On the Fix retail bugs row: a stored value the player cycles to, and each fix's own setting decides. The preset row never shows it. | Changed (preset) |
+| Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, the fixed timestep, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
+| Retail fix | Fix retail bugs | A fix to a bug the original itself had; each has its own switch under the one row ([Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)). | Enhancement |
+| Enhancement | -- | A change to the design: its own setting, off by default when it lands. | Retail fix |
+| Tuning value | -- (shown on More options) | A number that adjusts a feature rather than switching it. Stays Experimental even when its feature is Modern. Every preset leaves it at its default. Sensitivity is not one: the player sets it for comfort, so it is a player's setting with a menu row. | Player's setting |
+| Core | -- | What everything else is built on: the inner core (the game's rules and formats) and the outer core (the platform, recording, the settings tables). | |
+| Tier | -- | How often a platform is tested on hardware ([Where it runs](ARCHITECTURE.md#where-it-runs)). | Ring |
+| Profile | -- | The folder `--profile` names: one player's settings and saves ([plan/PORTABILITY_PLAN.md](plan/PORTABILITY_PLAN.md)). | Preset, settings backup |
+| Settings backup | Settings backup | A copy of `lba2.cfg` the player saves and loads from the menu, and the one kept before a preset or Reset settings replaces values. Planned. | Profile |
+| Preset | -- | In docs about settings, only a player preset. The chosen one is stored (`Preset` in `lba2.cfg`) and is the base for every setting presets set. Build presets are "CMake presets". | |
+
+### Reserved words
+
+- **Classic** never names the 2022 release on its own; write "the 2022 release". Data editions
+  keep their store names (Steam Classic, GOG Classic), and "Classic 640x480" is the original
+  resolution. "Original" in plain English stays ("Movies at original size").
+- **Mode** is not a preset: recordings already have `mode.` header lines and the engine has
+  `CubeMode`.
+- **Profile** is not a preset or a backup.
+- **Options** is a place, as the original calls its menu: the menu itself, a part of it and a
+  row that opens one (Options, Advanced options). **Settings** are the values chosen there: a row
+  that acts on values says settings (Reset settings), as docs and `lba2.cfg` do; a row that
+  takes a change back says what it undoes (Undo preset, Undo reset).
+
+### One concept, several names
+
+Older names stay where changing them would break a player's file or a recording. New settings
+take one name for every surface.
+
+| Concept | Menu | `lba2.cfg` | Console | Code |
+|---|---|---|---|---|
+| Auto camera | Outdoors: Auto / Classic | `FollowCamera` (reads the older `AutoCameraCenter`) | `cam_follow` | `FollowCamera` |
+| Interior follow | Indoors: Follow / Classic | `FollowCameraInterior` | `cam_interior` | `FollowCamInterior` |
+| Fix retail bugs | Fix retail bugs: Yes / No / Custom | `RetailFixes` | `fix_retail` | `RetailFixes` |
+| Window fullscreen | Fullscreen / Windowed | `DisplayFullScreen` | -- | `DisplayFullScreen` |
+| Video size | Movies at original size / Movies fit to screen | `FullScreen` | -- | `VideoFullScreen` |
+
 ## World
 
 | Term | Also known as | Definition | Code location | Reference |
