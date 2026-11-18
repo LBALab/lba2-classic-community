@@ -921,7 +921,16 @@ writers persisting the player's tables while a replay has borrowed them.
     player follows Modern as it moves, so after an update they land on values they did not
     pick, which is the cost EPmager named on #838; and an experimental feature nobody hears of
     is not tried. There is no store page and no network to lean on, the text is in six
-    languages, and someone who came to play is not to be stopped on the way. Not designed.
+    languages, and someone who came to play is not to be stopped on the way. Not designed;
+    to be tried in the prototype first, since how the settings table would carry it is not
+    worth working out for something that does not work for a player.
+17. Whether `lba2.cfg` as one file of `Key: value` lines still carries what is asked of it.
+    Questions 15 and 16 would add a player's changes per preset, the build they last ran and
+    what they have seen, beside the settings, the bindings and `LastSave`: the file is
+    becoming a small database, and the settings table a list of feature switches with a
+    history. Whether that stays one file, becomes several, or a database such as SQLite, and
+    what a file written by an older or a newer build reads as, is to be thought through with
+    [The config file](#the-config-file) once question 16 has shown what is needed.
 
 ## Not in this plan
 
