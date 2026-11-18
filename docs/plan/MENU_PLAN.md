@@ -930,7 +930,10 @@ writers persisting the player's tables while a replay has borrowed them.
     becoming a small database, and the settings table a list of feature switches with a
     history. Whether that stays one file, becomes several, or a database such as SQLite, and
     what a file written by an older or a newer build reads as, is to be thought through with
-    [The config file](#the-config-file) once question 16 has shown what is needed.
+    [The config file](#the-config-file) once question 16 has shown what is needed. A way to
+    think of it (2026-11-18): the pressure is less the file's size than that it holds kinds
+    of data with different lifetimes, what the player owns, edits and shares, and what the
+    game keeps about the player, so where that line falls comes before the choice of store.
 
 ## Not in this plan
 
