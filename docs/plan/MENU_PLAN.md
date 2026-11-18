@@ -68,8 +68,10 @@ has and in what order, their labels and help, the layouts, the legend, the scrol
 chips, the questions, the pointer. This plan does not restate them. A PR that carries prototype
 code into lba2cc names the prototype commit it was checked against. Where to read it:
 
-- its tables in `src/menu.cpp` (the Options pages), `src/bindings.cpp` (Keys and buttons) and
-  `src/more_options.cpp` (More options);
+- its tables in `src/menu_pages.cpp` (the Options pages, and its game menu, Load game and Save
+  game), `src/bindings.cpp` (Keys and buttons) and `src/more_options.cpp` (More options);
+- its README's "Where the menu's code is", for which file holds what and which file here each
+  goes to;
 - `docs/UX.md`, the layout and wording rules and why, each one the self test checks marked with
   the check's name;
 - the README, for each page as a player meets it, and for the testing tools;
@@ -104,7 +106,9 @@ engine. lba2cc does not carry these over:
   question 3), Button names for the prompts #371 adds, the Console row's version for lba2cc's
   own.
 - **Its own machinery.** Its window, input and clock (lba2cc has its own), its copies of the
-  game's drawing helpers (lba2cc has the originals), its settings held in memory, its switches
+  game's drawing helpers (lba2cc has the originals), its settings held in memory, its game and
+  saves, which are stand-ins (`src/fake_game.cpp`; whether the game menu, Load game and Save
+  game pages it draws over them come here is open question 14), its switches
   for testing (screen sizes, the pad's names, help shown whole, the key list overlay), and the
   "original" page that stands for today's lba2cc Options in its captures.
 
@@ -282,7 +286,9 @@ These fields live in a table of the menu's own, keyed by the `lba2.cfg` key, not
 The build is C++98, so a settings row is a positional initializer, already up to 17 fields, and a
 row that gave its category would have to spell out every field before it. The menu's fields are
 shell; the row's are the contract the engine, the console and recordings read. A check holds the
-two tables to one entry per key. Texts, Voices and Display text get settings rows, with a list of
+two tables to one entry per key, and a setting with a row on a category page to that page's
+category: the page tables and the category field both say where a setting belongs, and the
+config file follows the field. Texts, Voices and Display text get settings rows, with a list of
 value names so `lba2.cfg` keeps spelling them as words; Resolution and the bindings stay kinds of
 their own.
 
@@ -340,9 +346,12 @@ prototype, where its self test and `tools/baseline.py`, compared state by state 
 picture before and after, show it behaves as it did; then it moves.
 
 - **Step 1** takes the page model: the row tables, the stack, the loop, the draw record and the
-  walks. The tables hold lba2cc's pages as they are today and write through `Settings_Apply`
-  where the prototype writes its settings in memory. `DoGameMenu` still draws them, so the
-  captures still match main.
+  walks (the prototype's `menu_parts.h`, `menu.cpp` and the shape of `menu_pages.cpp`). The
+  tables hold lba2cc's pages as they are today and write through `Settings_Apply`
+  where the prototype writes its settings in memory: its loop and tables reach a value only
+  through `menu_settings.h`, so that header's other side is what changes
+  ([What the menu asks of the game](#what-the-menu-asks-of-the-game)). `DoGameMenu` still
+  draws them, so the captures still match main.
 - **Steps 2, 7 and 8** take the hub and the category pages, the presets with Undo preset, and
   More options, which reads lba2cc's settings tables where the
   prototype reads a copy. Keys and buttons ([Controls](#controls)) comes the same way. What
@@ -354,18 +363,17 @@ picture before and after, show it behaves as it did; then it moves.
 
 ### Where the code goes
 
-The prototype holds the menu in one file, `menu.cpp`: its stand-in settings and presets, the
-page tables, the loop, both layouts' drawing, the pointer, the voice, and its test output. In
-lba2cc these parts go to separate files, each with one job:
+The prototype holds the menu in files cut where lba2cc's are, so a part comes over a file at a
+time. In lba2cc each has one job:
 
 | File | Holds | From the prototype |
 |---|---|---|
-| `OPTIONS_MENU.CPP` | the stack, [the mode](#one-mode), the loop and the row kinds' handlers; the draw record | `menu.cpp`, navigation |
-| `OPTIONS_PAGES.CPP` | the Options pages' row tables: the hub, the categories, the preset page, Advanced and reset | `menu.cpp`, pages as data |
-| `OPTIONS_PRESETS.CPP` | the presets, Undo preset, Reset settings and Undo reset, the backup they keep | `menu.cpp`, presets and undo |
-| `OPTIONS_KEYS.CPP` | Keys and buttons: its pages made from the binding tables, the chips, the device, the wait for a key | `bindings.cpp` |
-| `OPTIONS_MORE.CPP` | More options, its page made from the settings tables | `more_options.cpp` |
-| `OPTIONS_DRAW.CPP` | drawing a page from the stack and recording it: through `DoGameMenu` first, the Modern layouts later | `menu.cpp`, drawing |
+| `OPTIONS_MENU.CPP` | the stack, [the mode](#one-mode), the loop and the row kinds' handlers; the pointer | `menu.cpp` |
+| `OPTIONS_PAGES.CPP` | the Options pages' row tables: the hub, the categories, the preset page, Advanced and reset | `menu_pages.cpp` |
+| `OPTIONS_PRESETS.CPP` | the presets, Undo preset, Reset settings and Undo reset, the backup they keep | `menu_settings.cpp`, the presets and the backups |
+| `OPTIONS_KEYS.CPP` | Keys and buttons: its pages made from the binding tables, the chips, the device, the wait for a key, its own view | `bindings.cpp` |
+| `OPTIONS_MORE.CPP` | More options, its page made from the settings tables, its own view | `more_options.cpp` |
+| `OPTIONS_DRAW.CPP` | drawing a page of rows from the stack and recording it (the draw record): through `DoGameMenu` first, the Modern layouts later | `menu_draw.cpp` |
 
 What stays where it is: the values in the six settings tables
 ([SOURCES/SETTINGS.H](../../SOURCES/SETTINGS.H)), with the fields step 3 adds; the labels in
@@ -374,8 +382,17 @@ menu, which opens Options; the console.
 
 The lines between them:
 
-- Only `OPTIONS_DRAW.CPP` knows pixels or which layout is up. The tables and the loop hold no
-  position.
+- The tables and the loop hold no position. Positions are in the views: `OPTIONS_DRAW.CPP` for
+  a page drawn as a list of rows, and a page's own file for a page with a view of its own (Keys
+  and buttons' chips, More options' list), which the page names as its draw handler. Which
+  layout is up is the loop's to know, since Left and Right act differently in each; where
+  anything is drawn is not. The loop asks the view one thing: whether a line fits the voice it
+  would be said in, to say a row's short help where its help would not fit.
+- A page in its own file uses one header, the page model's (the prototype's `menu_parts.h`):
+  the row and page tables, the handlers a kind of row and a page bring, the question, the draw
+  record and the pointer's targets. What the menu's own files share beyond it is one more
+  header (the prototype's `menu_internal.h`, 85 names on 2026-11-18), so the coupling between
+  them is one list, read in one place and kept short.
 - Only the settings tables hold values. A row names its settings row, and every change goes
   through `Settings_Apply`; no page writes a global.
 - The presets read and write through the settings tables and the binding tables, never through
@@ -383,6 +400,26 @@ The lines between them:
 - Tests and `state` read the draw record and the stack, not a getter for each thing they check.
   The prototype's self test reads a `Menu_*` getter for each of many things besides the draw
   record, and More options and Keys and buttons add their own, each added for one check.
+
+### What the menu asks of the game
+
+The menu's files reach the rest of the game through a few doors and nothing else. The
+prototype has each as a header with a stand-in behind it; here the same calls are answered by
+the engine, so carrying a file over changes what is behind a door, not the file.
+
+| Door | The menu asks | In the prototype | Here |
+|---|---|---|---|
+| settings | a row's value and its text, whether it is changed, a step left or right | `menu_settings.h`, values in memory; More options' values are still inside `more_options.cpp` | the settings tables, through `Settings_Apply` |
+| presets | the chosen preset, whether it is changed; apply, undo, reset | `menu_settings.h` | `OPTIONS_PRESETS.CPP`, over the settings and binding tables |
+| bindings | an action's keys and buttons; bind, clear, swap, a device back to its defaults | still inside `bindings.cpp`, with the page | the binding tables and their writers |
+| the game and its saves | whether a game is going on, the saves, what New game, Load, Save and Quit do | `game.h`, a stand-in | `GAMEMENU.CPP` (open question 14) |
+| input, clock, screen | keys, buttons, the pointer, the time, the screen's size | `host.h` | the engine's own |
+| drawing and text | the frames, the font, the plasma; a label in the Text language | `ui.h`, `game_pieces.h`, `lang.h` | the originals; `MENU_LABELS.CPP` |
+
+Two doors are not cut in the prototype: Keys and buttons and More options each hold their
+values in the file that draws their page. Each is cut there before its file comes over, as
+the settings and the game were, so the page's file arrives with nothing of the prototype's
+stand-in in it.
 
 ## The page model
 
@@ -443,10 +480,13 @@ The menu is in one mode at a time, held as one value, not a flag for each:
 The Console row opens lba2cc's console (`Console_Toggle`), which takes the input itself,
 so it is not a mode of the menu either.
 
-The prototype keeps a flag for each (first launch, question, closed, console, and Keys and
-buttons' wait with its own question), tested one after another at the top of every frame, and
-has two questions written apart: Classic and Reset settings in `menu.cpp`, the key in use in
-`bindings.cpp`. Each mode there is one more flag, and one more test at the top of the frame.
+The prototype is partway there. Every question, Keys and buttons' two among them, is one
+`Question` (its title, what the voice asks, two answers, what Yes does) asked through one
+call, and the loop, the pointer, the legend and both layouts each handle a question in one
+place. It is held as one value beside the stack, not yet as a page on it, so the depth and
+`state` each still have a line for it. The wait for a key is its page's own handler, which
+takes every key while it waits. The console, and the game and Quit's screen that stand in
+for lba2cc's, are still a flag each, tested one after another at the top of the frame.
 
 ### A row kind brings its own handlers
 
@@ -457,9 +497,21 @@ else of the kind. A page made from another table (Keys and buttons from the bind
 options from the settings tables) builds its rows and brings its kinds' handlers; it adds no
 branch to the loop.
 
-In the prototype each such page is tested for by name in the loop, the voice, the drawing, the
-place string, `state` and the cursor's getters: moving More options onto the stack touched
-all six. Handlers by kind keep a new page to its own file.
+The prototype has this for everything but the drawing of a row in a list. A kind of row is a
+`RowKind` (what Enter, its own keys and Del do, its value for the pointer, its legend, label
+and help, whether it is shown) and a page with keys or a view of its own brings `PageHooks`.
+Keys and buttons and More options set theirs as they make their pages, and the loop, the
+voice, the legend, the place string and `state` ask the kind or the page: the loop names no
+kind of row for a key, and no page but its game menu's, where it opens and closes on the
+stand-in game. Before, each such page was tested for by name in all of those, and moving More
+options onto the stack touched six places.
+
+What is left is the two list views. The one column and the wide list still test a row's kind
+to draw it (a slider's bar, a value, the preset row, a save), 20 tests in `menu_draw.cpp`, so
+a kind drawn in a new way still adds a branch there. A kind that says what it shows (a label,
+a value, a bar, a mark) for the views to draw closes that. As with any part
+([Order of work](#order-of-work)), it is done in the prototype before `OPTIONS_DRAW.CPP` takes
+its drawing.
 
 ## Categories
 
@@ -806,6 +858,10 @@ writers persisting the player's tables while a replay has borrowed them.
     the game's rights holders and the README says game art is not redistributable, so it waits
     on 2.21's permission, asked by the maintainer; their answer goes beside the outline and in
     the README's licence section.
+14. Whether the game menu, Load game and Save game become pages of this menu, as the prototype
+    has them (rows in `menu_pages.cpp`, over a stand-in game), or stay `GAMEMENU.CPP`'s with
+    the menu opened from them. [Order of work](#order-of-work) carries the Options pages only;
+    step 7's game menu on a fresh install and step 9's save list do not say which.
 
 ## Not in this plan
 
